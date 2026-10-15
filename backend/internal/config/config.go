@@ -48,7 +48,7 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		LogFormat:         get("LOG_FORMAT", "console"),
 		LLMMasterKey:      get("LLM_MASTER_KEY", ""),
 		LLMPrivateOrigins: get("LLM_ALLOWED_PRIVATE_ORIGINS", ""),
-		FactoryWorkDir:    get("FACTORY_WORK_DIR", "/Volumes/Workspace/tmp/onboarding-factory"),
+		FactoryWorkDir:    get("FACTORY_WORK_DIR", filepath.Join(os.TempDir(), "onboarding-factory")),
 		RepomixBin:        get("REPOMIX_BIN", "repomix"),
 		GitHubToken:       get("GITHUB_TOKEN", ""),
 		FrontendDir:       get("FRONTEND_DIR", ""),
