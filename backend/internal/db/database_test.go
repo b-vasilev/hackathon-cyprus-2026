@@ -3,6 +3,10 @@ package db
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 func TestOpenAndMigrate(t *testing.T) {
@@ -52,5 +56,60 @@ func TestOpenRejectsDirectory(t *testing.T) {
 	if err == nil {
 		_ = database.Close()
 		t.Fatal("expected opening a directory to fail")
+	}
+}
+
+func TestPollingIndexesMigrationPreservesExistingIndexes(t *testing.T) {
+	t.Parallel()
+	for _, existing := range []string{"source_snapshots_run_id", "llm_calls_run_tokens", "both"} {
+		t.Run(existing, func(t *testing.T) {
+			t.Parallel()
+			database, err := Open(t.Context(), filepath.Join(t.TempDir(), "polling.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = database.Close() })
+			sourceDriver, err := iofs.New(migrationsFS, "migrations")
+			if err != nil {
+				t.Fatal(err)
+			}
+			databaseDriver, err := sqlite.WithInstance(database, &sqlite.Config{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			migrator, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite", databaseDriver)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := migrator.Migrate(8); err != nil {
+				t.Fatal(err)
+			}
+			for name, statement := range map[string]string{
+				"source_snapshots_run_id": "CREATE INDEX source_snapshots_run_id ON source_snapshots(run_id, id)",
+				"llm_calls_run_tokens":    "CREATE INDEX llm_calls_run_tokens ON llm_calls(run_id, input_tokens, output_tokens)",
+			} {
+				if existing == name || existing == "both" {
+					if _, err := database.ExecContext(t.Context(), statement); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if err := RunMigrations(database); err != nil {
+				t.Fatal(err)
+			}
+			var version, dirty, indexes int
+			if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
+				t.Fatal(err)
+			}
+			if version != 9 || dirty != 0 {
+				t.Fatalf("migration state = %d/%d", version, dirty)
+			}
+			if err := database.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('source_snapshots_run_id', 'llm_calls_run_tokens')").Scan(&indexes); err != nil {
+				t.Fatal(err)
+			}
+			if indexes != 2 {
+				t.Fatalf("polling index count = %d, want 2", indexes)
+			}
+		})
 	}
 }
