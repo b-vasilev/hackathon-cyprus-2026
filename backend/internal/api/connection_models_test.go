@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
@@ -39,7 +40,9 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 	}
 	client := &llm.Client{Limiter: llmgateway.NewLimiter(2, 2, 2, 2)}
 	service := generation.New(database, store, client, nil, zerolog.Nop(), &content.Store{Dir: t.TempDir()})
-	handler := New(database, zerolog.Nop(), nil, &Factory{Service: service})
+	users := &access.Store{DB: database}
+	admin := signInAdmin(t, users)
+	handler := New(database, zerolog.Nop(), nil, &Factory{Access: users, Service: service})
 	config := llmgateway.Config{Name: "Saved", Enabled: true, Protocol: "openai_chat_completions", EndpointURL: upstream.URL + "/v1", EndpointMode: "base", AuthMode: "header", AuthHeader: "Authorization", AuthPrefix: "Bearer ", Secret: "private-key", Headers: []llmgateway.Parameter{{Name: "X-Tenant", Value: "private-header", Secret: true}}, QueryParams: []llmgateway.Parameter{{Name: "token", Value: "private-query", Secret: true}}, Models: []llmgateway.Model{{ID: "custom-model", OutputMode: "json_schema", MaxOutputTokens: 1024}}, TimeoutSeconds: 10, MaxConcurrent: 1}
 	saved, err := store.Save(t.Context(), "", config)
 	if err != nil {
@@ -54,6 +57,7 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 		}
 		request := httptest.NewRequest(http.MethodPost, "/api/llm-connections/models", strings.NewReader(string(body)))
 		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(admin)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "private-") || !strings.Contains(response.Body.String(), "custom-model") {
@@ -75,6 +79,7 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/llm-connections/models", strings.NewReader(string(body)))
 	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(admin)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {

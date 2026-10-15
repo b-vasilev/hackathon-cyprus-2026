@@ -1,0 +1,5 @@
+Repair only the supplied Views using the diagnostics and immutable canonical MODEL. Return complete Views matching the supplied schema. Never output or modify the Model, create new canonical objects/claims/scenarios, invent evidence, or request all source bodies again.
+
+Keep sections=[] and document.version=2. Preserve the five core chapters in reading order and useful supported optional chapters. Use only known canonical IDs and existing factual support. Fix unsafe Markdown, mixed block payloads, invalid references, diagram membership/levels and placement. A reference block has no claim_ids payload; its canonical objects/relations/steps carry claims. Facts in Markdown and tables cite existing claims.
+
+Static structure, source ownership and ordered scenarios remain separate. A diagram has one home and a clear question/scope/level; a scenario_ref appears only once in scenarios. Keep original responsibilities, tools, status and material variants. If a requested fact has no model support, express the precise gap rather than altering the model to make the document look complete. Return safe data, never executable HTML/MDX/JavaScript.

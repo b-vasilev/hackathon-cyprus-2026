@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
@@ -35,11 +36,14 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := generation.New(database, store, nil, nil, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
-	handler := New(database, zerolog.Nop(), nil, &Factory{Service: service, Network: policy})
+	users := &access.Store{DB: database}
+	admin := signInAdmin(t, users)
+	handler := New(database, zerolog.Nop(), nil, &Factory{Access: users, Service: service, Network: policy})
 	request := func(method, path, body string, status int) *httptest.ResponseRecorder {
 		t.Helper()
 		r := httptest.NewRequest(method, path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json; charset=utf-8")
+		r.AddCookie(admin)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
 		if w.Code != status {
@@ -72,9 +76,34 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 		t.Fatal(decodeErr)
 	}
 	runInput := `{"connection_id":"` + connection.ID + `","model":"custom-model"}`
-	request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
+	started := request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
 	request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusConflict)
+	request(http.MethodDelete, "/api/products/"+product.ID, "", http.StatusConflict)
+	request(http.MethodDelete, "/api/llm-connections/"+connection.ID, "", http.StatusConflict)
 	request(http.MethodGet, "/api/products/"+product.ID+"/passport", "", http.StatusNotFound)
+	var run generation.Run
+	if err := json.Unmarshal(started.Body.Bytes(), &run); err != nil {
+		t.Fatal(err)
+	}
+	cancelled := request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
+	if err := json.Unmarshal(cancelled.Body.Bytes(), &run); err != nil || run.ErrorCode != "cancelled" {
+		t.Fatalf("cancel generation: %s, %v", cancelled.Body.String(), err)
+	}
+	request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
+	request(http.MethodPost, "/api/generations/missing/cancel", "", http.StatusNotFound)
+	restarted := request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
+	if err := json.Unmarshal(restarted.Body.Bytes(), &run); err != nil {
+		t.Fatal(err)
+	}
+	request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
+	request(http.MethodDelete, "/api/llm-connections/"+connection.ID, "", http.StatusOK)
+	request(http.MethodGet, "/api/llm-connections/"+connection.ID, "", http.StatusNotFound)
+	request(http.MethodDelete, "/api/llm-connections/"+connection.ID, "", http.StatusNotFound)
+	request(http.MethodGet, "/api/generations/"+run.ID, "", http.StatusOK)
+	request(http.MethodDelete, "/api/products/"+product.ID, "", http.StatusOK)
+	request(http.MethodGet, "/api/products/"+product.ID, "", http.StatusNotFound)
+	request(http.MethodGet, "/api/generations/"+run.ID, "", http.StatusNotFound)
+	request(http.MethodDelete, "/api/products/"+product.ID, "", http.StatusNotFound)
 }
 
 func TestFrontendRoutesDoNotMaskAPIOrMissingAssets(t *testing.T) {

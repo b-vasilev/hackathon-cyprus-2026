@@ -1,11 +1,9 @@
 # architecture
-Goal: explain system boundaries, responsibilities and important dependencies.
-Use: entry points, module boundaries, interfaces, dependency wiring, architecture docs and integration code.
-Prepare: a C4-style progression from product context to major runnable units/components; synchronous versus asynchronous links; external contracts; important boundary rules. Describe observed architecture and documented target architecture separately.
-Select: components, interfaces, stores and external systems with their supporting claims and relations.
-Visual: context and component views when supported. Include a deployment view only with runtime evidence. Reuse the same IDs across all views and scenarios.
-Missing evidence: do not invent services, infrastructure, technology versions or architectural decisions from naming alone.
-Research: apply the architecture research method. Trace callers, entry points, contracts and execution boundaries across repositories. A repository is not automatically a process or service. Do not equate a route registration with full support.
-Component cards: responsibility, language/runtime, invoking part, inputs, outputs, dependencies and current status. Identify libraries, processes, containers, external services, deterministic tasks and agent tasks in the existing object fields. Versions require manifest/runtime evidence.
-Structure: separate static component relationships from ordered scenarios. Distinguish data/file transfer from tool/component calls using relation kinds. Runtime boundaries and clearly planned components must be explicit; in-development and experimental work are distinct statuses.
-Presentation: begin with a scoped system overview, then focus on important/complex areas. Keep one abstraction level per view. Use short labels and meaningful directed arrows. Do not force equal detail per repository. No source paths or code URLs in architecture prose or labels; retain evidence IDs for the separate inspector.
+Goal: explain meaningful structure and reveal the internals of central complex areas.
+Question: What are the system's parts, boundaries and contracts, and how do its important subsystems decompose?
+Inputs: canonical product boundary, architectural objects/parents, responsibility and variant coverage, caller/implementation/contracts, repository provenance, exact claims.
+Investigation: verify executable/store boundaries through entrypoints and wiring. Map major responsibilities and important specialized tools through implementation + caller/dispatch + contract/consumer. Expand opaque central blocks according to importance/complexity; preserve in-development and experimental branches honestly.
+Output: short orientation -> whole-system static structure -> prose explaining key boundaries/contracts -> focused subsystem diagrams and responsibility details. Use question and scope_object_id where available. Context/containers/components represent distinct levels; preserve parent-child continuity and names/IDs. Each view has one scope and level; usually 5-10 nodes is readable, not a model cap.
+Evidence/gaps: every selected edge and responsibility has supporting claims. A package is not a service, registration is not full support, and absent runtime evidence stays a gap. Mark planned structure separately; parent_id is architectural containment.
+Exclusions: no repository nodes, numbered execution arrows, technology matrix, data schema inventory, deployment topology or inferred rationale. Static structure cannot stand in for scenarios.
+Acceptance: the reader can identify real modules/tools/contracts/status, follow important interactions and drill into the core engine. No opaque central box remains solely to meet object/claim/token counts; scopes/levels stay consistent.

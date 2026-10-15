@@ -6,19 +6,20 @@ its own content, model, scenarios and diagrams through shared renderers.
 ```text
 GitHub SHA + optional context
               |
-      go-git + Repomix safety checks
+      pinned source collection + safety checks
               |
-      Fantasy + Repomix MCP research
+      tool-driven source research
               |
-  analyze + reconcile -> compose -> validate
+   incremental model -> reconcile -> compose -> validate
               |
     versioned passport JSON + SQLite metadata
               |
      React Flow + ELK + evidence
 ```
 
-The passport covers purpose, users, capabilities, domain, scenarios, architecture,
-data, runtime, operations, development, decisions and ownership. Missing evidence
+The passport starts with product purpose and outcomes, repository relationships,
+logical architecture, end-to-end flows and technologies. Useful supporting sections
+cover data, runtime, development, operations, decisions and ownership. Missing evidence
 stays explicit. Generated revisions are drafts; they are not human approval.
 
 ## Run locally
@@ -44,7 +45,10 @@ See `.env.example` for settings. Keep the master key outside version control and
 back it up separately: losing it makes saved credentials unreadable.
 
 Use a single API instance and a local persistent SQLite disk. Migrations run at
-startup. One goqite worker processes durable queued runs. Interrupted running jobs
+startup. A goqite worker pool processes durable queued runs in parallel.
+`GENERATION_WORKERS` sets the number of workers (default `3`, positive integer).
+Extra runs wait in the queue until a worker is available. Provider connection and
+quota limits still apply to model requests. Interrupted running jobs
 become failed after restart and can be generated again. A failed regeneration
 keeps the last successful passport.
 
@@ -66,6 +70,22 @@ other diagram kinds keep their existing renderer.
 
 For a single-origin local build, run `just frontend::build`, then start the API
 with `FRONTEND_DIR=../frontend/dist` and `CORS_ORIGINS=http://127.0.0.1:8080`.
+
+## Accounts and access
+
+Everyone signs in with an email and password. The first account registered on a
+fresh database becomes an admin, so register it before sharing the portal URL.
+Later accounts start with no product access.
+
+| Role | Scope | Can |
+| --- | --- | --- |
+| Admin | Everything | Manage connections, products, all product access and admin roles. |
+| Product lead | One product | Read and generate its passport; grant or revoke leads and learners. |
+| Learner | One product | Read the product and its passport. |
+
+A person can hold different roles on different products. Admins manage accounts and
+every product's leads and learners under **People**. Leads manage their own products
+from **People and access** on each product page. Sessions are HttpOnly cookies that last 30 days.
 
 ## LLM connections
 
@@ -155,24 +175,92 @@ and restart to apply edits. The prompt version is recorded with every model call
 Fantasy runs the selected model through the saved gateway connection using OpenAI
 Responses, OpenAI Chat Completions or Anthropic Messages. It can list files, search
 the entire indexed source and batch paged reads through sandboxed Repomix MCP.
-Repository code is never executed. Research stops after at most 24 model turns or
-12 minutes and fails visibly if its completion/evidence checks are not satisfied.
+Repository code is never executed. Research starts with 30 model turns and can
+extend its allowance by 10 when new read-and-cited source evidence supports planned
+roles and reachable questions remain. Repeated reads, classifications and renamed
+areas do not earn extensions. One recovery block allows a different approach when
+no new evidence was found. The hard limit is 120 turns or 30 minutes; the final
+30 seconds are reserved for saving and checking results. Research stops visibly
+with unresolved questions if evidence checks cannot be satisfied.
 Indexed, read and cited files are recorded separately, including original line
 ranges. Every final evidence anchor must be inside a range actually read.
+A deterministic inventory first identifies candidate source areas, manifests,
+entry points, registries and cross-repository references. The researcher classifies
+these candidates and records responsibilities, variants and handoffs. Evidence
+obligations distinguish implementation, callers, contracts and validation, with
+exact source ranges and separate gaps. Both endpoints of a cross-repository
+handoff require support. The coverage check retains the unexplored frontier;
+partial research is explicit. Inventory heuristics and read counts do not prove
+that every subsystem was discovered or every claim is semantically correct.
 
-Research findings and original cited excerpts feed analysis with reconciliation,
-composition and bounded repair. Analysis and reconciliation share one request.
+The generation panel keeps research in one compact block: current area and question,
+latest saved result, counts for the current plan, and expandable areas with answers
+and source ranges. Details scroll inside the block. Budget decisions explain each
+extension or stop. The plan and decisions survive reloads and live-stream reconnects;
+counts describe the current plan, not a completion percentage of the whole product.
+
+Research continues across early model stops while reachable source questions and
+the attempt budget remain. Findings retain their original document IDs and read
+ranges. A failed run can be retried through the generation endpoint by supplying
+`resume_run_id` with its original connection and model. The retry verifies saved
+source checksums instead of collecting repositories again. Accepted research is
+rechecked and reused for downstream retries, retaining its complete or partial
+status. Interrupted research continues from its saved findings and read ranges.
+Each attempt saves a separate immutable findings artifact.
+
+Analysis works through tools in small areas. It pages relevant findings, searches
+the pinned source and reads original ranges, then saves objects, claims, relations,
+scenarios and evidence into one canonical model. Each accepted edit and source read
+is checkpointed before acknowledgement. Short context windows carry the current
+question and paged indexes; earlier source bodies and the entire model are not
+replayed in every request. Reconciliation resolves shared IDs and cross-area
+contracts, then the server assembles the model. Progress reports the current area,
+action and persisted entity counts. A failed analysis resumes its last valid
+checkpoint. Per-run `request_timeout_seconds` can override the frozen connection's
+execution timeout without changing its model or destination.
+
+Composition uses this canonical model to author the document. On the incremental
+path, bounded document repair changes views while preserving the validated model.
 The research recipe is editable in
 [`backend/internal/research/prompts/research.md`](backend/internal/research/prompts/research.md).
-The analysis recipe bounds the first model to its core responsibilities and flows;
-the composition recipe keeps all 12 sections concise and reuses shared diagrams.
+Analysis keeps the important responsibilities and variants in one canonical
+model. Composition orders five core chapters: overview, repositories, logical
+architecture, flows, then technologies. Useful supporting chapters cover data,
+runtime, development and operations; decisions and ownership are conditional.
+Users and capabilities normally belong in the overview, domain terms in data.
+
+New revisions contain a version 2 document with freely ordered Markdown,
+diagram references, scenario references and object-table blocks. The model writes
+explanations between focused views; the portal supplies styling and interaction.
+Objects, contracts, scopes and evidence remain shared across chapters. Markdown
+is rendered without raw HTML or executable MDX. Older section-based revisions
+continue to use their original renderer.
 OpenAI connections can set a lower reasoning effort to reduce latency.
 A bounded memory cache reuses safe source packages at unchanged commit SHAs;
 restarting the API clears it. google/jsonschema-go checks each response.
-Semantic checks verify all references, all 12 sections and citation line bounds.
+Semantic checks verify references, required core sections, content placement and
+citation line bounds. Repository provenance is separate from runtime architecture.
 React Flow renders model references; ELK computes coordinates. Generated content
 cannot supply executable HTML, JavaScript or diagram code. Source material is
 always treated as untrusted data, including instructions found inside documents.
+
+### Product branding
+
+Each generation looks for the analyzed product's brand guide, theme colours and
+original logo in the collected sources. It follows up to three direct brand-guide
+links and checks up to five linked logos, with a shared 30-second download budget.
+Relative repository logo links use the analyzed commit and the existing GitHub
+connection, including for private repositories. Only small, validated SVG, PNG,
+JPEG and GIF images are accepted. Missing or unavailable branding uses Wayfinder
+defaults; colours and logos are never invented.
+
+An optional supplied brand kit takes priority over discovered colours. Discovered
+logos can still fill a missing logo. Brand references and image bytes are frozen in
+`runs/<run-id>/product-brand.json`, and the chosen theme is saved with the passport
+revision and product card. The passport lists the sources used for its branding.
+Brand accents apply to the card, passport heading, sections, diagrams and scenario
+steps. Portal navigation, fonts, shared actions and semantic states remain shared.
+Generate a new passport to discover branding for an existing product.
 
 ## API and modules
 

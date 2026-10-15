@@ -277,16 +277,18 @@ code {
 .product-card:hover {
   border-color: var(--of-brand);
 }
+.product-card-content {
+  display: block;
+}
 .product-branded {
   background: var(--product-card-background, var(--of-surface));
   color: var(--product-card-ink, var(--of-ink));
-  border-top: 4px solid var(--product-card-accent, var(--of-brand));
 }
 .product-card.product-branded .product-initial {
   background: var(--product-card-accent, var(--of-brand));
   color: var(--product-card-on-accent, var(--of-on-brand));
 }
-.product-card.product-branded > p,
+.product-card.product-branded .product-card-content > p,
 .product-card.product-branded .card-bottom,
 .passport-heading.product-branded .page-description,
 .passport-heading.product-branded .eyebrow,
@@ -305,6 +307,65 @@ code {
   font-size: 12px;
   color: var(--of-muted);
   overflow-wrap: anywhere;
+}
+.product-logo {
+  display: inline-flex;
+  align-items: center;
+  width: 128px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.product-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+.passport-heading .product-logo,
+.passport-heading .product-initial {
+  margin-bottom: 16px;
+}
+.passport-heading.product-branded .product-initial {
+  background: var(--product-card-accent);
+  color: var(--product-card-on-accent);
+}
+.product-card.product-branded .card-bottom > svg {
+  color: var(--product-card-link);
+}
+.brand-sources li {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.brand-sources a {
+  color: var(--of-brand);
+  text-decoration: underline;
+}
+.product-passport .section-title {
+  border-left: 3px solid var(--product-content-accent);
+  padding-left: 16px;
+}
+.product-passport .section-nav button.active,
+.product-passport .scenario-step.active {
+  background: var(--product-content-soft);
+  color: var(--product-content-accent);
+}
+.product-passport .scenario-step.active,
+.product-passport .architecture-node[data-kind="component"] {
+  border-color: var(--product-content-accent);
+}
+.product-passport .architecture-node-icon,
+.product-passport .architecture-node[data-kind="component"] .architecture-node-icon {
+  color: var(--product-content-accent);
+}
+.product-passport .architecture-node[data-focused="true"] {
+  outline-color: var(--product-content-accent);
+}
+.product-passport .react-flow__node.selected .diagram-node {
+  border-color: var(--product-content-accent);
+  box-shadow: 0 0 0 1px var(--product-content-accent);
+}
+.product-passport .architecture-edge[data-focused="true"] .react-flow__edge-path {
+  stroke: var(--product-content-accent);
 }
 .product-card-brandkit-fields {
   min-width: 0;
@@ -353,7 +414,7 @@ code {
   font-size: 22px;
   margin: 28px 0 12px;
 }
-.product-card > p {
+.product-card-content > p {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -367,7 +428,7 @@ code {
   font-size: 12px;
   color: var(--of-muted);
 }
-.card-bottom svg {
+.card-bottom > svg {
   color: var(--of-brand);
 }
 .badge {
@@ -780,6 +841,7 @@ summary {
 }
 .generation-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 16px;
   padding: 24px 0;
@@ -883,6 +945,193 @@ summary {
   font-size: 14px;
   line-height: 1.6;
   margin: 0;
+}
+.research-progress {
+  margin: 16px 0;
+  padding: 16px 20px;
+  border: 1px solid var(--of-border);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  min-width: 0;
+}
+.research-heading,
+.research-heading h3,
+.research-scope-summary,
+.research-budget-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.research-heading {
+  justify-content: space-between;
+}
+.research-heading h3 {
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+}
+.research-heading h3 svg {
+  color: var(--of-brand);
+}
+.research-scope-summary,
+.research-budget-numbers {
+  font-size: 12px;
+  color: var(--of-muted);
+  font-variant-numeric: tabular-nums;
+}
+.research-scope-summary {
+  margin-top: 8px;
+}
+.research-scope-summary strong,
+.research-budget-numbers strong {
+  color: var(--of-ink);
+  font-weight: 500;
+}
+.research-focus {
+  border-left: 2px solid var(--of-brand);
+  padding-left: 12px;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+.research-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--of-muted);
+}
+.research-focus p {
+  margin: 4px 0;
+}
+.research-focus .research-label {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.research-focus p,
+.research-focus > .meta {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.research-last-result {
+  margin-top: 12px;
+}
+.research-last-result p {
+  margin: 4px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.research-progress summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--of-brand);
+}
+.research-progress summary:focus-visible,
+.research-plan-body:focus-visible {
+  outline: 2px solid var(--of-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.research-plan-details {
+  margin-top: 4px;
+}
+.research-scope-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--of-muted);
+}
+.research-plan-body {
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+}
+.research-area {
+  border-top: 1px solid var(--of-border);
+}
+.research-area summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--of-ink);
+}
+.research-area summary::after {
+  content: "+";
+  color: var(--of-muted);
+}
+.research-area[open] > summary::after {
+  content: "−";
+}
+.research-area-marker {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--of-control-border);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--of-muted);
+}
+.research-area-marker.investigating {
+  background: var(--of-brand-soft);
+  border-color: var(--of-brand);
+  color: var(--of-brand-strong);
+}
+.research-area-name {
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+}
+.research-area-status,
+.research-question-status {
+  font-size: 12px;
+  color: var(--of-muted);
+}
+.research-area-body {
+  padding: 0 8px 12px 28px;
+}
+.research-area-body > p {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+}
+.research-questions {
+  padding-left: 16px;
+  margin: 0;
+}
+.research-questions > li {
+  padding: 8px 0;
+  overflow-wrap: anywhere;
+}
+.research-questions strong {
+  display: block;
+  font-weight: 500;
+}
+.research-questions p {
+  margin: 4px 0;
+}
+.research-evidence {
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--of-muted);
+}
+.research-budget {
+  border-top: 1px solid var(--of-border);
+  padding-top: 12px;
+}
+.research-budget-reason summary {
+  font-size: 12px;
+}
+.research-budget-reason p {
+  margin: 0 0 12px;
 }
 .generation-activity {
   margin-top: 16px;
@@ -3861,4 +4110,261 @@ summary {
   justify-content: center;
   gap: 12px;
   margin-top: 28px;
+}
+.header-account {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.account-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--of-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.auth-page {
+  max-width: 520px;
+  margin: 0 auto;
+}
+.auth-page .form-actions {
+  justify-content: space-between;
+}
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.person-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--of-border);
+  font-size: 14px;
+}
+.person-row > div {
+  display: grid;
+  gap: 2px;
+}
+.person-row strong {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.inline-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.access-help {
+  margin: 16px 0 8px;
+}
+.member-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  align-items: end;
+  gap: 16px;
+  margin-top: 24px;
+}
+.member-form label {
+  margin-bottom: 0;
+}
+@media (max-width: 680px) {
+  .account-email {
+    display: none;
+  }
+  .person-row,
+  .member-form {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+.people-section {
+  margin-top: 48px;
+}
+.people-section-heading {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+.product-access-list .sources-panel {
+  margin-top: 16px;
+}
+.sources-panel summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure-hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--of-brand);
+  font-size: 13px;
+}
+summary:hover .disclosure-hint {
+  text-decoration: underline;
+}
+.disclosure-hide,
+details[open] > summary .disclosure-show {
+  display: none;
+}
+details[open] > summary .disclosure-hide {
+  display: inline;
+}
+.disclosure-chevron {
+  transition: transform 150ms ease;
+}
+details[open] > summary .disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.passport-table-scroll {
+  overflow-x: auto;
+  margin: 24px 0;
+}
+.passport-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.passport-table caption {
+  text-align: left;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+.passport-table th,
+.passport-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--of-border);
+}
+.passport-table thead th {
+  color: var(--of-muted);
+  font-weight: 500;
+}
+.passport-table td .source-link {
+  display: block;
+  margin-bottom: 8px;
+}
+.section-evidence {
+  margin-top: 32px;
+}
+.section-evidence > summary {
+  cursor: pointer;
+  color: var(--of-brand);
+  padding: 12px 0;
+}
+.scenario-participants {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+}
+.scenario-participants h3 {
+  flex-basis: 100%;
+}
+
+/* Ordered passport documents share portal typography and typed view components. */
+.passport-reading-pane,
+.document-chapter {
+  min-width: 0;
+}
+.document-block + .document-block {
+  margin-top: 28px;
+}
+.document-prose {
+  max-width: 80ch;
+  font-size: 16px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.document-prose :is(p, ul, ol, blockquote, pre) {
+  margin: 0 0 16px;
+}
+.document-prose :is(h3, h4, h5, h6) {
+  margin: 28px 0 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.document-prose h3 {
+  font-size: 22px;
+}
+.document-prose h4 {
+  font-size: 18px;
+}
+.document-prose :is(h5, h6) {
+  font-size: 16px;
+}
+.document-prose :is(ul, ol) {
+  padding-left: 24px;
+}
+.document-prose li + li {
+  margin-top: 8px;
+}
+.document-prose blockquote {
+  border-left: 3px solid var(--of-control-border);
+  padding-left: 20px;
+  color: var(--of-muted);
+}
+.document-prose pre {
+  padding: 20px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--of-surface-subtle);
+}
+.document-prose code {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 0.875em;
+}
+.document-prose a {
+  color: var(--of-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.block-evidence {
+  margin-top: 8px;
+}
+.document-block .passport-table-scroll {
+  margin: 0;
+}
+.document-prose .passport-table-scroll {
+  margin: 24px 0;
+}
+.diagram-question {
+  max-width: 72ch;
+  margin-top: 8px;
+  color: var(--of-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.chapter-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--of-border);
+}
+.chapter-navigation .button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  max-width: 100%;
+  text-align: left;
+  white-space: normal;
+  padding: 12px;
+  gap: 4px 12px;
+}
+.chapter-navigation .button > span {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--of-muted);
+}
+.chapter-navigation .next-chapter {
+  margin-left: auto;
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/rs/zerolog"
@@ -41,12 +42,15 @@ func TestGitHubConnectionHTTPFlow(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
 	})
-	factory := &Factory{GitHub: store, GitHubOAuth: githubconnection.OAuthConfig{ClientID: "id", ClientSecret: "secret", RedirectURL: "https://portal.example/api/git-connection/oauth/callback"}}
+	users := &access.Store{DB: database}
+	admin := signInAdmin(t, users)
+	factory := &Factory{Access: users, GitHub: store, GitHubOAuth: githubconnection.OAuthConfig{ClientID: "id", ClientSecret: "secret", RedirectURL: "https://portal.example/api/git-connection/oauth/callback"}}
 	handler := New(database, zerolog.Nop(), nil, factory)
 	request := func(method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 		t.Helper()
 		r := httptest.NewRequest(method, path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
+		r.AddCookie(admin)
 		if cookie != nil {
 			r.AddCookie(cookie)
 		}

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/analysis"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/api"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/config"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
@@ -53,10 +55,11 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 			return fmt.Errorf("initialize LLM connections: %w", err)
 		}
 	}
-	client := &llm.Client{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8)}
+	client := &llm.Client{Policy: policy, Limiter: llmgateway.NewLimiter(llmgateway.MaxConcurrentRequests, 60, llmgateway.MaxConcurrentRequests, 60)}
 	collector := &source.Collector{WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin, GitHubToken: cfg.GitHubToken, MaxBytes: 128 << 20, MaxFiles: 20000, CacheScope: generation.PromptVersion}
 	factory := generation.New(database, connections, client, collector, logger, files)
 	factory.Research = &research.Runner{Policy: policy, Limiter: client.Limiter, WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin}
+	factory.Analysis = &analysis.Runner{Policy: policy, Limiter: client.Limiter}
 	var githubStore *githubconnection.Store
 	if cfg.ConnectionMasterKey != "" {
 		githubStore, err = githubconnection.NewStore(database, cfg.ConnectionMasterKey)
@@ -67,11 +70,11 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	}
 	workerCtx, stopWorker := context.WithCancel(ctx)
 	workerDone := make(chan struct{})
-	go func() { defer close(workerDone); factory.Work(workerCtx) }()
+	go func() { defer close(workerDone); factory.Work(workerCtx, cfg.GenerationWorkers) }()
 	defer func() { stopWorker(); <-workerDone }()
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(database, logger, cfg.CORSOrigins, &api.Factory{Service: factory, Network: policy, FrontendDir: cfg.FrontendDir, GitHub: githubStore, GitHubOAuth: githubconnection.OAuthConfig{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL}}),
+		Handler:           api.New(database, logger, cfg.CORSOrigins, &api.Factory{Access: &access.Store{DB: database}, Service: factory, Network: policy, FrontendDir: cfg.FrontendDir, GitHub: githubStore, GitHubOAuth: githubconnection.OAuthConfig{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL}}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

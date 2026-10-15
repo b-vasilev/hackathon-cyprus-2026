@@ -1,0 +1,9 @@
+# technologies
+Goal: provide attributable implementation technology reference after the flows.
+Question: Which important technologies/tools implement each responsibility, in which scope and with what evidence?
+Inputs: canonical architecture objects/ownership, manifests/lockfiles, actual imports/callers/process spawns/provider registries, configuration and any identified run evidence.
+Investigation: cross-check each important component and specialized branch for languages/runtimes, frameworks, storage, external binaries/services, agent tools and significant build/test tooling. Trace declaration to actual responsibility/use. Distinguish runtime/build/test/development and declared/resolved/configured/observed versions.
+Output: brief explanation and object_table with table_style=technologies over existing objects with non-empty technology; order consistently with architecture. Object technology identifies meaningful tools/runtime; summaries/contracts explain use, scope and important caveats. Add cited Markdown for multiple meaningful roles or version distinctions that one technology string cannot express.
+Evidence/gaps: declaration does not prove execution; SDK presence does not prove a deployed service. Include only verified versions with their kind; preserve conflicts and explicit unknown attribution.
+Exclusions: no TechnologyUse ontology, disconnected object per dependency, transitive dependency dump, repeated architecture diagram, full scenario, selection rationale or setup commands.
+Acceptance: every important component/tool is attributed or has a precise gap; local/test tools are not presented as production; each technology explains an actual responsibility and supported scope.

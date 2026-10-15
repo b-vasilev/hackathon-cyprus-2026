@@ -66,9 +66,26 @@ func ResolveBrandkit(ctx context.Context, kit *Brandkit) (*Brandkit, error) {
 }
 
 func download(ctx context.Context, location string) (string, error) {
+	data, mediaType, err := fetchPublic(ctx, location, MaxBytes)
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(mediaType, "text/") && mediaType != "application/json" && mediaType != "application/xhtml+xml" {
+		return "", errors.New("product card brand kit URL must return text, HTML, CSS or JSON")
+	}
+	if !utf8.Valid(data) || strings.ContainsRune(string(data), 0) {
+		return "", errors.New("product card brand kit must contain UTF-8 text")
+	}
+	if mediaType == "text/html" || mediaType == "application/xhtml+xml" {
+		return htmlText(string(data)), nil
+	}
+	return string(data), nil
+}
+
+func fetchPublic(ctx context.Context, location string, limit int64) ([]byte, string, error) {
 	u, err := url.Parse(location)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || len(location) > 2048 {
-		return "", errors.New("product card brand kit URL must be a public HTTPS URL without credentials")
+		return nil, "", errors.New("product brand URL must be a public HTTPS URL without credentials")
 	}
 	// Reuse the gateway's DNS-pinned public-only transport. No credentials,
 	// proxies, private-origin exceptions or redirects are permitted here.
@@ -80,36 +97,27 @@ func download(ctx context.Context, location string) (string, error) {
 	}
 	client, err := (llmgateway.NetworkPolicy{}).Client(config, llmgateway.NewLimiter(1, 0, 1, 0))
 	if err != nil {
-		return "", errors.New("product card brand kit URL must use a public HTTPS hostname")
+		return nil, "", errors.New("product brand URL must use a public HTTPS hostname")
 	}
 	defer client.CloseIdleConnections()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)
 	if err != nil {
-		return "", fmt.Errorf("create product card brand kit request: %w", err)
+		return nil, "", fmt.Errorf("create product brand request: %w", err)
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return "", errors.New("could not download product card brand kit; use a public URL or upload a file")
+		return nil, "", errors.New("could not download product brand source; use a public URL or upload a file")
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return "", errors.New("product card brand kit URL must return a public document directly (no login or redirect)")
+		return nil, "", errors.New("product brand URL must return a public document directly (no login or redirect)")
 	}
 	mediaType, _, _ := mime.ParseMediaType(response.Header.Get("Content-Type"))
-	if !strings.HasPrefix(mediaType, "text/") && mediaType != "application/json" && mediaType != "application/xhtml+xml" {
-		return "", errors.New("product card brand kit URL must return text, HTML, CSS or JSON")
+	data, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	if err != nil || int64(len(data)) > limit {
+		return nil, "", errors.New("product brand download failed or exceeds the size limit")
 	}
-	data, err := io.ReadAll(io.LimitReader(response.Body, MaxBytes+1))
-	if err != nil || len(data) > MaxBytes {
-		return "", errors.New("product card brand kit download failed or exceeds 100 KB")
-	}
-	if !utf8.Valid(data) || strings.ContainsRune(string(data), 0) {
-		return "", errors.New("product card brand kit must contain UTF-8 text")
-	}
-	if mediaType == "text/html" || mediaType == "application/xhtml+xml" {
-		return htmlText(string(data)), nil
-	}
-	return string(data), nil
+	return data, mediaType, nil
 }
 
 func htmlText(input string) string {
@@ -120,10 +128,18 @@ func htmlText(input string) string {
 		switch tokens.Next() {
 		case html.ErrorToken:
 			return text.String()
-		case html.StartTagToken:
-			name, _ := tokens.TagName()
-			if string(name) == "script" {
+		case html.StartTagToken, html.SelfClosingTagToken:
+			tag := tokens.Token()
+			if tag.Data == "script" {
 				script = true
+			}
+			if !script {
+				text.WriteByte('\n')
+				for _, attr := range tag.Attr {
+					if attr.Key == "href" || attr.Key == "src" || attr.Key == "alt" || attr.Key == "style" {
+						fmt.Fprintf(&text, " %s=%q ", attr.Key, attr.Val)
+					}
+				}
 			}
 		case html.EndTagToken:
 			name, _ := tokens.TagName()

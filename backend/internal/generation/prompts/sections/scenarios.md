@@ -1,10 +1,9 @@
 # scenarios
-Goal: let a reader trace important product outcomes end to end.
-Use: entry points, handlers, services, persistence paths, external integrations, tests and usage docs.
-Prepare: a few representative scenarios, each with a trigger/input, ordered steps, participating object IDs, output and supported failure conditions. Include the main happy path and meaningful supported exceptions.
-Select: canonical scenario IDs and claims needed to explain their steps. Do not rewrite scenarios as unrelated section text.
-Visual: component or data views containing all objects used in each scenario, so step selection can highlight the actual path.
-Missing evidence: leave unsupported asynchronous behavior, retries and errors unknown. Do not invent a queue or background worker.
-Research: trace actual entry points and callers across execution boundaries. Capture shared versus specialized stages, optional behavior, validation, retries, checkpoints and unresolved work only when implementation supports them. Separate artifact generation from deployment.
-Agent workflows: explicitly trace prepared context -> agent task -> candidate output -> deterministic checks -> accepted result or repair. Explain which decisions use an LLM and which use deterministic code. Include this only for products that contain agent work.
-Presentation: the numbered steps define execution order; the component diagram defines structure. Reuse model IDs without pretending dependency direction is temporal order. Explain each step's important input/output contract in its summary.
+Goal: explain meaningful behavior from real trigger to actual completion.
+Question: How do the main outcomes happen, and which material variants change stages, contracts or acceptance?
+Inputs: canonical scenarios/components/contracts, entrypoint/caller/implementation evidence, variant coverage, tests, optional identified run results and precise gaps.
+Investigation: catalog material variants before choosing representative families. Trace entrypoint -> orchestration -> implementation -> artifact -> acceptance -> terminal outcome across repositories. Check both sides of handoffs. Preserve supported guards, async boundaries, parallel joins, retries and checkpoints without inventing them.
+Output: introduction, concise cited Markdown variant matrix (family/variant, shared versus distinct stages/contracts, implementation status, actual completion/gap), then representative scenario_ref blocks. Each scenario appears once. Existing Scenario inputs/outputs/failure_modes and ordered Steps carry detail; describe conditions/parallel work explicitly rather than implying total order. Agent paths distinguish prepared context, model task, candidate, deterministic checks, acceptance or repair.
+Evidence/gaps: cite material actions, transitions and outcomes. Preserve unresolved variants; a successful generation call is not accepted product output. Creation, validation, persistence, publication and deployment differ when code separates them.
+Exclusions: no copied whole architecture graph, repeated full scenarios in other chapters, arbitrary three-flow/four-step cap, invented queues/workers/retries or parameter-combination explosion.
+Acceptance: every family has a trigger, existing participants, meaningful result and supported transitions or explicit unknowns; the matrix accounts for every researched material variant.

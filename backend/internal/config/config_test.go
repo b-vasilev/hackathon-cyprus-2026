@@ -16,6 +16,13 @@ func TestLoad(t *testing.T) {
 		{name: "defaults"},
 		{name: "database directory", env: map[string]string{"DATABASE_PATH": "/custom/data/onboarding.db"}},
 		{name: "factory override", env: map[string]string{"FACTORY_WORK_DIR": "/custom/work"}},
+		{name: "workers override", env: map[string]string{"GENERATION_WORKERS": "5"}},
+		{name: "single worker", env: map[string]string{"GENERATION_WORKERS": "1"}},
+		{name: "zero workers", env: map[string]string{"GENERATION_WORKERS": "0"}, invalid: true},
+		{name: "negative workers", env: map[string]string{"GENERATION_WORKERS": "-1"}, invalid: true},
+		{name: "invalid workers", env: map[string]string{"GENERATION_WORKERS": "many"}, invalid: true},
+		{name: "fractional workers", env: map[string]string{"GENERATION_WORKERS": "1.5"}, invalid: true},
+		{name: "empty workers", env: map[string]string{"GENERATION_WORKERS": ""}, invalid: true},
 		{name: "overrides", env: map[string]string{"HTTP_ADDR": ":9000", "LOG_FORMAT": "json", "CORS_ORIGINS": "https://learn.example"}},
 		{name: "cors disabled", env: map[string]string{"CORS_ORIGINS": ""}},
 		{name: "github oauth", env: map[string]string{"CONNECTION_MASTER_KEY": "01234567890123456789012345678901", "GITHUB_OAUTH_CLIENT_ID": "id", "GITHUB_OAUTH_CLIENT_SECRET": "secret", "GITHUB_OAUTH_REDIRECT_URL": "https://portal.example/api/git-connection/oauth/callback"}},
@@ -65,6 +72,18 @@ func TestLoad(t *testing.T) {
 			}
 			if tt.name == "factory override" && cfg.FactoryWorkDir != "/custom/work" {
 				t.Errorf("factory directory override = %q", cfg.FactoryWorkDir)
+			}
+			if !tt.invalid {
+				wantWorkers := 3
+				switch tt.name {
+				case "workers override":
+					wantWorkers = 5
+				case "single worker":
+					wantWorkers = 1
+				}
+				if cfg.GenerationWorkers != wantWorkers {
+					t.Errorf("generation workers = %d, want %d", cfg.GenerationWorkers, wantWorkers)
+				}
 			}
 		})
 	}

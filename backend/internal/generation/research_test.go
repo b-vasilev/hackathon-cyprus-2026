@@ -55,6 +55,9 @@ func TestResearchCountsAreVisibleWhileRunningAndSurviveFailure(t *testing.T) {
 		if run.Status != "running" || run.Stage != "researching" || run.DocumentCount != 1 || run.InputTokens != (call-1)*100 || run.OutputTokens != (call-1)*50 {
 			t.Errorf("incorrect in-progress counts: status=%s stage=%s documents=%d input=%d output=%d", run.Status, run.Stage, run.DocumentCount, run.InputTokens, run.OutputTokens)
 		}
+		if run.Research == nil || run.Research.Budget.HardLimit != 0 || len(run.Research.Areas) == 0 {
+			t.Error("live research plan or uncapped turn budget is missing")
+		}
 		message := map[string]any{"role": "assistant", "content": "RESEARCH_INCOMPLETE"}
 		reason := "stop"
 		if call == 1 {
@@ -75,7 +78,7 @@ func TestResearchCountsAreVisibleWhileRunningAndSurviveFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.Research = &research.Runner{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8), WorkDir: t.TempDir(), RepomixBin: binary}
+	service.Research = &research.Runner{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8), WorkDir: t.TempDir(), RepomixBin: binary, Parallelism: 1}
 	p, err := service.Products.Create(ctx, product.Input{Name: "Fixture", Sources: []source.Input{{Kind: "text", Text: "Payment service stores requests."}}})
 	if err != nil {
 		t.Fatal(err)
@@ -86,8 +89,8 @@ func TestResearchCountsAreVisibleWhileRunningAndSurviveFailure(t *testing.T) {
 	}
 	runID = run.ID
 	processErr := service.process(ctx, run)
-	if processErr == nil || !strings.Contains(processErr.Error(), "research budget ended") {
-		t.Fatalf("expected incomplete research: %v", processErr)
+	if processErr == nil || !strings.Contains(processErr.Error(), "repeatedly stopped without progress") {
+		t.Fatalf("expected an explicit no-progress research failure: %v", processErr)
 	}
 	if checkErr := service.failRun(ctx, run.ID, "generation_failed", processErr.Error()); checkErr != nil {
 		t.Fatal(checkErr)
@@ -97,7 +100,15 @@ func TestResearchCountsAreVisibleWhileRunningAndSurviveFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls.Load() != 2 || finished.Status != "failed" || finished.DocumentCount != 1 || finished.InputTokens != 200 || finished.OutputTokens != 100 {
+	if calls.Load() != 4 || finished.Status != "failed" || finished.DocumentCount != 1 || finished.InputTokens != 400 || finished.OutputTokens != 200 {
 		t.Fatalf("counts were lost or duplicated after failure: calls=%d documents=%d input=%d output=%d", calls.Load(), finished.DocumentCount, finished.InputTokens, finished.OutputTokens)
+	}
+	if finished.Research == nil || finished.Research.Status != "partial" || finished.Research.Budget.Used != 4 || len(finished.Research.Budget.Decisions) < 2 {
+		t.Fatal("final research plan and stopping reason did not survive reload")
+	}
+	for _, event := range finished.Events {
+		if event.Type == "research_plan" && strings.HasPrefix(event.Message, "{") {
+			t.Fatal("raw plan JSON leaked into the activity log")
+		}
 	}
 }

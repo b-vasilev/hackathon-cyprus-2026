@@ -475,6 +475,22 @@
         },
         "additionalProperties": false
       },
+      "Credentials": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": false
+      },
       "Diagram": {
         "type": "object",
         "properties": {
@@ -486,7 +502,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "One of context, components, domain, data, deployment, states."
+            "description": "One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects."
           },
           "summary": {
             "type": "string"
@@ -508,6 +524,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "scope_object_id": {
+            "type": "string",
+            "description": "Optional object ID whose immediate architectural children this view explains."
+          },
+          "question": {
+            "type": "string"
           }
         },
         "required": [
@@ -632,6 +655,12 @@
           },
           "model": {
             "type": "string"
+          },
+          "resume_run_id": {
+            "type": "string"
+          },
+          "request_timeout_seconds": {
+            "type": "integer"
           }
         },
         "required": [
@@ -699,6 +728,123 @@
           "status"
         ],
         "type": "object"
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "description": "admin or user"
+              },
+              "created_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "email",
+              "role",
+              "created_at"
+            ],
+            "additionalProperties": false
+          },
+          "memberships": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "description": "lead or learner"
+                }
+              },
+              "required": [
+                "product_id",
+                "role"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "user",
+          "memberships"
+        ],
+        "additionalProperties": false
+      },
+      "Member": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "description": "lead or learner"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "role",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "MemberInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "description": "lead or learner"
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "Membership": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "description": "lead or learner"
+          }
+        },
+        "required": [
+          "product_id",
+          "role"
+        ],
+        "additionalProperties": false
       },
       "Model": {
         "type": "object",
@@ -938,7 +1084,7 @@
                     },
                     "kind": {
                       "type": "string",
-                      "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                      "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
                     },
                     "name": {
                       "type": "string"
@@ -988,6 +1134,14 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "architecture_role": {
+                      "type": "string",
+                      "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+                    },
+                    "parent_id": {
+                      "type": "string",
+                      "description": "Optional architectural parent object ID. Never a repository provenance link."
                     }
                   },
                   "required": [
@@ -1037,6 +1191,14 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "interaction": {
+                      "type": "string",
+                      "description": "Optional in_process, sync, async, artifact, build or unknown."
+                    },
+                    "contract": {
+                      "type": "string",
+                      "description": "Optional specific protocol, payload or artifact contract."
                     }
                   },
                   "required": [
@@ -1343,7 +1505,7 @@
                     },
                     "kind": {
                       "type": "string",
-                      "description": "One of context, components, domain, data, deployment, states."
+                      "description": "One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects."
                     },
                     "summary": {
                       "type": "string"
@@ -1365,6 +1527,13 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "scope_object_id": {
+                      "type": "string",
+                      "description": "Optional object ID whose immediate architectural children this view explains."
+                    },
+                    "question": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -1386,16 +1555,137 @@
                 "properties": {
                   "accent_color": {
                     "type": "string",
-                    "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                    "description": "Brand accent as a six-digit hex color, for example #6550B9."
                   },
                   "background_color": {
                     "type": "string",
-                    "description": "Product card background as a six-digit hex colour."
+                    "description": "Product card background as a six-digit hex color."
+                  },
+                  "logo_url": {
+                    "type": "string",
+                    "description": "Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL."
+                  },
+                  "sources": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Brand provenance populated by the server; leave empty."
                   }
                 },
                 "required": [
                   "accent_color",
-                  "background_color"
+                  "background_color",
+                  "logo_url",
+                  "sources"
+                ],
+                "additionalProperties": false
+              },
+              "document": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "description": "Must be 2."
+                  },
+                  "chapters": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "question": {
+                          "type": "string"
+                        },
+                        "blocks": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "description": "One of markdown, diagram_ref, scenario_ref, object_table."
+                              },
+                              "markdown": {
+                                "type": "string",
+                                "description": "Plain Markdown only, without raw HTML or executable JS/MDX."
+                              },
+                              "reference_id": {
+                                "type": "string"
+                              },
+                              "object_ids": {
+                                "type": [
+                                  "null",
+                                  "array"
+                                ],
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "claim_ids": {
+                                "type": [
+                                  "null",
+                                  "array"
+                                ],
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "table_style": {
+                                "type": "string",
+                                "description": "For object_table only: objects, repositories or technologies."
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "question",
+                        "blocks"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "version",
+                  "chapters"
                 ],
                 "additionalProperties": false
               }
@@ -1544,16 +1834,45 @@
             "properties": {
               "accent_color": {
                 "type": "string",
-                "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                "description": "Brand accent as a six-digit hex color, for example #6550B9."
               },
               "background_color": {
                 "type": "string",
-                "description": "Product card background as a six-digit hex colour."
+                "description": "Product card background as a six-digit hex color."
+              },
+              "logo_url": {
+                "type": "string",
+                "description": "Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL."
+              },
+              "sources": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "url"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Brand provenance populated by the server; leave empty."
               }
             },
             "required": [
               "accent_color",
-              "background_color"
+              "background_color",
+              "logo_url",
+              "sources"
             ],
             "additionalProperties": false
           },
@@ -1676,7 +1995,7 @@
                 },
                 "kind": {
                   "type": "string",
-                  "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                  "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
                 },
                 "name": {
                   "type": "string"
@@ -1726,6 +2045,14 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "architecture_role": {
+                  "type": "string",
+                  "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+                },
+                "parent_id": {
+                  "type": "string",
+                  "description": "Optional architectural parent object ID. Never a repository provenance link."
                 }
               },
               "required": [
@@ -1775,6 +2102,14 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "interaction": {
+                  "type": "string",
+                  "description": "Optional in_process, sync, async, artifact, build or unknown."
+                },
+                "contract": {
+                  "type": "string",
+                  "description": "Optional specific protocol, payload or artifact contract."
                 }
               },
               "required": [
@@ -1989,7 +2324,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+            "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
           },
           "name": {
             "type": "string"
@@ -2039,6 +2374,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "architecture_role": {
+            "type": "string",
+            "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Optional architectural parent object ID. Never a repository provenance link."
           }
         },
         "required": [
@@ -2082,6 +2425,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "interaction": {
+            "type": "string",
+            "description": "Optional in_process, sync, async, artifact, build or unknown."
+          },
+          "contract": {
+            "type": "string",
+            "description": "Optional specific protocol, payload or artifact contract."
           }
         },
         "required": [
@@ -2143,7 +2494,7 @@
                         },
                         "kind": {
                           "type": "string",
-                          "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                          "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
                         },
                         "name": {
                           "type": "string"
@@ -2193,6 +2544,14 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "architecture_role": {
+                          "type": "string",
+                          "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+                        },
+                        "parent_id": {
+                          "type": "string",
+                          "description": "Optional architectural parent object ID. Never a repository provenance link."
                         }
                       },
                       "required": [
@@ -2242,6 +2601,14 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "interaction": {
+                          "type": "string",
+                          "description": "Optional in_process, sync, async, artifact, build or unknown."
+                        },
+                        "contract": {
+                          "type": "string",
+                          "description": "Optional specific protocol, payload or artifact contract."
                         }
                       },
                       "required": [
@@ -2548,7 +2915,7 @@
                         },
                         "kind": {
                           "type": "string",
-                          "description": "One of context, components, domain, data, deployment, states."
+                          "description": "One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects."
                         },
                         "summary": {
                           "type": "string"
@@ -2570,6 +2937,13 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "scope_object_id": {
+                          "type": "string",
+                          "description": "Optional object ID whose immediate architectural children this view explains."
+                        },
+                        "question": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -2591,16 +2965,137 @@
                     "properties": {
                       "accent_color": {
                         "type": "string",
-                        "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                        "description": "Brand accent as a six-digit hex color, for example #6550B9."
                       },
                       "background_color": {
                         "type": "string",
-                        "description": "Product card background as a six-digit hex colour."
+                        "description": "Product card background as a six-digit hex color."
+                      },
+                      "logo_url": {
+                        "type": "string",
+                        "description": "Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL."
+                      },
+                      "sources": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brand provenance populated by the server; leave empty."
                       }
                     },
                     "required": [
                       "accent_color",
-                      "background_color"
+                      "background_color",
+                      "logo_url",
+                      "sources"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "document": {
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "integer",
+                        "description": "Must be 2."
+                      },
+                      "chapters": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "question": {
+                              "type": "string"
+                            },
+                            "blocks": {
+                              "type": [
+                                "null",
+                                "array"
+                              ],
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "description": "One of markdown, diagram_ref, scenario_ref, object_table."
+                                  },
+                                  "markdown": {
+                                    "type": "string",
+                                    "description": "Plain Markdown only, without raw HTML or executable JS/MDX."
+                                  },
+                                  "reference_id": {
+                                    "type": "string"
+                                  },
+                                  "object_ids": {
+                                    "type": [
+                                      "null",
+                                      "array"
+                                    ],
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "claim_ids": {
+                                    "type": [
+                                      "null",
+                                      "array"
+                                    ],
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "table_style": {
+                                    "type": "string",
+                                    "description": "For object_table only: objects, repositories or technologies."
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title",
+                            "question",
+                            "blocks"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "chapters"
                     ],
                     "additionalProperties": false
                   }
@@ -2765,6 +3260,19 @@
         ],
         "additionalProperties": false
       },
+      "RoleInput": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "admin or user"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false
+      },
       "Run": {
         "type": "object",
         "properties": {
@@ -2782,6 +3290,9 @@
           },
           "model": {
             "type": "string"
+          },
+          "request_timeout_seconds": {
+            "type": "integer"
           },
           "status": {
             "type": "string"
@@ -2846,6 +3357,324 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research": {
+            "type": "object",
+            "properties": {
+              "execution": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "not_started",
+                        "investigating",
+                        "checked",
+                        "blocked",
+                        "excluded"
+                      ]
+                    },
+                    "questions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "question": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "answered",
+                              "not_applicable",
+                              "blocked",
+                              "excluded"
+                            ]
+                          },
+                          "result": {
+                            "type": "string"
+                          },
+                          "evidence": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "document_id": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                },
+                                "start_line": {
+                                  "type": "integer"
+                                },
+                                "end_line": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "document_id",
+                                "path",
+                                "start_line",
+                                "end_line"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "question",
+                          "status",
+                          "result",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "repository",
+                    "status",
+                    "questions"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "focus": {
+                "type": "object",
+                "properties": {
+                  "area": {
+                    "type": "string"
+                  },
+                  "question": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "area",
+                  "question",
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              "activity": {
+                "type": "string"
+              },
+              "last_result": {
+                "type": "string"
+              },
+              "budget": {
+                "type": "object",
+                "properties": {
+                  "used": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "hard_limit": {
+                    "type": "integer"
+                  },
+                  "deadline": {
+                    "type": "string"
+                  },
+                  "decisions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "turn": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "turn",
+                        "limit",
+                        "kind",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "used",
+                  "limit",
+                  "hard_limit",
+                  "deadline",
+                  "decisions"
+                ],
+                "additionalProperties": false
+              },
+              "parallel": {
+                "type": "object",
+                "properties": {
+                  "waiting": {
+                    "type": "integer"
+                  },
+                  "requests": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "active": {
+                    "type": "integer"
+                  },
+                  "queued": {
+                    "type": "integer"
+                  },
+                  "workers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "question": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "turns": {
+                          "type": "integer"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "task": {
+                          "type": "string"
+                        },
+                        "focus": {
+                          "type": "object",
+                          "properties": {
+                            "area": {
+                              "type": "string"
+                            },
+                            "question": {
+                              "type": "string"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "area",
+                            "question",
+                            "reason"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "activity": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "task",
+                        "focus",
+                        "activity"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "limit",
+                  "active",
+                  "queued",
+                  "workers"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "status",
+              "areas",
+              "focus",
+              "activity",
+              "last_result",
+              "budget"
+            ],
+            "additionalProperties": false
+          },
+          "analysis": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "area_id": {
+                "type": "string"
+              },
+              "area_title": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "step": {
+                "type": "integer"
+              },
+              "checkpoint_revision": {
+                "type": "integer"
+              },
+              "objects": {
+                "type": "integer"
+              },
+              "claims": {
+                "type": "integer"
+              },
+              "relations": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "area_id",
+              "area_title",
+              "action",
+              "step",
+              "checkpoint_revision",
+              "objects",
+              "claims",
+              "relations"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -2854,6 +3683,7 @@
           "connection_id",
           "connection_revision",
           "model",
+          "request_timeout_seconds",
           "status",
           "stage",
           "error_code",
@@ -3068,6 +3898,31 @@
           "text"
         ],
         "additionalProperties": false
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "description": "admin or user"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "created_at"
+        ],
+        "additionalProperties": false
       }
     }
   },
@@ -3077,6 +3932,127 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
     "/api/factory/status": {
       "get": {
         "operationId": "getFactoryStatus",
@@ -3107,6 +4083,43 @@
     "/api/generations/{id}": {
       "get": {
         "operationId": "getGeneration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/generations/{id}/cancel": {
+      "post": {
+        "operationId": "cancelGeneration",
         "parameters": [
           {
             "in": "path",
@@ -3418,6 +4431,41 @@
       }
     },
     "/api/llm-connections/{id}": {
+      "delete": {
+        "operationId": "deleteConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
       "get": {
         "operationId": "getConnection",
         "parameters": [
@@ -3712,6 +4760,41 @@
       }
     },
     "/api/products/{id}": {
+      "delete": {
+        "operationId": "deleteProduct",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
       "get": {
         "operationId": "getProduct",
         "parameters": [
@@ -3795,6 +4878,129 @@
         }
       }
     },
+    "/api/products/{id}/members": {
+      "get": {
+        "operationId": "listMembers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Member"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setMember",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Member"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/members/{userId}": {
+      "delete": {
+        "operationId": "removeMember",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
     "/api/products/{id}/passport": {
       "get": {
         "operationId": "getLatestPassport",
@@ -3854,6 +5060,111 @@
                     "$ref": "#/components/schemas/RevisionInfo"
                   },
                   "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "operationId": "listUsers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "delete": {
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "setUserRole",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
                 }
               }
             },

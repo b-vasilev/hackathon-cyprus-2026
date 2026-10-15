@@ -13,6 +13,7 @@ func frontend(directory string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		spa := name == "" || name == "." || name == "products" || name == "connections" ||
+			name == "login" || name == "register" || name == "access" ||
 			(strings.HasPrefix(name, "products/") && strings.Count(name, "/") == 1)
 		if spa {
 			name = "index.html"

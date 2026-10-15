@@ -19,7 +19,7 @@ func TestEvidenceAndReferenceValidation(t *testing.T) {
 	}{
 		{"out-of-range evidence", func(p *Passport) { p.Model.Evidence[0].EndLine = 2 }},
 		{"unknown evidence", func(p *Passport) { p.Model.Claims[0].EvidenceIDs = []string{"missing"} }},
-		{"missing section", func(p *Passport) { p.Views.Sections = p.Views.Sections[:11] }},
+		{"missing core section", func(p *Passport) { p.Views.Sections = p.Views.Sections[1:] }},
 		{"unsupported confidence", func(p *Passport) { p.Model.Claims[0].Basis = "verified" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -41,5 +41,42 @@ func TestSchemaRejectsUnknownAndMissingFields(t *testing.T) {
 		if _, err := CheckJSON[Views]([]byte(input)); err == nil {
 			t.Fatal("invalid content accepted")
 		}
+	}
+}
+
+func TestCoreSectionsDoNotRequireEmptySecondaryPages(t *testing.T) {
+	p := Passport{Model: Model{Title: "Product", Summary: "Purpose"}}
+	for _, id := range RequiredSectionIDs() {
+		p.Views.Sections = append(p.Views.Sections, Section{ID: id, Title: id, Summary: "A precise evidence gap.", Status: "insufficient_evidence"})
+	}
+	if err := Validate(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	p.Model.Claims = []Claim{{ID: "claim", Text: "Known repository.", Basis: "inferred"}}
+	p.Model.Objects = []Object{{ID: "repo", Kind: "repository", Name: "Source", Status: "implemented", ClaimIDs: []string{"claim"}}}
+	p.Views.Diagrams = []Diagram{{ID: "logical", Kind: "components", NodeIDs: []string{"repo"}}}
+	if err := Validate(p, nil); err != nil {
+		t.Fatalf("legacy diagram placement must remain compatible: %v", err)
+	}
+	p.Views.Diagrams[0].Kind = "repositories"
+	if err := Validate(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	p.Model.Scenarios = []Scenario{{ID: "flow"}}
+	p.Views.Sections[0].ScenarioIDs = []string{"flow"}
+	if err := Validate(p, nil); err != nil {
+		t.Fatalf("legacy scenario placement must remain compatible: %v", err)
+	}
+}
+
+func TestOutputSchemaHasNoNullableArrays(t *testing.T) {
+	t.Parallel()
+	schema, err := OutputSchema[Passport]()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(schema)
+	if strings.Contains(string(data), `["null","array"]`) {
+		t.Fatal("output schema contains nullable arrays that inflate strict grammars")
 	}
 }

@@ -1,7 +1,8 @@
-import { AlertCircle, ArrowUpRight, Route, X } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, ChevronDown, Route, X } from 'lucide-react';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { message } from '../lib/api';
+import { generationMessage } from '../lib/generationMessages';
 
 export function Brand() {
   return (
@@ -41,7 +42,7 @@ export function ErrorNotice({ error }: Readonly<{ error: unknown }>) {
   return (
     <div className="notice error" role="alert">
       <AlertCircle size={18} aria-hidden="true" />
-      <span>{message(error)}</span>
+      <span>{generationMessage(message(error))}</span>
     </div>
   );
 }
@@ -122,5 +123,17 @@ export function ExternalLink({ href, children }: Readonly<{ href: string; childr
       {children}
       <ArrowUpRight size={14} aria-hidden="true" />
     </a>
+  );
+}
+
+/** A visible expand cue for a <details> summary. CSS shows the label for the current state. */
+export function DisclosureHint({ show, hide }: Readonly<{ show: string; hide: string }>) {
+  // The summary already announces its expanded state, so the cue is visual only.
+  return (
+    <span className="disclosure-hint" aria-hidden="true">
+      <span className="disclosure-show">{show}</span>
+      <span className="disclosure-hide">{hide}</span>
+      <ChevronDown size={16} className="disclosure-chevron" />
+    </span>
   );
 }
