@@ -114,7 +114,7 @@ func TestAccessRoles(t *testing.T) {
 		t.Fatal("outsider sees products", body)
 	}
 	request(http.MethodGet, "/api/products/"+product.ID, "", learner, http.StatusOK)
-	request(http.MethodGet, "/api/products/"+product.ID+"/passport-revisions", "", learner, http.StatusOK)
+	request(http.MethodGet, "/api/products/"+product.ID+"/passport-revisions", "", learner, http.StatusForbidden)
 	request(http.MethodGet, "/api/products/"+product.ID, "", outsider, http.StatusNotFound)
 	request(http.MethodGet, "/api/generations/missing", "", learner, http.StatusNotFound)
 	request(http.MethodPost, "/api/products/"+product.ID+"/generations", `{"connection_id":"x","model":"y"}`, learner, http.StatusForbidden)

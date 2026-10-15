@@ -102,15 +102,22 @@ type Revision struct {
 	Version       int               `json:"version"`
 	SchemaVersion string            `json:"schema_version"`
 	CreatedAt     string            `json:"created_at"`
+	ApprovedBy    string            `json:"approved_by"`
+	ApprovedAt    string            `json:"approved_at"`
+	PublishedBy   string            `json:"published_by"`
+	PublishedAt   string            `json:"published_at"`
+	Published     bool              `json:"published"`
 	Content       passport.Passport `json:"content"`
 	Snapshots     []source.Snapshot `json:"snapshots"`
 }
 
 // RevisionInfo is a small history entry without the full passport payload.
 type RevisionInfo struct {
-	ID        string `json:"id"`
-	Version   int    `json:"version"`
-	CreatedAt string `json:"created_at"`
+	ID         string `json:"id"`
+	Version    int    `json:"version"`
+	CreatedAt  string `json:"created_at"`
+	ApprovedAt string `json:"approved_at"`
+	Published  bool   `json:"published"`
 }
 
 // EvidenceView contains only the source lines needed to inspect an assertion.
@@ -702,7 +709,7 @@ func (s *Service) RevisionProduct(ctx context.Context, revisionID string) (strin
 
 // History returns compact revision metadata.
 func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id,version,created_at FROM passport_revisions WHERE product_id=? ORDER BY version DESC", productID)
+	rows, err := s.DB.QueryContext(ctx, "SELECT r.id,r.version,r.created_at,r.approved_at,COALESCE(p.published_revision_id=r.id,0) FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE r.product_id=? ORDER BY r.version DESC", productID)
 	if err != nil {
 		return nil, fmt.Errorf("list passport revisions: %w", err)
 	}
@@ -710,7 +717,7 @@ func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo
 	result := make([]RevisionInfo, 0)
 	for rows.Next() {
 		var r RevisionInfo
-		if checkErr := rows.Scan(&r.ID, &r.Version, &r.CreatedAt); checkErr != nil {
+		if checkErr := rows.Scan(&r.ID, &r.Version, &r.CreatedAt, &r.ApprovedAt, &r.Published); checkErr != nil {
 			return nil, fmt.Errorf("read revision history: %w", checkErr)
 		}
 		result = append(result, r)
@@ -721,11 +728,13 @@ func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo
 	return result, nil
 }
 
-// Revision returns one draft and its exact snapshot manifest.
+// Revision returns one saved version and its exact snapshot manifest.
 func (s *Service) Revision(ctx context.Context, id string) (Revision, error) {
 	var r Revision
 	var path, hash string
-	err := s.DB.QueryRowContext(ctx, "SELECT id,product_id,run_id,version,schema_version,content_path,content_hash,created_at FROM passport_revisions WHERE id=?", id).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &hash, &r.CreatedAt)
+	err := s.DB.QueryRowContext(ctx, `SELECT r.id,r.product_id,r.run_id,r.version,r.schema_version,r.content_path,r.content_hash,r.created_at,
+ r.approved_by,r.approved_at,r.published_by,r.published_at,COALESCE(p.published_revision_id=r.id,0)
+ FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE r.id=?`, id).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &hash, &r.CreatedAt, &r.ApprovedBy, &r.ApprovedAt, &r.PublishedBy, &r.PublishedAt, &r.Published)
 	if err != nil {
 		return r, fmt.Errorf("get passport revision: %w", err)
 	}

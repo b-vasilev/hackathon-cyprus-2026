@@ -20,7 +20,13 @@ GitHub SHA + optional context
 The passport starts with product purpose and outcomes, repository relationships,
 logical architecture, end-to-end flows and technologies. Useful supporting sections
 cover data, runtime, development, operations, decisions and ownership. Missing evidence
-stays explicit. Generated revisions are drafts; they are not human approval.
+stays explicit. Generated revisions start as drafts. In Product studio, an admin
+or product lead approves a specific version, then publishes it. Approval and
+publication record the actor and time. New drafts keep the published version in
+place until another approved version is published. Publishing stays inside the
+portal's existing product access; it does not create a public link.
+Product studio is available to admins and product leads. The separate Published
+passports tab is available to all signed-in users for their assigned products.
 
 ## Run locally
 
@@ -285,8 +291,9 @@ stream when the run finishes. A stream heartbeat does not mean worker progress.
 | `/api/products`, `/{id}` | Register and inspect product sources |
 | `/api/products/{id}/generations` | Queue generation; returns 202 |
 | `/api/generations/{id}` | Stage, error, document count and token usage |
-| `/api/products/{id}/passport`, `/passport-revisions` | Latest content and revision history |
+| `/api/products/{id}/passport`, `/passport-revisions` | Published content and revision history |
 | `/api/passport-revisions/{id}`, `/{id}/evidence/{evidenceId}` | Frozen content and exact source excerpts |
+| `/api/passport-revisions/{id}/approve`, `/{id}/publish` | Lead/admin approval and publication of one version |
 
 ```text
 backend/internal/source/          GitHub catalog, pinned Git + Repomix

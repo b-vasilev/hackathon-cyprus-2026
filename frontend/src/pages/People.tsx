@@ -38,7 +38,7 @@ export function People() {
       <PageHeading
         eyebrow="Wayfinder settings"
         title="People and roles"
-        description="Admins have full access. Everyone else sees only the product spaces they were given."
+        description="Admins have full access. Everyone else sees only the products they were given."
       />
       <div className="intro-strip">
         <ShieldCheck size={19} aria-hidden="true" />

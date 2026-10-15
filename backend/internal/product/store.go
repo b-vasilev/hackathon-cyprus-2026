@@ -18,15 +18,16 @@ import (
 
 // Product contains source configuration and the latest generation pointers.
 type Product struct {
-	ID               string                     `json:"id"`
-	Name             string                     `json:"name"`
-	Sources          []source.Input             `json:"sources"`
-	CardBrandkit     *productcard.Brandkit      `json:"card_brandkit,omitempty"`
-	CardTheme        *passport.ProductCardTheme `json:"card_theme,omitempty"`
-	CreatedAt        string                     `json:"created_at"`
-	LatestRevisionID string                     `json:"latest_revision_id"`
-	LatestRunID      string                     `json:"latest_run_id"`
-	LatestRunStatus  string                     `json:"latest_run_status"`
+	ID                  string                     `json:"id"`
+	Name                string                     `json:"name"`
+	Sources             []source.Input             `json:"sources"`
+	CardBrandkit        *productcard.Brandkit      `json:"card_brandkit,omitempty"`
+	CardTheme           *passport.ProductCardTheme `json:"card_theme,omitempty"`
+	CreatedAt           string                     `json:"created_at"`
+	LatestRevisionID    string                     `json:"latest_revision_id"`
+	PublishedRevisionID string                     `json:"published_revision_id"`
+	LatestRunID         string                     `json:"latest_run_id"`
+	LatestRunStatus     string                     `json:"latest_run_status"`
 }
 
 // Input registers a product without requiring a manually written passport.
@@ -76,14 +77,15 @@ func (s Store) Create(ctx context.Context, input Input) (Product, error) {
 const selectProduct = `SELECT p.id,p.name,p.sources_json,p.created_at,
  COALESCE((SELECT id FROM passport_revisions WHERE product_id=p.id ORDER BY version DESC LIMIT 1),''),
  COALESCE((SELECT id FROM generation_runs WHERE product_id=p.id ORDER BY created_at DESC LIMIT 1),''),
- COALESCE((SELECT status FROM generation_runs WHERE product_id=p.id ORDER BY created_at DESC LIMIT 1),'') FROM products p`
+ COALESCE((SELECT status FROM generation_runs WHERE product_id=p.id ORDER BY created_at DESC LIMIT 1),''),
+ COALESCE(p.published_revision_id,'') FROM products p`
 
 type scanner interface{ Scan(...any) error }
 
 func scanProduct(row scanner) (Product, error) {
 	var p Product
 	var sources string
-	if err := row.Scan(&p.ID, &p.Name, &sources, &p.CreatedAt, &p.LatestRevisionID, &p.LatestRunID, &p.LatestRunStatus); err != nil {
+	if err := row.Scan(&p.ID, &p.Name, &sources, &p.CreatedAt, &p.LatestRevisionID, &p.LatestRunID, &p.LatestRunStatus, &p.PublishedRevisionID); err != nil {
 		return p, fmt.Errorf("read product: %w", err)
 	}
 	if strings.HasPrefix(strings.TrimSpace(sources), "[") {

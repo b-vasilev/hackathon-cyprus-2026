@@ -6,12 +6,13 @@ import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { ProductIdentity } from '../components/ProductIdentity';
 import { Badge, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import { api, date, type Product, type ProductInput } from '../lib/api';
-import { isAdmin, useMe } from '../lib/auth';
+import { canManage, isAdmin, useMe } from '../lib/auth';
 import { activeRun } from '../lib/generation';
 import { productCardTheme } from '../lib/productCardTheme';
 
 export function Products() {
-  const admin = isAdmin(useMe());
+  const me = useMe();
+  const admin = isAdmin(me);
   const client = useQueryClient();
   const [deleting, setDeleting] = useState<Product | null>(null);
   const remove = useMutation({
@@ -30,12 +31,13 @@ export function Products() {
     queryKey: ['products'],
     queryFn: ({ signal }) => api<Product[]>('/products', { signal }),
   });
+  const products = query.data?.filter((product) => canManage(me, product.id));
   return (
     <>
       <PageHeading
-        eyebrow="Product spaces"
-        title="Understanding starts here."
-        description="Turn product sources into a shared, traceable picture of what you build."
+        eyebrow="Product passports"
+        title="Product studio"
+        description="Create, review and publish product passports from your sources."
         action={
           admin && (
             <Link className="button primary" to="/products/new">
@@ -49,17 +51,17 @@ export function Products() {
         <BookOpen size={19} aria-hidden="true" />
         <p>
           A product passport connects purpose, people, domain and architecture. Every generated
-          version starts as a draft.
+          version starts as a draft. Approve a version, then publish it when it is ready.
         </p>
       </div>
       {query.isPending && <Loading />}
       {query.isError && <ErrorNotice error={query.error} />}
-      {query.data?.length === 0 && !admin && (
-        <EmptyState title="No product spaces yet">
+      {products?.length === 0 && !admin && (
+        <EmptyState title="No products yet">
           Ask an admin or a product lead to give you access to a product.
         </EmptyState>
       )}
-      {query.data?.length === 0 && admin && (
+      {products?.length === 0 && admin && (
         <EmptyState
           title="Create your first product passport"
           action={
@@ -74,7 +76,7 @@ export function Products() {
         </EmptyState>
       )}
       <div className="product-grid">
-        {query.data?.map((product) => (
+        {products?.map((product) => (
           <article
             className={`product-card${product.card_theme ? ' product-branded' : ''}`}
             style={productCardTheme(product.card_theme)}
@@ -83,9 +85,7 @@ export function Products() {
             <Link className="product-card-content" to={`/products/${product.id}`}>
               <div className="card-top">
                 <ProductIdentity name={product.name} theme={product.card_theme} />
-                <Badge>
-                  {product.latest_revision_id === '' ? 'Sources connected' : 'Draft available'}
-                </Badge>
+                <Badge>{productStatus(product)}</Badge>
               </div>
               <h2>{product.name}</h2>
               <p>
@@ -129,6 +129,13 @@ export function Products() {
       )}
     </>
   );
+}
+
+function productStatus(product: Product): string {
+  if (product.published_revision_id !== '') {
+    return 'Published';
+  }
+  return product.latest_revision_id === '' ? 'Sources connected' : 'Draft available';
 }
 
 export function NewProduct() {
@@ -187,7 +194,7 @@ export function NewProduct() {
   return (
     <>
       <Link to="/" className="back-link">
-        ← Product spaces
+        ← Product studio
       </Link>
       <PageHeading
         eyebrow="New product"

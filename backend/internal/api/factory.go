@@ -65,6 +65,14 @@ func (f *Factory) register(mux *http.ServeMux) {
 	revisionProduct := func(r *http.Request) (string, error) {
 		return f.Service.RevisionProduct(r.Context(), r.PathValue("id"))
 	}
+	mux.HandleFunc("POST /api/passport-revisions/{id}/approve", f.product(true, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.Approve(r.Context(), r.PathValue("id"), currentUser(r).ID)
+		respond(w, r, value, err)
+	}))
+	mux.HandleFunc("POST /api/passport-revisions/{id}/publish", f.product(true, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.Publish(r.Context(), r.PathValue("id"), currentUser(r).ID)
+		respond(w, r, value, err)
+	}))
 	mux.HandleFunc("GET /api/factory/status", f.signedIn(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, FactoryStatus{ConnectionsEnabled: f.Service.Connections != nil})
 	}))
@@ -97,33 +105,33 @@ func (f *Factory) register(mux *http.ServeMux) {
 		value, err := f.Service.Cancel(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("GET /api/generations/{id}/events", f.product(false, runProduct, f.generationEvents))
-	mux.HandleFunc("GET /api/generations/{id}", f.product(false, runProduct, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/generations/{id}/events", f.product(true, runProduct, f.generationEvents))
+	mux.HandleFunc("GET /api/generations/{id}", f.product(true, runProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.GetRun(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("GET /api/products/{id}/passport-revisions", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/products/{id}/passport-revisions", f.product(true, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.History(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("GET /api/passport-revisions/{id}", f.product(false, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/passport-revisions/{id}", f.product(true, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Revision(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
 	mux.HandleFunc("GET /api/products/{id}/passport", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
-		history, err := f.Service.History(r.Context(), r.PathValue("id"))
+		p, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
 		if err != nil {
 			respond(w, r, nil, err)
 			return
 		}
-		if len(history) == 0 {
+		if p.PublishedRevisionID == "" {
 			respond(w, r, nil, sql.ErrNoRows)
 			return
 		}
-		value, err := f.Service.Revision(r.Context(), history[0].ID)
+		value, err := f.Service.Revision(r.Context(), p.PublishedRevisionID)
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("GET /api/passport-revisions/{id}/evidence/{evidenceId}", f.product(false, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/passport-revisions/{id}/evidence/{evidenceId}", f.product(false, f.publishedEvidenceProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Evidence(r.Context(), r.PathValue("id"), r.PathValue("evidenceId"))
 		respond(w, r, value, err)
 	}))
@@ -344,6 +352,8 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusNotFound, "not_found", "The requested item was not found or is disabled.")
 	case errors.Is(err, generation.ErrActive):
 		problem(w, http.StatusConflict, "active_generation", err.Error())
+	case errors.Is(err, generation.ErrApprovalRequired):
+		problem(w, http.StatusConflict, "approval_required", err.Error())
 	case errors.Is(err, llmgateway.ErrInUse):
 		problem(w, http.StatusConflict, "connection_in_use", err.Error())
 	case errors.Is(err, product.ErrInvalid):

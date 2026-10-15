@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
-import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
+import { Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom';
 import { AchievementCenter } from './components/Achievements';
 import { Badge, Brand, ErrorNotice, Loading } from './components/ui';
 import { api, ApiError, type Me } from './lib/api';
-import { isAdmin, MeContext } from './lib/auth';
+import { canManage, canUseStudio, isAdmin, MeContext, useMe } from './lib/auth';
 import { AuthPage } from './pages/Auth';
 import { Connections } from './pages/Connections';
 import { FoundationAchievements, FoundationModulePage, Foundations } from './pages/Foundations';
@@ -12,6 +12,7 @@ import { NotFound } from './pages/NotFound';
 import { PassportPage } from './pages/Passport';
 import { People } from './pages/People';
 import { NewProduct, Products } from './pages/Products';
+import { PublishedPassports } from './pages/Published';
 
 function signOut() {
   void api<undefined>('/auth/logout', { method: 'POST' }).finally(() =>
@@ -21,15 +22,19 @@ function signOut() {
 
 function SignedInApp({ me }: Readonly<{ me: Me }>) {
   const admin = isAdmin(me);
+  const studio = canUseStudio(me);
   return (
     <MeContext value={me}>
       <header className="site-header">
         <div className="header-inner">
           <Brand />
           <nav aria-label="Main navigation">
-            <NavLink to="/" end>
-              Product spaces
-            </NavLink>
+            <NavLink to="/published">Published passports</NavLink>
+            {studio && (
+              <NavLink to="/" end>
+                Product studio
+              </NavLink>
+            )}
             <NavLink to="/foundations">Foundations</NavLink>
             {admin && <NavLink to="/connections">Connections</NavLink>}
             {admin && <NavLink to="/access">People</NavLink>}
@@ -48,9 +53,11 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
       </header>
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<Products />} />
+          <Route path="/" element={studio ? <Products /> : <Navigate to="/published" replace />} />
+          <Route path="/published" element={<PublishedPassports />} />
+          <Route path="/published/:id" element={<PassportPage key="published" publishedView />} />
           {admin && <Route path="/products/new" element={<NewProduct />} />}
-          <Route path="/products/:id" element={<PassportPage />} />
+          {studio && <Route path="/products/:id" element={<StudioPassport />} />}
           <Route path="/foundations" element={<Foundations />} />
           <Route path="/foundations/achievements" element={<FoundationAchievements />} />
           <Route path="/foundations/:id" element={<FoundationModulePage />} />
@@ -64,6 +71,11 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
       <AchievementCenter />
     </MeContext>
   );
+}
+
+function StudioPassport() {
+  const { id = '' } = useParams();
+  return canManage(useMe(), id) ? <PassportPage /> : <Navigate to="/" replace />;
 }
 
 export function App() {

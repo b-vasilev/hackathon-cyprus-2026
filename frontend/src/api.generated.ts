@@ -262,6 +262,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/passport-revisions/{id}/approve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['approveRevision'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/passport-revisions/{id}/evidence/{evidenceId}': {
     parameters: {
       query?: never;
@@ -272,6 +288,22 @@ export interface paths {
     get: operations['getEvidence'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/passport-revisions/{id}/publish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['publishRevision'];
     delete?: never;
     options?: never;
     head?: never;
@@ -365,7 +397,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get: operations['getLatestPassport'];
+    get: operations['getPublishedPassport'];
     put?: never;
     post?: never;
     delete?: never;
@@ -929,6 +961,7 @@ export interface components {
       };
       created_at: string;
       latest_revision_id: string;
+      published_revision_id: string;
       latest_run_id: string;
       latest_run_status: string;
     };
@@ -1064,6 +1097,11 @@ export interface components {
       version: number;
       schema_version: string;
       created_at: string;
+      approved_by: string;
+      approved_at: string;
+      published_by: string;
+      published_at: string;
+      published: boolean;
       content: {
         model: {
           title: string;
@@ -1246,6 +1284,8 @@ export interface components {
       id: string;
       version: number;
       created_at: string;
+      approved_at: string;
+      published: boolean;
     };
     RoleInput: {
       /** @description admin or user */
@@ -2076,6 +2116,37 @@ export interface operations {
       };
     };
   };
+  approveRevision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Revision'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   getEvidence: {
     parameters: {
       query?: never;
@@ -2095,6 +2166,37 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['EvidenceView'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  publishRevision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Revision'];
         };
       };
       /** @description Request failed */
@@ -2363,7 +2465,7 @@ export interface operations {
       };
     };
   };
-  getLatestPassport: {
+  getPublishedPassport: {
     parameters: {
       query?: never;
       header?: never;

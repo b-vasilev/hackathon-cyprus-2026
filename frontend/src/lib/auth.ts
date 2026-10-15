@@ -16,6 +16,10 @@ export function isAdmin(me: Me): boolean {
   return me.user.role === 'admin';
 }
 
+export function canUseStudio(me: Me): boolean {
+  return isAdmin(me) || (me.memberships ?? []).some((item) => item.role === 'lead');
+}
+
 /** Admins and product leads can generate passports and manage product access. */
 export function canManage(me: Me, productId: string): boolean {
   return (

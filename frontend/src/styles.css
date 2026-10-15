@@ -280,6 +280,23 @@ code {
 .product-card-content {
   display: block;
 }
+.published-card .product-card-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 44px;
+}
+.published-card .product-card-content h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.published-card .product-card-content > svg,
+.published-card .product-initial,
+.published-card .product-logo {
+  flex-shrink: 0;
+}
 .product-branded {
   background: var(--product-card-background, var(--of-surface));
   color: var(--product-card-ink, var(--of-ink));
@@ -1170,6 +1187,39 @@ summary {
 }
 .generation-activity p {
   margin: 0;
+}
+.passport-tabs {
+  display: flex;
+  gap: 24px;
+  margin: 24px 0;
+  border-bottom: 1px solid var(--of-border);
+}
+.passport-tabs a {
+  padding: 12px 4px;
+  color: var(--of-muted);
+  border-bottom: 2px solid transparent;
+}
+.passport-tabs a.active {
+  color: var(--of-brand);
+  border-bottom-color: var(--of-brand);
+}
+.passport-publication {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 0;
+  border-block: 1px solid var(--of-border);
+}
+.passport-publication h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.passport-publication p {
+  margin: 4px 0;
+  color: var(--of-muted);
+  font-size: 14px;
 }
 .revision-meta {
   display: flex;
