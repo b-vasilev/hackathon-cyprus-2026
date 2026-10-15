@@ -1,6 +1,5 @@
 import type { FoundationModule } from '../types';
 
-const NOT_ALLOWED = 'not allowed';
 const OLD_VERSION = 'old version';
 const PR_META = 'dependabot · 1 file changed';
 
@@ -30,73 +29,10 @@ export const releases: FoundationModule = {
           ],
         },
         {
-          type: 'scenes',
-          title: 'Which part of the version changes',
-          legend: [
-            { tone: 'neutral', label: 'Unchanged' },
-            { tone: 'brand', label: 'Goes up' },
-            { tone: 'muted', label: 'Reset to 0' },
-          ],
-          scenes: [
-            {
-              name: 'Patch',
-              summary: 'A bug fix raises the last number.',
-              description: 'Nothing breaks for users. MAJOR and MINOR stay the same.',
-              rows: [
-                {
-                  label: 'Before',
-                  blocks: [{ text: '2' }, { text: '4' }, { text: '1' }],
-                },
-                {
-                  label: 'After',
-                  blocks: [
-                    { text: '2' },
-                    { text: '4' },
-                    { text: '2', tone: 'brand', note: 'bug fixed' },
-                  ],
-                },
-              ],
-            },
-            {
-              name: 'Minor',
-              summary: 'A new feature raises the middle number.',
-              description: 'Nothing breaks for users. PATCH goes back to 0.',
-              rows: [
-                {
-                  label: 'Before',
-                  blocks: [{ text: '2' }, { text: '4' }, { text: '1' }],
-                },
-                {
-                  label: 'After',
-                  blocks: [
-                    { text: '2' },
-                    { text: '5', tone: 'brand', note: 'feature added' },
-                    { text: '0', tone: 'muted', note: 'reset' },
-                  ],
-                },
-              ],
-            },
-            {
-              name: 'Major',
-              summary: 'A breaking change raises the first number.',
-              description: 'Users may need to change their code. MINOR and PATCH go back to 0.',
-              rows: [
-                {
-                  label: 'Before',
-                  blocks: [{ text: '2' }, { text: '4' }, { text: '1' }],
-                },
-                {
-                  label: 'After',
-                  blocks: [
-                    { text: '3', tone: 'brand', note: 'breaking change' },
-                    { text: '0', tone: 'muted', note: 'reset' },
-                    { text: '0', tone: 'muted', note: 'reset' },
-                  ],
-                },
-              ],
-            },
-          ],
+          type: 'p',
+          text: 'Try it. Start from `2.4.1`, pick a kind of change and see which number goes up.',
         },
+        { type: 'semver', start: '2.4.1' },
         {
           type: 'p',
           text: 'Versions below `1.0.0` are early versions. The API is not stable yet, and any release might break things. A pre-release, a test version before the real release, looks like `3.0.0-beta.1`.',
@@ -116,61 +52,32 @@ export const releases: FoundationModule = {
           ],
         },
         {
-          type: 'scenes',
+          type: 'range',
           title: 'Which versions a range allows',
-          legend: [
-            { tone: 'brand', label: 'Allowed' },
-            { tone: 'danger', label: 'Not allowed' },
-          ],
-          scenes: [
+          ranges: [
             {
               name: '`^1.2.3`',
-              summary: 'The caret (`^`) allows minor and patch updates.',
-              description: 'Anything from `1.2.3` up to, but not including, `2.0.0`.',
-              rows: [
-                {
-                  label: 'Versions',
-                  blocks: [
-                    { text: '`1.2.3`', tone: 'brand' },
-                    { text: '`1.2.9`', tone: 'brand' },
-                    { text: '`1.7.0`', tone: 'brand' },
-                    { text: '`2.0.0`', tone: 'danger', note: NOT_ALLOWED },
-                  ],
-                },
-              ],
+              summary:
+                'The caret (`^`) allows minor and patch updates, from `1.2.3` up to, but not including, `2.0.0`.',
+              from: '1.2.3',
+              below: '2.0.0',
+              versions: ['1.2.2', '1.2.3', '1.2.9', '1.3.0', '1.9.9', '2.0.0', '2.1.0'],
             },
             {
               name: '`~1.2.3`',
-              summary: 'The tilde (`~`) allows patch updates only.',
-              description: 'Anything from `1.2.3` up to, but not including, `1.3.0`.',
-              rows: [
-                {
-                  label: 'Versions',
-                  blocks: [
-                    { text: '`1.2.3`', tone: 'brand' },
-                    { text: '`1.2.9`', tone: 'brand' },
-                    { text: '`1.3.0`', tone: 'danger', note: NOT_ALLOWED },
-                    { text: '`2.0.0`', tone: 'danger', note: NOT_ALLOWED },
-                  ],
-                },
-              ],
+              summary:
+                'The tilde (`~`) allows patch updates only, from `1.2.3` up to, but not including, `1.3.0`.',
+              from: '1.2.3',
+              below: '1.3.0',
+              versions: ['1.2.2', '1.2.3', '1.2.9', '1.3.0', '1.4.0', '2.0.0'],
             },
             {
               name: '`^0.2.3`',
-              summary: 'Below 1.0, the caret allows patch updates only.',
-              description:
-                'For `0.x` versions, a minor change may break things. So `0.3.0` is blocked.',
-              rows: [
-                {
-                  label: 'Versions',
-                  blocks: [
-                    { text: '`0.2.3`', tone: 'brand' },
-                    { text: '`0.2.8`', tone: 'brand' },
-                    { text: '`0.3.0`', tone: 'danger', note: NOT_ALLOWED },
-                    { text: '`1.0.0`', tone: 'danger', note: NOT_ALLOWED },
-                  ],
-                },
-              ],
+              summary:
+                'Below 1.0, the caret allows patch updates only, from `0.2.3` up to, but not including, `0.3.0`.',
+              from: '0.2.3',
+              below: '0.3.0',
+              versions: ['0.2.2', '0.2.3', '0.2.9', '0.3.0', '0.4.0', '1.0.0'],
             },
           ],
         },

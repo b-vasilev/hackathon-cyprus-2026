@@ -10,7 +10,14 @@ export type Block =
   // Interactive merge / rebase / squash history picture.
   | { type: 'git-history' }
   | ScenesBlock
-  | CodeToolsBlock;
+  | CodeToolsBlock
+  | IssueSimulatorBlock
+  | AnatomyBlock
+  | SemverBlock
+  | SequenceBlock
+  | RangeBlock
+  | BoundaryBlock
+  | RunsBlock;
 
 // Colour roles for diagram blocks. Each also differs in border or fill style,
 // so meaning never depends on colour alone.
@@ -47,6 +54,9 @@ export interface Scene {
 export interface ScenesBlock {
   type: 'scenes';
   title?: string;
+  // 'flow' (default) joins blocks with lines, like steps. 'stack' centres each row
+  // without lines, for counts and proportions such as the test pyramid.
+  layout?: 'flow' | 'stack';
   legend?: { tone: Tone; label: string }[];
   scenes: Scene[];
 }
@@ -175,4 +185,86 @@ export interface CodeToolsBlock {
   title?: string;
   tools: CodeTool[];
   statements: CodeStatement[];
+}
+
+// Interactive PR form: the learner edits a description and target branch and sees
+// which issues GitHub would close on merge.
+export interface IssueSimulatorBlock {
+  type: 'issue-simulator';
+  defaultBranch: string;
+  branches: string[];
+  initialText: string;
+  // One-click example descriptions.
+  examples: string[];
+}
+
+// A real artefact (version number, HTTP request, YAML…) with clickable parts.
+export interface AnatomyBlock {
+  type: 'anatomy';
+  title?: string;
+  // Text pieces in order; a piece with `part` is clickable. Use \n for new lines.
+  segments: { text: string; part?: string }[];
+  parts: { id: string; label: string; explanation: string }[];
+  large?: boolean;
+}
+
+// Pick a kind of change and see how a SemVer version number moves.
+export interface SemverBlock {
+  type: 'semver';
+  start: string;
+}
+
+// Who talks to whom, in time order. Tabs like scenes.
+export interface SequenceBlock {
+  type: 'sequence';
+  title?: string;
+  actors: string[];
+  scenes: {
+    name: string;
+    summary: string;
+    description?: string;
+    // `from === to` draws a note in that actor's column.
+    messages: { from: number; to: number; label: string; tone?: Tone }[];
+  }[];
+}
+
+// Which versions a dependency range allows, on a number line. Tabs per range.
+export interface RangeBlock {
+  type: 'range';
+  title?: string;
+  ranges: {
+    name: string;
+    summary: string;
+    // Allowed when from <= version < below.
+    from: string;
+    below: string;
+    versions: string[];
+  }[];
+}
+
+// Containers (machines, companies…) with items inside, and what can cross between them.
+export interface BoundaryBlock {
+  type: 'boundary';
+  title?: string;
+  legend?: { tone: Tone; label: string }[];
+  scenes: {
+    name: string;
+    summary: string;
+    description?: string;
+    zones: { label: string; tone?: Tone; items: { text: string; tone?: Tone; note?: string }[] }[];
+    // Shown between zone `from` and zone `from + 1`.
+    links?: { from: number; label: string; ok: boolean }[];
+  }[];
+}
+
+// A history of runs, like the list of CI runs for a branch.
+export interface RunsBlock {
+  type: 'runs';
+  title?: string;
+  scenes: {
+    name: string;
+    summary: string;
+    description?: string;
+    rows: { label: string; runs: ('pass' | 'fail')[] }[];
+  }[];
 }

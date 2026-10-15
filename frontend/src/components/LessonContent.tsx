@@ -3,6 +3,15 @@ import { CodeTools } from './CodeTools';
 import { GitHistoryDiagram } from './GitHistoryDiagram';
 import { Inline } from './Inline';
 import { SceneDiagram } from './SceneDiagram';
+import {
+  Anatomy,
+  BoundaryMap,
+  IssueSimulator,
+  RangeLine,
+  RunStrip,
+  SemverBump,
+  Sequence,
+} from './Visuals';
 import type { Block } from '../foundations/types';
 
 export function LessonBlocks({ blocks }: Readonly<{ blocks: Block[] }>) {
@@ -95,5 +104,19 @@ function LessonBlock({ block }: Readonly<{ block: Block }>) {
       return <SceneDiagram block={block} />;
     case 'code-tools':
       return <CodeTools block={block} />;
+    case 'issue-simulator':
+      return <IssueSimulator block={block} />;
+    case 'anatomy':
+      return <Anatomy block={block} />;
+    case 'semver':
+      return <SemverBump block={block} />;
+    case 'sequence':
+      return <Sequence block={block} />;
+    case 'range':
+      return <RangeLine block={block} />;
+    case 'boundary':
+      return <BoundaryMap block={block} />;
+    case 'runs':
+      return <RunStrip block={block} />;
   }
 }

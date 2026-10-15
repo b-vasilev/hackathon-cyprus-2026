@@ -1,10 +1,6 @@
 import type { FoundationModule } from '../types';
 
 const safariTitle = 'Fix Safari export button';
-const mainLabel = 'main';
-const issue87 = 'Issue #87';
-const fixes87 = '`Fixes #87`';
-const stays87 = '#87 stays open';
 const openPr = 'Open PR';
 const switchMain = '`git switch main`';
 const commitA = 'Commit A';
@@ -159,6 +155,54 @@ export const git: FoundationModule = {
         {
           type: 'p',
           text: 'Write the commit subject as an instruction, for example "Add CSV export". Do not write "added stuff". Use the body of the message to explain why you made the change. Many teams also add a type prefix at the start. This format is called Conventional Commits.',
+        },
+        {
+          type: 'anatomy',
+          title: 'A good commit message',
+          segments: [
+            { text: 'fix:', part: 'type' },
+            { text: ' ' },
+            { text: 'retry login after token expiry', part: 'subject' },
+            { text: '\n' },
+            { text: '\n', part: 'blank' },
+            {
+              text: 'Users were logged out when the access token expired\nmid-session. Refresh the token once before giving up.',
+              part: 'body',
+            },
+            { text: '\n\n' },
+            { text: 'Fixes #42', part: 'footer' },
+          ],
+          parts: [
+            {
+              id: 'type',
+              label: 'Type prefix',
+              explanation:
+                'Says what kind of change this is. `fix:` means a bug fix. The table below lists the common types.',
+            },
+            {
+              id: 'subject',
+              label: 'Subject',
+              explanation:
+                'A short summary, written as an instruction. Keep it under about 50 characters.',
+            },
+            {
+              id: 'blank',
+              label: 'Blank line',
+              explanation:
+                'An empty line separates the subject from the body. Git and GitHub use it to find where the subject ends.',
+            },
+            {
+              id: 'body',
+              label: 'Body',
+              explanation: 'Explains why you made the change. The code already shows what changed.',
+            },
+            {
+              id: 'footer',
+              label: 'Closing keyword',
+              explanation:
+                '`Fixes #42` closes issue #42 when this commit reaches the default branch.',
+            },
+          ],
         },
         {
           type: 'table',
@@ -410,87 +454,20 @@ export const git: FoundationModule = {
           text: 'GitHub understands nine keywords: `close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`.',
         },
         {
-          type: 'scenes',
-          title: 'Does the issue close?',
-          legend: [
-            { tone: 'neutral', label: 'Issue' },
-            { tone: 'brand', label: 'Works' },
-            { tone: 'strong', label: 'Merged into' },
-            { tone: 'warning', label: 'Problem' },
-            { tone: 'muted', label: 'Stays open' },
-          ],
-          scenes: [
-            {
-              name: 'Into main',
-              summary: 'A closing keyword and a merge into the default branch close the issue.',
-              rows: [
-                {
-                  label: 'Issue #87',
-                  blocks: [
-                    { text: issue87 },
-                    { text: fixes87, tone: 'brand', note: 'PR description' },
-                    { text: mainLabel, tone: 'strong', note: 'default branch' },
-                    { text: '#87 closed', tone: 'brand' },
-                  ],
-                },
-              ],
-            },
-            {
-              name: 'Into develop',
-              summary: 'GitHub ignores the keyword because `develop` is not the default branch.',
-              rows: [
-                {
-                  label: 'Issue #87',
-                  blocks: [
-                    { text: issue87 },
-                    { text: fixes87, tone: 'brand' },
-                    { text: 'develop', tone: 'warning', note: 'not the default branch' },
-                    { text: stays87, tone: 'muted' },
-                  ],
-                },
-              ],
-            },
-            {
-              name: 'Related to',
-              summary: '"Related to" only mentions the issue.',
-              rows: [
-                {
-                  label: 'Issue #87',
-                  blocks: [
-                    { text: issue87 },
-                    { text: '`Related to #87`', tone: 'warning', note: 'no closing keyword' },
-                    { text: mainLabel, tone: 'strong' },
-                    { text: stays87, tone: 'muted' },
-                  ],
-                },
-              ],
-            },
-            {
-              name: 'Two issues',
-              summary: '`Closes #86, #87` closes only #86.',
-              description:
-                'The keyword applies only to the first number. Write "Closes #86, closes #87".',
-              rows: [
-                {
-                  label: 'Issue #86',
-                  blocks: [
-                    { text: 'Issue #86' },
-                    { text: '`Closes #86`', tone: 'brand' },
-                    { text: mainLabel, tone: 'strong' },
-                    { text: '#86 closed', tone: 'brand' },
-                  ],
-                },
-                {
-                  label: 'Issue #87',
-                  blocks: [
-                    { text: issue87 },
-                    { text: '`, #87`', tone: 'warning', note: 'no keyword of its own' },
-                    { text: mainLabel, tone: 'strong' },
-                    { text: stays87, tone: 'muted' },
-                  ],
-                },
-              ],
-            },
+          type: 'p',
+          text: 'Try it. Write your own PR description and switch the target branch. See which issues GitHub would close.',
+        },
+        {
+          type: 'issue-simulator',
+          defaultBranch: 'main',
+          branches: ['main', 'develop', 'release/1.2'],
+          initialText: 'Fixes #87',
+          examples: [
+            'Fixes #87',
+            'Closes #86, #87',
+            'Closes #86, closes #87',
+            'Related to #87',
+            'Fixes octo-org/billing#7',
           ],
         },
         {

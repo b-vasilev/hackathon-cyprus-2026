@@ -2,6 +2,11 @@ import type { FoundationModule } from '../types';
 
 const NPM_BUILD = '`npm run build`';
 const CREATES_DIST = 'creates `dist/`';
+const READS_DIST = 'reads `dist/`';
+const MACHINE_A = 'Machine A: job `build`';
+const MACHINE_B = 'Machine B: job `deploy`';
+const REPO_SECRETS = 'Your repository secrets';
+const WORKFLOW_RUN = 'Workflow run';
 
 export const ciCd: FoundationModule = {
   id: 'ci-cd',
@@ -122,30 +127,100 @@ export const ciCd: FoundationModule = {
       blocks: [
         {
           type: 'p',
-          text: 'A workflow is a YAML file in `.github/workflows/`. It tells GitHub what to run and when. Here is a small but realistic one:',
+          text: 'A workflow is a YAML file in `.github/workflows/`. It tells GitHub what to run and when. Here is a small but realistic one. Click a part to see what it does.',
         },
         {
-          type: 'code',
-          code: 'name: CI\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v5\n      - uses: actions/setup-node@v5\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n\n  build:\n    needs: check\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v5\n      - run: npm ci && npm run build',
-          caption: 'Runs on every PR and every push to `main`. `build` waits for `check` to pass.',
+          type: 'anatomy',
+          title: '`.github/workflows/ci.yml`',
+          segments: [
+            { text: 'name: CI', part: 'name' },
+            { text: '\n\n' },
+            { text: 'on:\n  pull_request:\n  push:\n    branches: [main]', part: 'on' },
+            { text: '\n\n' },
+            { text: 'permissions:\n  contents: read', part: 'permissions' },
+            { text: '\n\n' },
+            { text: 'jobs:\n  check:', part: 'job' },
+            { text: '\n    ' },
+            { text: 'runs-on: ubuntu-latest', part: 'runs-on' },
+            { text: '\n    ' },
+            { text: 'steps:', part: 'steps' },
+            { text: '\n      - ' },
+            { text: 'uses: actions/checkout@v5', part: 'uses' },
+            {
+              text: '\n      - uses: actions/setup-node@v5\n        with:\n          node-version: 24\n          cache: npm\n      - ',
+            },
+            { text: 'run: npm ci', part: 'run' },
+            { text: '\n      - run: npm run lint\n      - run: npm test\n\n  build:\n    ' },
+            { text: 'needs: check', part: 'needs' },
+            {
+              text: '\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v5\n      - run: npm ci && npm run build',
+            },
+          ],
+          parts: [
+            {
+              id: 'name',
+              label: 'Workflow name',
+              explanation:
+                'The name GitHub shows in the Actions tab and next to the checks on a PR.',
+            },
+            {
+              id: 'on',
+              label: 'Events',
+              explanation:
+                'What starts the workflow. Here it runs on every PR and on every push to `main`. Other events are `schedule` and `workflow_dispatch` (a manual "Run" button).',
+            },
+            {
+              id: 'permissions',
+              label: 'Permissions',
+              explanation:
+                'What the automatic `GITHUB_TOKEN` may do. With `contents: read`, the jobs can read the code but cannot change the repo.',
+            },
+            {
+              id: 'job',
+              label: 'Job',
+              explanation:
+                '`jobs:` lists the jobs, and `check` is a job id that you choose. A job is a set of steps on one machine. Jobs run in parallel unless one `needs` another.',
+            },
+            {
+              id: 'runs-on',
+              label: 'Runner',
+              explanation:
+                'The machine the job runs on. `ubuntu-latest` is a Linux machine that GitHub hosts. Each job gets its own machine.',
+            },
+            {
+              id: 'steps',
+              label: 'Steps',
+              explanation:
+                "The steps of the job. They run in order on the same machine, so they share the job's files.",
+            },
+            {
+              id: 'uses',
+              label: 'Action step',
+              explanation:
+                '`uses:` runs an action, a reusable step that someone published. `actions/checkout` copies your repo onto the machine. `@v5` is the version.',
+            },
+            {
+              id: 'run',
+              label: 'Command step',
+              explanation:
+                '`run:` runs a shell command, like in your terminal. `npm ci` installs exactly what is in the lockfile.',
+            },
+            {
+              id: 'needs',
+              label: 'Needs',
+              explanation:
+                '`build` waits for `check` to pass. If `check` fails, `build` does not run. `needs` only sets the order. It does not move files.',
+            },
+          ],
+        },
+        {
+          type: 'p',
+          text: 'Two more terms you will see in workflow files:',
         },
         {
           type: 'table',
-          columns: ['Piece', 'What it is'],
+          columns: ['Term', 'What it is'],
           rows: [
-            [
-              '`on:`',
-              'What starts the workflow: `push`, `pull_request`, `schedule`, `workflow_dispatch` (a manual "Run" button), and others.',
-            ],
-            [
-              'Job',
-              'A set of steps on one machine. Jobs run in parallel unless one `needs` another.',
-            ],
-            [
-              'Step',
-              "Either a shell command (`run:`) or a ready-made action (`uses:`). Steps run in order and share the job's files.",
-            ],
-            ['Action', 'A reusable step that someone published, for example `actions/checkout`.'],
             [
               'Matrix',
               'Runs the same job several times with different values, for example Node 20, 22 and 24.',
@@ -160,7 +235,7 @@ export const ciCd: FoundationModule = {
           text: 'Each job runs on its own machine. A `dist/` folder built in one job does not exist in the next job. Pass it with `actions/upload-artifact` and `actions/download-artifact`, or do both steps in the same job.',
         },
         {
-          type: 'scenes',
+          type: 'boundary',
           title: 'Where the `dist/` folder exists',
           legend: [
             { tone: 'neutral', label: 'Step' },
@@ -173,13 +248,13 @@ export const ciCd: FoundationModule = {
               name: 'Steps in one job',
               summary: 'All steps run on one machine, so later steps see `dist/`.',
               description: 'Steps in the same job share files.',
-              rows: [
+              zones: [
                 {
-                  label: 'Machine A',
-                  blocks: [
+                  label: MACHINE_A,
+                  items: [
                     { text: 'Checkout' },
                     { text: NPM_BUILD, tone: 'brand', note: CREATES_DIST },
-                    { text: 'Deploy', tone: 'brand', note: 'reads `dist/`' },
+                    { text: 'Deploy', tone: 'brand', note: READS_DIST },
                   ],
                 },
               ],
@@ -188,43 +263,45 @@ export const ciCd: FoundationModule = {
               name: 'Two jobs',
               summary: 'The deploy job runs on a new machine without `dist/`.',
               description: '`needs` only sets the order. It does not move files.',
-              rows: [
+              zones: [
                 {
-                  label: 'Job build',
-                  blocks: [
+                  label: MACHINE_A,
+                  items: [
                     { text: 'Checkout' },
                     { text: NPM_BUILD, tone: 'brand', note: CREATES_DIST },
                   ],
                 },
                 {
-                  label: 'Job deploy',
-                  blocks: [
+                  label: MACHINE_B,
+                  items: [
                     { text: 'Checkout' },
                     { text: 'Deploy', tone: 'danger', note: '`dist/` missing' },
                   ],
                 },
               ],
+              links: [{ from: 0, label: '`dist/` does not move', ok: false }],
             },
             {
               name: 'Two jobs + artifact',
               summary: 'The build job uploads `dist/`, and the deploy job downloads it.',
               description: 'Artifacts are the way to pass files between jobs.',
-              rows: [
+              zones: [
                 {
-                  label: 'Job build',
-                  blocks: [
+                  label: MACHINE_A,
+                  items: [
                     { text: NPM_BUILD, tone: 'brand', note: CREATES_DIST },
                     { text: 'upload-artifact', tone: 'soft', note: 'stores `dist/`' },
                   ],
                 },
                 {
-                  label: 'Job deploy',
-                  blocks: [
+                  label: MACHINE_B,
+                  items: [
                     { text: 'download-artifact', tone: 'soft', note: 'gets `dist/`' },
-                    { text: 'Deploy', tone: 'brand', note: 'reads `dist/`' },
+                    { text: 'Deploy', tone: 'brand', note: READS_DIST },
                   ],
                 },
               ],
+              links: [{ from: 0, label: 'upload / download artifact', ok: true }],
             },
           ],
         },
@@ -268,11 +345,9 @@ export const ciCd: FoundationModule = {
           text: 'A hosted runner starts empty, so every job installs what it needs. Caching (like `cache: npm` above) keeps this fast. Sometimes a job works on a self-hosted runner and fails on a hosted one. The usual reason is that it needs a tool that someone installed by hand on the self-hosted machine.',
         },
         {
-          type: 'scenes',
+          type: 'boundary',
           title: 'What the next job finds on the machine',
           legend: [
-            { tone: 'neutral', label: 'Reused machine' },
-            { tone: 'soft', label: 'New, empty VM' },
             { tone: 'brand', label: 'Job work' },
             { tone: 'warning', label: 'Left from earlier' },
             { tone: 'muted', label: 'Removed' },
@@ -282,44 +357,38 @@ export const ciCd: FoundationModule = {
               name: 'GitHub-hosted',
               summary: 'Each job gets a new, empty VM.',
               description: 'Nothing from job 1 is left for job 2. The VM is removed after the job.',
-              rows: [
+              zones: [
                 {
-                  label: 'Job 1',
-                  blocks: [
-                    { text: 'New VM', tone: 'soft', note: 'empty' },
+                  label: 'Job 1: new VM',
+                  tone: 'soft',
+                  items: [
                     { text: 'Install + build', tone: 'brand' },
                     { text: 'VM removed', tone: 'muted' },
                   ],
                 },
                 {
-                  label: 'Job 2',
-                  blocks: [
-                    { text: 'New VM', tone: 'soft', note: 'empty' },
+                  label: 'Job 2: another new, empty VM',
+                  tone: 'soft',
+                  items: [
                     { text: 'Install + test', tone: 'brand' },
                     { text: 'VM removed', tone: 'muted' },
                   ],
                 },
               ],
+              links: [{ from: 0, label: 'nothing carried over', ok: false }],
             },
             {
               name: 'Self-hosted',
               summary: 'Both jobs run on the same machine, one after the other.',
               description:
                 'Job 2 can see files and tools from job 1. This can hide missing setup steps.',
-              rows: [
+              zones: [
                 {
-                  label: 'Job 1',
-                  blocks: [
-                    { text: 'Office server', tone: 'neutral' },
-                    { text: 'Install + build', tone: 'brand', note: 'leaves files' },
-                  ],
-                },
-                {
-                  label: 'Job 2',
-                  blocks: [
-                    { text: 'Office server', tone: 'neutral', note: 'same machine' },
+                  label: 'Office server: job 1, then job 2',
+                  items: [
+                    { text: 'Job 1: install + build', tone: 'brand', note: 'leaves files' },
                     { text: 'Old files', tone: 'warning', note: 'from job 1' },
-                    { text: 'Install + test', tone: 'brand' },
+                    { text: 'Job 2: install + test', tone: 'brand', note: 'sees the old files' },
                   ],
                 },
               ],
@@ -359,7 +428,7 @@ export const ciCd: FoundationModule = {
           text: 'A fork is a copy of a repo under another account. Anyone can fork a public repo and open a PR from the fork.',
         },
         {
-          type: 'scenes',
+          type: 'boundary',
           title: 'Which secrets a PR workflow gets',
           legend: [
             { tone: 'neutral', label: 'Trigger' },
@@ -372,31 +441,43 @@ export const ciCd: FoundationModule = {
               name: 'PR from your repo',
               summary: 'The workflow gets repo secrets and a normal `GITHUB_TOKEN`.',
               description: 'The `permissions:` block still limits what the token can do.',
-              rows: [
+              zones: [
                 {
-                  label: 'Workflow',
-                  blocks: [
+                  label: REPO_SECRETS,
+                  tone: 'brand',
+                  items: [{ text: 'API keys' }, { text: 'Passwords' }],
+                },
+                {
+                  label: WORKFLOW_RUN,
+                  items: [
                     { text: 'PR from a branch', tone: 'neutral' },
                     { text: 'Repo secrets', tone: 'brand' },
                     { text: '`GITHUB_TOKEN`', tone: 'brand', note: 'as set in `permissions:`' },
                   ],
                 },
               ],
+              links: [{ from: 0, label: 'secrets passed', ok: true }],
             },
             {
               name: 'PR from a fork',
               summary: 'The workflow gets no repo secrets and only a read-only token.',
               description: 'This stops code from strangers from reading your credentials.',
-              rows: [
+              zones: [
                 {
-                  label: 'Workflow',
-                  blocks: [
+                  label: REPO_SECRETS,
+                  tone: 'brand',
+                  items: [{ text: 'API keys' }, { text: 'Passwords' }],
+                },
+                {
+                  label: WORKFLOW_RUN,
+                  items: [
                     { text: 'PR from a fork', tone: 'neutral' },
                     { text: 'Repo secrets', tone: 'danger', note: 'not given' },
                     { text: '`GITHUB_TOKEN`', tone: 'warning', note: 'read-only' },
                   ],
                 },
               ],
+              links: [{ from: 0, label: 'no repo secrets', ok: false }],
             },
           ],
         },

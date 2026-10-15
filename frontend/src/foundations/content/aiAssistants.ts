@@ -49,61 +49,53 @@ export const aiAssistants: FoundationModule = {
           text: 'Where your code goes depends on the tool and the account you use.',
         },
         {
-          type: 'scenes',
+          type: 'boundary',
           title: 'Where your code goes',
-          legend: [
-            { tone: 'neutral', label: 'Your machine' },
-            { tone: 'brand', label: 'Approved' },
-            { tone: 'danger', label: 'Not allowed' },
-            { tone: 'warning', label: 'Risk' },
-            { tone: 'strong', label: 'Where the code ends up' },
-          ],
           scenes: [
             {
               name: 'Approved tool',
               summary: 'Your code stays under rules that the company has checked.',
               description:
                 'SecondStack keeps the data inside company infrastructure. Claude Code and Codex run with your work account.',
-              rows: [
+              zones: [
+                { label: YOUR_LAPTOP, items: [{ text: 'Your code' }, { text: 'Your prompt' }] },
                 {
-                  label: 'SecondStack',
-                  blocks: [
-                    { text: YOUR_LAPTOP },
-                    { text: 'SecondStack', tone: 'brand', note: 'single sign-on' },
-                    { text: 'Company gateway', tone: 'brand', note: "the company's LLM gateway" },
-                    { text: 'Inside company', tone: 'strong' },
-                  ],
-                },
-                {
-                  label: 'Claude, Codex',
-                  blocks: [
-                    { text: YOUR_LAPTOP },
-                    { text: 'Approved tool', tone: 'brand', note: 'work account' },
+                  label: 'Company-approved service',
+                  tone: 'brand',
+                  items: [
                     {
-                      text: 'Company agreement',
-                      tone: 'strong',
-                      note: 'terms the company checked',
+                      text: 'SecondStack',
+                      tone: 'brand',
+                      note: "behind the company's LLM gateway",
+                    },
+                    {
+                      text: 'Claude Code, Codex',
+                      tone: 'brand',
+                      note: 'work account, company agreement',
                     },
                   ],
                 },
               ],
+              links: [{ from: 0, label: 'approved tool, work account', ok: true }],
             },
             {
               name: 'Personal account',
               summary: 'Your code leaves company control.',
               description:
                 "The service's consumer terms apply. They can allow it to store your code or use it for training.",
-              rows: [
+              zones: [
+                { label: YOUR_LAPTOP, items: [{ text: 'Your code' }, { text: 'Your prompt' }] },
                 {
-                  label: 'Personal',
-                  blocks: [
-                    { text: YOUR_LAPTOP },
-                    { text: 'Personal chatbot', tone: 'danger', note: 'personal account' },
-                    { text: 'Consumer terms', tone: 'warning', note: 'may store or train on it' },
-                    { text: 'Outside company', tone: 'strong' },
+                  label: 'Personal chatbot account',
+                  tone: 'danger',
+                  items: [
+                    { text: 'Consumer terms', tone: 'warning', note: 'not checked by the company' },
+                    { text: 'May store your code', tone: 'danger' },
+                    { text: 'May train on it', tone: 'danger' },
                   ],
                 },
               ],
+              links: [{ from: 0, label: 'leaves company control', ok: false }],
             },
           ],
         },
@@ -320,6 +312,22 @@ export const aiAssistants: FoundationModule = {
       correct: [1],
       explanation:
         'One line is enough. It tells the reviewer what to look for, and you still own the change.',
+    },
+    {
+      id: 'ai-fake-data',
+      kind: 'single',
+      scenario:
+        'A function fails for one customer record from production. You want an assistant to help you debug it.',
+      prompt: 'What do you paste into the prompt?',
+      options: [
+        'The real record, because the assistant needs the exact data',
+        'The same record with fake values in the same format, like `jane.doe@example.com`',
+        'The real record, but only in an approved tool',
+        'A screenshot of the record from the production database',
+      ],
+      correct: [1],
+      explanation:
+        'Personal data of customers never goes into a prompt, also with approved tools. Fake values in the same format are enough to debug.',
     },
   ],
 };

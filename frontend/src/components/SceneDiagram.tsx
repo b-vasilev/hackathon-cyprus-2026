@@ -29,7 +29,7 @@ export function SceneDiagram({ block }: Readonly<{ block: ScenesBlock }>) {
           ))}
         </div>
       )}
-      <div className="scene-canvas">
+      <div className={`scene-canvas ${block.layout ?? 'flow'}`}>
         {scene.rows.map((row, rowIndex) => (
           // eslint-disable-next-line react/no-array-index-key -- rows are positional
           <div className="scene-row" key={`${scene.name}-${rowIndex}`}>

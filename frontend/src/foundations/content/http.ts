@@ -1,19 +1,13 @@
 import type { FoundationModule } from '../types';
 
-const LOGIN = 'Login check';
-const PERMISSION = 'Permission check';
-const DATABASE = 'Database';
-const BROWSER = 'Browser';
-const NOT_REACHED = 'not reached';
-const SERVER = 'Server';
 const BEARER = 'Bearer token';
-const FIRST = '1st request';
-const SECOND = '2nd request';
-const EACH_REQUEST = 'Each request';
-const PUT_981 = '`PUT /orders/981`';
-const DELETE_981 = '`DELETE /orders/981`';
-const POST_ORDERS = '`POST /orders`';
 const GET_981 = '`GET /orders/981`';
+const PUT_981 = '`PUT /orders/981`';
+const POST_ORDERS = '`POST /orders`';
+const AGAIN = ' again';
+const OK_200 = '`200 OK`';
+const CHECKS_OK = 'login and permission OK';
+const NOT_REACHED = 'not reached';
 
 export const http: FoundationModule = {
   id: 'http',
@@ -33,10 +27,59 @@ export const http: FoundationModule = {
           text: 'Almost every web app works in the same way. A client sends a request, and a server sends back a response. The client is the program that asks: a browser, a mobile app or another service. The request and the response are both plain text with a fixed structure.',
         },
         {
-          type: 'code',
-          code: 'POST /api/orders HTTP/1.1\nHost: shop.example.com\nAuthorization: Bearer eyJhbGciOi...\nContent-Type: application/json\n\n{ "productId": 42, "quantity": 2 }',
-          caption:
-            'A request. First the method and the path. Then the headers, then an empty line, then the body.',
+          type: 'anatomy',
+          title: 'A request',
+          segments: [
+            { text: 'POST', part: 'method' },
+            { text: ' ' },
+            { text: '/api/orders', part: 'path' },
+            { text: ' HTTP/1.1\n' },
+            { text: 'Host: shop.example.com', part: 'headers' },
+            { text: '\n' },
+            { text: 'Authorization: Bearer eyJhbGciOi...', part: 'auth' },
+            { text: '\n' },
+            { text: 'Content-Type: application/json', part: 'headers' },
+            { text: '\n' },
+            { text: '\n', part: 'empty' },
+            { text: '{ "productId": 42, "quantity": 2 }', part: 'body' },
+          ],
+          parts: [
+            {
+              id: 'method',
+              label: 'Method',
+              explanation:
+                'What you want to do. `POST` means "create something" or "start an action".',
+            },
+            {
+              id: 'path',
+              label: 'Path',
+              explanation:
+                'Which thing on the server the request is about. Here it is the list of orders.',
+            },
+            {
+              id: 'headers',
+              label: 'Headers',
+              explanation:
+                'Extra information about the request, one `Name: value` per line. `Host` names the server. `Content-Type` says that the body is JSON.',
+            },
+            {
+              id: 'auth',
+              label: 'Authorization',
+              explanation:
+                'A header that says who is calling. Here it carries a token. The lesson on authentication explains this.',
+            },
+            {
+              id: 'empty',
+              label: 'Empty line',
+              explanation: 'An empty line ends the headers. Everything after it is the body.',
+            },
+            {
+              id: 'body',
+              label: 'Body',
+              explanation:
+                'The data you send. Here it is JSON: the product and how many you want. A `GET` request usually has no body.',
+            },
+          ],
         },
         {
           type: 'code',
@@ -63,105 +106,60 @@ export const http: FoundationModule = {
           text: '"Safe to repeat" has a name: idempotent. A request is idempotent when sending it twice gives the same result as sending it once. This matters when a request times out and the client sends it again. This is called a retry. Retrying a `PUT` does no harm. Retrying a `POST` can charge a card twice. For this reason, payment APIs often ask for an idempotency key.',
         },
         {
-          type: 'scenes',
+          type: 'sequence',
           title: 'What happens when you send it twice',
-          legend: [
-            { tone: 'brand', label: 'The request' },
-            { tone: 'neutral', label: 'Unaffected' },
-            { tone: 'soft', label: 'Data changed' },
-            { tone: 'strong', label: 'Same result as before' },
-            { tone: 'danger', label: 'Problem' },
-          ],
+          actors: ['Client', 'Server', 'Database'],
           scenes: [
             {
               name: 'GET',
               summary: 'A `GET` only reads, so two requests give the same result.',
               description: 'The data does not change at all.',
-              rows: [
-                {
-                  label: FIRST,
-                  blocks: [
-                    { text: GET_981, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Order 981 read', note: 'data unchanged' },
-                  ],
-                },
-                {
-                  label: SECOND,
-                  blocks: [
-                    { text: GET_981, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Same order back', tone: 'strong' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: GET_981 },
+                { from: 2, to: 2, label: 'reads order 981' },
+                { from: 1, to: 0, label: OK_200, tone: 'brand' },
+                { from: 0, to: 1, label: GET_981 + AGAIN },
+                { from: 2, to: 2, label: 'order 981 unchanged' },
+                { from: 1, to: 0, label: '`200 OK`, same order', tone: 'brand' },
               ],
             },
             {
               name: 'POST',
               summary: 'Each `POST` creates something new, so a retry makes a second order.',
               description: 'This is why payment APIs often ask for an idempotency key.',
-              rows: [
-                {
-                  label: FIRST,
-                  blocks: [
-                    { text: POST_ORDERS, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Order 981 created', tone: 'soft' },
-                  ],
-                },
-                {
-                  label: SECOND,
-                  blocks: [
-                    { text: POST_ORDERS, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Order 982 created', tone: 'danger', note: 'a second order' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: POST_ORDERS },
+                { from: 2, to: 2, label: 'orders: 1' },
+                { from: 1, to: 0, label: '`201 Created`, order 981', tone: 'brand' },
+                { from: 0, to: 1, label: POST_ORDERS + AGAIN },
+                { from: 2, to: 2, label: 'orders: 2', tone: 'danger' },
+                { from: 1, to: 0, label: '`201 Created`, order 982', tone: 'warning' },
               ],
             },
             {
               name: 'PUT',
               summary: 'A `PUT` replaces the order with the same data, so a retry changes nothing.',
-              rows: [
-                {
-                  label: FIRST,
-                  blocks: [
-                    { text: PUT_981, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Order 981 replaced', tone: 'soft' },
-                  ],
-                },
-                {
-                  label: SECOND,
-                  blocks: [
-                    { text: PUT_981, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Same order 981', tone: 'strong', note: 'no change' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: PUT_981 },
+                { from: 2, to: 2, label: 'order 981 replaced' },
+                { from: 1, to: 0, label: OK_200, tone: 'brand' },
+                { from: 0, to: 1, label: PUT_981 + AGAIN },
+                { from: 2, to: 2, label: 'order 981 unchanged' },
+                { from: 1, to: 0, label: OK_200, tone: 'brand' },
               ],
             },
             {
               name: 'DELETE',
               summary: 'After the first `DELETE`, the order stays deleted.',
-              description: 'The second request finds nothing more to delete.',
-              rows: [
-                {
-                  label: FIRST,
-                  blocks: [
-                    { text: DELETE_981, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Order 981 deleted', tone: 'soft' },
-                  ],
-                },
-                {
-                  label: SECOND,
-                  blocks: [
-                    { text: DELETE_981, tone: 'brand' },
-                    { text: SERVER },
-                    { text: 'Still deleted', tone: 'strong', note: 'no change' },
-                  ],
-                },
+              description:
+                'The second response can be different, often `404`. The data ends up the same.',
+              messages: [
+                { from: 0, to: 1, label: '`DELETE /orders/981`' },
+                { from: 2, to: 2, label: 'order 981 deleted' },
+                { from: 1, to: 0, label: '`204 No Content`', tone: 'brand' },
+                { from: 0, to: 1, label: '`DELETE /orders/981` again' },
+                { from: 2, to: 2, label: 'still deleted' },
+                { from: 1, to: 0, label: '`204` or `404`', tone: 'brand' },
               ],
             },
           ],
@@ -188,48 +186,30 @@ export const http: FoundationModule = {
           text: 'A request passes through several checks on the server. The status code often tells you which check stopped it.',
         },
         {
-          type: 'scenes',
+          type: 'sequence',
           title: 'Where the request stops',
-          legend: [
-            { tone: 'brand', label: 'Passed' },
-            { tone: 'danger', label: 'Stopped here' },
-            { tone: 'muted', label: 'Not reached' },
-            { tone: 'strong', label: 'Status code sent back' },
-          ],
+          actors: ['Browser', 'Server', 'Database'],
           scenes: [
             {
               name: '200 OK',
-              summary: 'The request passes every step and the server sends the data back.',
-              rows: [
-                {
-                  label: 'Request',
-                  blocks: [
-                    { text: BROWSER, tone: 'brand' },
-                    { text: 'API', tone: 'brand' },
-                    { text: LOGIN, tone: 'brand' },
-                    { text: PERMISSION, tone: 'brand' },
-                    { text: DATABASE, tone: 'brand' },
-                    { text: '`200 OK`', tone: 'strong' },
-                  ],
-                },
+              summary: 'The request passes every check and the server sends the data back.',
+              messages: [
+                { from: 0, to: 1, label: GET_981 },
+                { from: 1, to: 1, label: CHECKS_OK, tone: 'brand' },
+                { from: 1, to: 2, label: 'find order 981' },
+                { from: 2, to: 1, label: 'order 981' },
+                { from: 1, to: 0, label: OK_200, tone: 'brand' },
               ],
             },
             {
               name: '401',
               summary: 'The server does not know who you are, so it stops at the login check.',
               description: 'Logging in again usually fixes this.',
-              rows: [
-                {
-                  label: 'Request',
-                  blocks: [
-                    { text: BROWSER, tone: 'brand' },
-                    { text: 'API', tone: 'brand' },
-                    { text: LOGIN, tone: 'danger', note: 'no token, or it expired' },
-                    { text: PERMISSION, tone: 'muted', note: NOT_REACHED },
-                    { text: DATABASE, tone: 'muted', note: NOT_REACHED },
-                    { text: '`401 Unauthorized`', tone: 'strong' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: GET_981 },
+                { from: 1, to: 1, label: 'checks login: no token', tone: 'danger' },
+                { from: 2, to: 2, label: NOT_REACHED, tone: 'muted' },
+                { from: 1, to: 0, label: '`401 Unauthorized`', tone: 'danger' },
               ],
             },
             {
@@ -237,54 +217,35 @@ export const http: FoundationModule = {
               summary: 'The server knows who you are, but you are not allowed to do this.',
               description:
                 'Logging in again does not help. Check the role or permissions of the user.',
-              rows: [
-                {
-                  label: 'Request',
-                  blocks: [
-                    { text: BROWSER, tone: 'brand' },
-                    { text: 'API', tone: 'brand' },
-                    { text: LOGIN, tone: 'brand', note: 'user is known' },
-                    { text: PERMISSION, tone: 'danger', note: 'missing permission' },
-                    { text: DATABASE, tone: 'muted', note: NOT_REACHED },
-                    { text: '`403 Forbidden`', tone: 'strong' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: GET_981 },
+                { from: 1, to: 1, label: 'checks login: user is known', tone: 'brand' },
+                { from: 1, to: 1, label: 'checks permission: missing', tone: 'danger' },
+                { from: 2, to: 2, label: NOT_REACHED, tone: 'muted' },
+                { from: 1, to: 0, label: '`403 Forbidden`', tone: 'danger' },
               ],
             },
             {
               name: '404',
               summary: 'All checks pass, but there is nothing at this URL.',
               description: 'The path or the ID is wrong. Here, order 999 does not exist.',
-              rows: [
-                {
-                  label: 'Request',
-                  blocks: [
-                    { text: BROWSER, tone: 'brand' },
-                    { text: 'API', tone: 'brand' },
-                    { text: LOGIN, tone: 'brand' },
-                    { text: PERMISSION, tone: 'brand' },
-                    { text: DATABASE, tone: 'danger', note: 'no order 999' },
-                    { text: '`404 Not Found`', tone: 'strong' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: '`GET /orders/999`' },
+                { from: 1, to: 1, label: CHECKS_OK, tone: 'brand' },
+                { from: 1, to: 2, label: 'find order 999' },
+                { from: 2, to: 1, label: 'nothing found', tone: 'warning' },
+                { from: 1, to: 0, label: '`404 Not Found`', tone: 'danger' },
               ],
             },
             {
               name: '500',
               summary: 'The request was fine, but the server crashed while it worked on it.',
               description: 'This is a bug on the server. Check the server logs.',
-              rows: [
-                {
-                  label: 'Request',
-                  blocks: [
-                    { text: BROWSER, tone: 'brand' },
-                    { text: 'API', tone: 'brand' },
-                    { text: LOGIN, tone: 'brand' },
-                    { text: PERMISSION, tone: 'brand' },
-                    { text: DATABASE, tone: 'danger', note: 'server code throws an error' },
-                    { text: '`500`', tone: 'strong', note: 'Internal Server Error' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: GET_981 },
+                { from: 1, to: 1, label: CHECKS_OK, tone: 'brand' },
+                { from: 1, to: 1, label: 'server code throws an error', tone: 'danger' },
+                { from: 1, to: 0, label: '`500 Internal Server Error`', tone: 'danger' },
               ],
             },
           ],
@@ -429,37 +390,20 @@ export const http: FoundationModule = {
           text: 'A cookie is a small piece of data that the browser stores and sends back to the server. A JWT (JSON Web Token) is a token that holds data about the user in an encoded form.',
         },
         {
-          type: 'scenes',
+          type: 'sequence',
           title: 'What the client sends each time',
-          legend: [
-            { tone: 'neutral', label: 'Client or server' },
-            { tone: 'soft', label: 'Given out once' },
-            { tone: 'brand', label: 'Sent with each request' },
-            { tone: 'strong', label: 'Server knows the caller' },
-          ],
+          actors: ['Client', 'Server'],
           scenes: [
             {
               name: 'Session cookie',
               summary: 'You log in once, and the browser then sends the cookie with every request.',
-              rows: [
-                {
-                  label: 'Log in',
-                  blocks: [
-                    { text: BROWSER },
-                    { text: 'Name + password' },
-                    { text: SERVER },
-                    { text: 'Sets a cookie', tone: 'soft' },
-                  ],
-                },
-                {
-                  label: EACH_REQUEST,
-                  blocks: [
-                    { text: BROWSER },
-                    { text: 'Cookie', tone: 'brand', note: 'the browser adds it' },
-                    { text: SERVER },
-                    { text: 'Finds your session', tone: 'strong' },
-                  ],
-                },
+              description: 'Here the client is a browser. It adds the cookie by itself.',
+              messages: [
+                { from: 0, to: 1, label: 'log in: name + password' },
+                { from: 1, to: 1, label: 'creates a session' },
+                { from: 1, to: 0, label: '`Set-Cookie: session=…`', tone: 'soft' },
+                { from: 0, to: 1, label: 'next request + `Cookie`', tone: 'brand' },
+                { from: 1, to: 1, label: 'finds your session', tone: 'brand' },
               ],
             },
             {
@@ -467,41 +411,24 @@ export const http: FoundationModule = {
               summary: 'The client gets a token and puts it in the `Authorization` header.',
               description:
                 'The token is often a JWT. It expires after minutes or hours, and then the server answers `401`.',
-              rows: [
-                {
-                  label: 'Log in',
-                  blocks: [
-                    { text: 'App' },
-                    { text: 'Log in' },
-                    { text: SERVER },
-                    { text: 'Gives a token', tone: 'soft', note: 'often a JWT' },
-                  ],
-                },
-                {
-                  label: EACH_REQUEST,
-                  blocks: [
-                    { text: 'App' },
-                    { text: BEARER, tone: 'brand', note: '`Authorization` header' },
-                    { text: SERVER },
-                    { text: 'Checks the token', tone: 'strong' },
-                  ],
-                },
+              messages: [
+                { from: 0, to: 1, label: 'log in' },
+                { from: 1, to: 0, label: 'token, often a JWT', tone: 'soft' },
+                { from: 0, to: 1, label: '`Authorization: Bearer …`', tone: 'brand' },
+                { from: 1, to: 1, label: 'checks the token', tone: 'brand' },
+                { from: 1, to: 0, label: OK_200 },
               ],
             },
             {
               name: 'API key',
               summary: 'A server sends the same secret key in a header with every request.',
-              description: 'The key identifies an app, and not a person.',
-              rows: [
-                {
-                  label: EACH_REQUEST,
-                  blocks: [
-                    { text: 'Your server' },
-                    { text: 'API key', tone: 'brand', note: 'long secret in a header' },
-                    { text: 'Other server' },
-                    { text: 'Knows the app', tone: 'strong' },
-                  ],
-                },
+              description:
+                'There is no login step. The key identifies an app, and not a person. The header name depends on the API.',
+              messages: [
+                { from: 0, to: 1, label: 'request + `X-API-Key: …`', tone: 'brand' },
+                { from: 1, to: 1, label: 'checks the key: knows the app', tone: 'brand' },
+                { from: 1, to: 0, label: OK_200 },
+                { from: 0, to: 1, label: 'next request + same key', tone: 'brand' },
               ],
             },
           ],

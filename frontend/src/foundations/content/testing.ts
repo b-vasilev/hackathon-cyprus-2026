@@ -1,4 +1,13 @@
-import type { FoundationModule } from '../types';
+import type { FoundationModule, SceneBlock, Tone } from '../types';
+
+// A row of identical test blocks for the pyramid picture.
+const tests = (count: number, text: string, tone: Tone): SceneBlock[] =>
+  Array.from({ length: count }, () => ({ text, tone }));
+
+// Run history for the CI runs picture: '.' is a passed run, 'x' a failed one.
+const history = (pattern: string): ('pass' | 'fail')[] =>
+  Array.from(pattern, (mark) => (mark === 'x' ? 'fail' : 'pass'));
+const ALL_PASS = history('..........');
 
 // Repeated diagram labels.
 const SYSTEM = 'System';
@@ -10,13 +19,9 @@ const DATABASE = 'Database';
 const PAYMENT = 'Payment provider';
 const NOT_USED = 'not used';
 const TESTED = 'tested';
-const CI_RUNS = 'CI runs';
-const RUN_1 = 'Run 1';
-const RUN_2 = 'Run 2';
-const RUN_3 = 'Run 3';
-const RUN_4 = 'Run 4';
-const PASS = 'pass';
-const SAME_CODE = 'same code';
+const CHECKOUT_SPEC = '`checkout.spec.ts`';
+const CART_SPEC = '`cart.spec.ts`';
+const LOGIN_SPEC = '`login.spec.ts`';
 const REFACTOR = 'Refactor';
 const TEST = 'Test';
 
@@ -135,75 +140,36 @@ export const testing: FoundationModule = {
         },
         {
           type: 'scenes',
-          title: 'How many tests at each level',
+          title: 'Same number of tests, different mix',
+          layout: 'stack',
           legend: [
-            { tone: 'brand', label: 'Test' },
-            { tone: 'warning', label: 'Slow test' },
+            { tone: 'warning', label: 'Slow: end-to-end' },
+            { tone: 'soft', label: 'Medium: integration' },
+            { tone: 'brand', label: 'Fast: unit' },
           ],
           scenes: [
             {
-              name: 'Pyramid',
-              summary: 'Many fast unit tests, and a few end-to-end tests for key journeys.',
-              description: 'Most failures point to one small part, so they are quick to fix.',
+              name: 'Good: pyramid',
+              summary:
+                '14 tests. Most of them are fast unit tests, and only 2 are slow end-to-end tests.',
+              description:
+                'The whole test run is fast. When a test fails, it points to one small part of the code, so the problem is easy to find.',
               rows: [
-                {
-                  label: E2E,
-                  blocks: [
-                    { text: 'Sign up', tone: 'warning' },
-                    { text: 'Pay', tone: 'warning' },
-                    { text: 'Export', tone: 'warning' },
-                  ],
-                },
-                {
-                  label: 'Integration',
-                  blocks: [
-                    { text: 'API + DB', tone: 'brand' },
-                    { text: 'API + DB', tone: 'brand' },
-                    { text: 'API + DB', tone: 'brand' },
-                    { text: 'API + DB', tone: 'brand' },
-                  ],
-                },
-                {
-                  label: 'Unit',
-                  blocks: [
-                    { text: 'Unit', tone: 'brand' },
-                    { text: 'Unit', tone: 'brand' },
-                    { text: 'Unit', tone: 'brand' },
-                    { text: 'Unit', tone: 'brand' },
-                    { text: 'Unit', tone: 'brand' },
-                    { text: 'Unit', tone: 'brand' },
-                  ],
-                },
+                { label: E2E, blocks: tests(2, 'E2E', 'warning') },
+                { label: 'Integration', blocks: tests(4, 'Int.', 'soft') },
+                { label: 'Unit', blocks: tests(8, 'Unit', 'brand') },
               ],
             },
             {
-              name: 'Upside down',
-              summary: 'Mostly end-to-end tests, and few unit tests.',
+              name: 'Bad: upside down',
+              summary:
+                'Also 14 tests. But now 8 of them are slow end-to-end tests, and only 2 are fast unit tests.',
               description:
-                'The test run is slow. When a test fails, it is hard to find which part is wrong.',
+                'Each end-to-end test goes through the whole app, so the test run takes much longer. When one fails, many parts could be the cause.',
               rows: [
-                {
-                  label: E2E,
-                  blocks: [
-                    { text: E2E, tone: 'warning' },
-                    { text: E2E, tone: 'warning' },
-                    { text: E2E, tone: 'warning' },
-                    { text: E2E, tone: 'warning' },
-                    { text: E2E, tone: 'warning' },
-                    { text: E2E, tone: 'warning' },
-                  ],
-                },
-                {
-                  label: 'Integration',
-                  blocks: [
-                    { text: 'API + DB', tone: 'brand' },
-                    { text: 'API + DB', tone: 'brand' },
-                  ],
-                },
-                {
-                  label: 'Unit',
-                  blocks: [{ text: 'Unit', tone: 'brand' }],
-                },
+                { label: E2E, blocks: tests(8, 'E2E', 'warning') },
+                { label: 'Integration', blocks: tests(4, 'Int.', 'soft') },
+                { label: 'Unit', blocks: tests(2, 'Unit', 'brand') },
               ],
             },
           ],
@@ -305,60 +271,38 @@ export const testing: FoundationModule = {
           ],
         },
         {
-          type: 'scenes',
-          title: 'Several CI runs of the same code',
-          legend: [
-            { tone: 'brand', label: 'Passed' },
-            { tone: 'danger', label: 'Failed' },
-            { tone: 'neutral', label: 'Code change' },
-          ],
+          type: 'runs',
+          title: 'Ten CI runs of each test',
           scenes: [
             {
               name: 'Stable test',
               summary: 'Same code, same result, every time.',
               rows: [
-                {
-                  label: CI_RUNS,
-                  blocks: [
-                    { text: RUN_1, tone: 'brand', note: PASS },
-                    { text: RUN_2, tone: 'brand', note: PASS },
-                    { text: RUN_3, tone: 'brand', note: PASS },
-                    { text: RUN_4, tone: 'brand', note: PASS },
-                  ],
-                },
+                { label: CHECKOUT_SPEC, runs: ALL_PASS },
+                { label: CART_SPEC, runs: ALL_PASS },
+                { label: LOGIN_SPEC, runs: ALL_PASS },
               ],
             },
             {
               name: 'Flaky test',
-              summary: 'Same code, but one run fails.',
+              summary: '`checkout.spec.ts` fails in runs 3 and 8, with no code change.',
               description:
                 'The cause is outside your change: time, test order, network, async work or random data.',
               rows: [
-                {
-                  label: CI_RUNS,
-                  blocks: [
-                    { text: RUN_1, tone: 'brand', note: PASS },
-                    { text: RUN_2, tone: 'brand', note: PASS },
-                    { text: RUN_3, tone: 'danger', note: `fail, ${SAME_CODE}` },
-                    { text: RUN_4, tone: 'brand', note: `pass, ${SAME_CODE}` },
-                  ],
-                },
+                { label: CHECKOUT_SPEC, runs: history('..x....x..') },
+                { label: CART_SPEC, runs: ALL_PASS },
+                { label: LOGIN_SPEC, runs: ALL_PASS },
               ],
             },
             {
               name: 'Real failure',
-              summary: 'After a code change, the test fails every time.',
-              description: 'This is a real bug in the change. Fix the code.',
+              summary: '`cart.spec.ts` passes in runs 1 to 5, then fails in every run after that.',
+              description:
+                'A code change merged before run 6 broke it. This is a real bug, so fix the code.',
               rows: [
-                {
-                  label: CI_RUNS,
-                  blocks: [
-                    { text: RUN_1, tone: 'brand', note: PASS },
-                    { text: 'New commit', note: 'code changed' },
-                    { text: RUN_2, tone: 'danger', note: 'fail' },
-                    { text: RUN_3, tone: 'danger', note: 'fail again' },
-                  ],
-                },
+                { label: CHECKOUT_SPEC, runs: ALL_PASS },
+                { label: CART_SPEC, runs: history('.....xxxxx') },
+                { label: LOGIN_SPEC, runs: ALL_PASS },
               ],
             },
           ],
