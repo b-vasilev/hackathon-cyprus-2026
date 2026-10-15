@@ -36,6 +36,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/generations/{id}/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description SSE snapshot and update events contain a Run with events after Last-Event-ID. IDs are ordered and durable. Reconnects replay missed events. Terminal snapshots close the stream. */
+    get: operations['streamGeneration'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/llm-connections': {
     parameters: {
       query?: never;
@@ -292,6 +309,7 @@ export interface components {
               id: string;
               output_mode: string;
               max_output_tokens: number;
+              reasoning_effort: string;
             }[];
         timeout_seconds: number;
         max_concurrent: number;
@@ -329,6 +347,7 @@ export interface components {
             id: string;
             output_mode: string;
             max_output_tokens: number;
+            reasoning_effort: string;
           }[];
       timeout_seconds: number;
       max_concurrent: number;
@@ -364,6 +383,7 @@ export interface components {
             id: string;
             output_mode: string;
             max_output_tokens: number;
+            reasoning_effort: string;
           }[];
       timeout_seconds?: number;
       max_concurrent?: number;
@@ -397,6 +417,13 @@ export interface components {
     FactoryStatus: {
       connections_enabled: boolean;
     };
+    GenerationEvent: {
+      id: number;
+      type: string;
+      stage: string;
+      message: string;
+      created_at: string;
+    };
     GenerationInput: {
       connection_id: string;
       model: string;
@@ -409,6 +436,7 @@ export interface components {
       id: string;
       output_mode: string;
       max_output_tokens: number;
+      reasoning_effort: string;
     };
     Parameter: {
       name: string;
@@ -783,10 +811,19 @@ export interface components {
       error_code: string;
       error_message: string;
       created_at: string;
+      started_at: string;
+      stage_started_at: string;
       finished_at: string;
       document_count: number;
       input_tokens: number;
       output_tokens: number;
+      events: {
+        id: number;
+        type: string;
+        stage: string;
+        message: string;
+        created_at: string;
+      }[];
     };
     Scenario: {
       id: string;
@@ -880,6 +917,42 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Run'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  streamGeneration: {
+    parameters: {
+      query?: {
+        /** @description Replay cursor when creating a new EventSource. Last-Event-ID takes precedence on automatic reconnect. */
+        after?: number;
+      };
+      header?: {
+        'Last-Event-ID'?: number;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Generation event stream */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/event-stream': string;
         };
       };
       /** @description Request failed */

@@ -27,7 +27,9 @@ function defaultConfig(): ConnectionConfig {
     secret: '',
     headers: [],
     query_params: [],
-    models: [{ id: '', output_mode: 'json_schema', max_output_tokens: 12_000 }],
+    models: [
+      { id: '', output_mode: 'json_schema', max_output_tokens: 12_000, reasoning_effort: '' },
+    ],
     timeout_seconds: 180,
     max_concurrent: 2,
     quota_group: '',
@@ -236,7 +238,7 @@ function ConnectionEditor({
   function addModel() {
     set('models', [
       ...(config.models ?? []),
-      { id: '', output_mode: 'json_schema', max_output_tokens: 12_000 },
+      { id: '', output_mode: 'json_schema', max_output_tokens: 12_000, reasoning_effort: '' },
     ]);
     setModelKeys((keys) => [...keys, crypto.randomUUID()]);
   }
@@ -428,6 +430,20 @@ function ConnectionEditor({
                 />
               </label>
             </div>
+            {config.protocol !== 'anthropic_messages' && (
+              <label>
+                Reasoning effort
+                <select
+                  value={item.reasoning_effort}
+                  onChange={(event) => model(index, { reasoning_effort: event.target.value })}
+                >
+                  <option value="">Provider default</option>
+                  <option value="low">Low (faster)</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+            )}
             {(config.models?.length ?? 0) > 1 && (
               <button
                 type="button"

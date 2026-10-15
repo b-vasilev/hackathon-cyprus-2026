@@ -47,7 +47,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 		}
 	}
 	client := &llm.Client{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8)}
-	collector := &source.Collector{WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin, GitHubToken: cfg.GitHubToken, MaxBytes: 300000, MaxFiles: 120}
+	collector := &source.Collector{WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin, GitHubToken: cfg.GitHubToken, MaxBytes: 80000, MaxFiles: 40, CacheScope: generation.PromptVersion}
 	factory := generation.New(database, connections, client, collector, logger)
 	workerCtx, stopWorker := context.WithCancel(ctx)
 	workerDone := make(chan struct{})

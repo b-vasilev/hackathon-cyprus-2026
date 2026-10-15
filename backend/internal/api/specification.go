@@ -15,7 +15,11 @@ import (
 )
 
 // Specification builds OpenAPI from the same Go contracts used by handlers and LLM generation.
-const methodGet = "get"
+const (
+	methodGet     = "get"
+	schemaTypeKey = "type"
+	schemaKey     = "schema"
+)
 
 func Specification() ([]byte, error) {
 	var spec map[string]any
@@ -26,7 +30,8 @@ func Specification() ([]byte, error) {
 		"Connection": passport.Schema[llmgateway.Connection], "ConnectionConfig": passport.Schema[llmgateway.Config], "Model": passport.Schema[llmgateway.Model], "Parameter": passport.Schema[llmgateway.Parameter],
 		"Product": passport.Schema[product.Product], "ProductInput": passport.Schema[product.Input], "SourceInput": passport.Schema[source.Input],
 		"GenerationInput": passport.Schema[generation.Input], "Run": passport.Schema[generation.Run], "Revision": passport.Schema[generation.Revision], "RevisionInfo": passport.Schema[generation.RevisionInfo], "EvidenceView": passport.Schema[generation.EvidenceView],
-		"Passport": passport.Schema[passport.Passport], "ProductModel": passport.Schema[passport.Model], "ProductObject": passport.Schema[passport.Object], "Claim": passport.Schema[passport.Claim], "Evidence": passport.Schema[passport.Evidence], "Relation": passport.Schema[passport.Relation], "Scenario": passport.Schema[passport.Scenario], "Section": passport.Schema[passport.Section], "Diagram": passport.Schema[passport.Diagram],
+		"GenerationEvent": passport.Schema[generation.Event],
+		"Passport":        passport.Schema[passport.Passport], "ProductModel": passport.Schema[passport.Model], "ProductObject": passport.Schema[passport.Object], "Claim": passport.Schema[passport.Claim], "Evidence": passport.Schema[passport.Evidence], "Relation": passport.Schema[passport.Relation], "Scenario": passport.Schema[passport.Scenario], "Section": passport.Schema[passport.Section], "Diagram": passport.Schema[passport.Diagram],
 		"Problem": passport.Schema[Problem], "Probe": passport.Schema[Probe], "ProbeResult": passport.Schema[ProbeResult], "FactoryStatus": passport.Schema[FactoryStatus],
 	}
 	components := spec["components"].(map[string]any)
@@ -37,6 +42,11 @@ func Specification() ([]byte, error) {
 			return nil, err
 		}
 		schemas[name] = schema
+		if name == "Run" {
+			// GetRun always returns an empty array when no events exist.
+			schema.Properties["events"].Type = "array"
+			schema.Properties["events"].Types = nil
+		}
 	}
 	patch, err := passport.Schema[llmgateway.Config]()
 	if err != nil {
@@ -61,6 +71,7 @@ func Specification() ([]byte, error) {
 		{methodGet, "/api/products/{id}", "getProduct", "", "Product", 200, false},
 		{"post", "/api/products/{id}/generations", "startGeneration", "GenerationInput", "Run", 202, false},
 		{methodGet, "/api/generations/{id}", "getGeneration", "", "Run", 200, false},
+		{methodGet, "/api/generations/{id}/events", "streamGeneration", "", "Run", 200, false},
 		{methodGet, "/api/products/{id}/passport", "getLatestPassport", "", "Revision", 200, false},
 		{methodGet, "/api/products/{id}/passport-revisions", "listRevisions", "", "RevisionInfo", 200, true},
 		{methodGet, "/api/passport-revisions/{id}", "getRevision", "", "Revision", 200, false},
@@ -68,20 +79,30 @@ func Specification() ([]byte, error) {
 	} {
 		output := map[string]any{"$ref": "#/components/schemas/" + route.output}
 		if route.array {
-			output = map[string]any{"type": "array", "items": output}
+			output = map[string]any{schemaTypeKey: "array", "items": output}
 		}
-		operation := map[string]any{"operationId": route.id, "responses": map[string]any{strconv.Itoa(route.status): map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{"schema": output}}}, "default": map[string]any{"description": "Request failed", "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/Problem"}}}}}}
+		operation := map[string]any{"operationId": route.id, "responses": map[string]any{strconv.Itoa(route.status): map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{schemaKey: output}}}, "default": map[string]any{"description": "Request failed", "content": map[string]any{"application/json": map[string]any{schemaKey: map[string]any{"$ref": "#/components/schemas/Problem"}}}}}}
+		if route.id == "streamGeneration" {
+			operation["description"] = "SSE snapshot and update events contain a Run with events after Last-Event-ID. IDs are ordered and durable. Reconnects replay missed events. Terminal snapshots close the stream."
+			operation["responses"].(map[string]any)["200"] = map[string]any{"description": "Generation event stream", "content": map[string]any{"text/event-stream": map[string]any{schemaKey: map[string]any{schemaTypeKey: "string"}}}}
+		}
 		if route.input != "" {
-			operation["requestBody"] = map[string]any{"required": true, "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/" + route.input}}}}
+			operation["requestBody"] = map[string]any{"required": true, "content": map[string]any{"application/json": map[string]any{schemaKey: map[string]any{"$ref": "#/components/schemas/" + route.input}}}}
 		}
 		parameters := make([]any, 0)
 		for part := range strings.SplitSeq(route.path, "/") {
 			if strings.HasPrefix(part, "{") {
-				parameters = append(parameters, map[string]any{"name": strings.Trim(part, "{}"), "in": "path", "required": true, "schema": map[string]any{"type": "string"}})
+				parameters = append(parameters, map[string]any{"name": strings.Trim(part, "{}"), "in": "path", "required": true, schemaKey: map[string]any{schemaTypeKey: "string"}})
 			}
 		}
 		if len(parameters) > 0 {
 			operation["parameters"] = parameters
+		}
+		if route.id == "streamGeneration" {
+			operation["parameters"] = append(parameters,
+				map[string]any{"name": "Last-Event-ID", "in": "header", "required": false, schemaKey: map[string]any{schemaTypeKey: "integer", "minimum": 0}},
+				map[string]any{"name": "after", "in": "query", "required": false, "description": "Replay cursor when creating a new EventSource. Last-Event-ID takes precedence on automatic reconnect.", schemaKey: map[string]any{schemaTypeKey: "integer", "minimum": 0}},
+			)
 		}
 		entry, ok := paths[route.path].(map[string]any)
 		if !ok {

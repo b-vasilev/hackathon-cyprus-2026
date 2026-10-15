@@ -71,6 +71,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 		respond(w, r, value, err)
 	})
 	mux.HandleFunc("POST /api/products/{id}/generations", f.startGeneration)
+	mux.HandleFunc("GET /api/generations/{id}/events", f.generationEvents)
 	mux.HandleFunc("GET /api/generations/{id}", func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.GetRun(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
@@ -213,7 +214,7 @@ func (f *Factory) testConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	format := map[string]any{"type": "object", "properties": map[string]any{"status": map[string]any{"type": "string", "enum": []string{"ok"}}}, "required": []string{"status"}, "additionalProperties": false}
+	format := map[string]any{schemaTypeKey: "object", "properties": map[string]any{"status": map[string]any{schemaTypeKey: "string", "enum": []string{"ok"}}}, "required": []string{"status"}, "additionalProperties": false}
 	result, err := f.Service.LLM.Generate(ctx, config, llm.Request{Model: input.Model, System: "Return only the requested JSON result.", Input: "Check this connection by returning status equal to ok.", Schema: format})
 	if err != nil {
 		respond(w, r, nil, err)

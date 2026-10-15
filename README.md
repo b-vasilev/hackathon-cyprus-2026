@@ -10,7 +10,7 @@ GitHub SHA + optional context
               |
       Git + Repomix safety checks
               |
-  analyze -> reconcile -> compose -> validate
+  analyze + reconcile -> compose -> validate
               |
     immutable passport in SQLite
               |
@@ -99,8 +99,8 @@ Only selected regular files are staged for the pinned Repomix CLI. Repomix
 security and ignore filters determine safe files; original Git bytes are retained
 for exact hashes and line citations. Optional `GITHUB_TOKEN` supports private repos.
 
-Limits: 5 sources, 120 documents, 300 KB total text, 128 KiB per file, 5,000 catalog
-entries and 80 selected files per repository. Catalog truncation and source coverage
+Limits: 5 sources, 40 documents, 80 KB total text, 128 KiB per file, 5,000 catalog
+entries and 40 selected files per repository. Catalog truncation and source coverage
 are explicit. These are context limits, not a claim of complete repository analysis.
 Source text can be sent to the selected provider; use appropriate source access.
 
@@ -109,8 +109,13 @@ Editable stage and section prompts live in
 Each section has its own Markdown recipe. They are embedded at build time; rebuild
 and restart to apply edits. The prompt version is recorded with every model call.
 
-The same selected model performs file selection, analysis, reconciliation,
-composition and bounded repair. google/jsonschema-go checks each response.
+The same selected model performs file selection, analysis with reconciliation,
+composition and bounded repair. Analysis and reconciliation share one request.
+The analysis recipe bounds the first model to its core responsibilities and flows;
+the composition recipe keeps all 12 sections concise and reuses shared diagrams.
+OpenAI connections can set a lower reasoning effort to reduce latency.
+A bounded memory cache reuses safe source packages at unchanged commit SHAs;
+restarting the API clears it. google/jsonschema-go checks each response.
 Semantic checks verify all references, all 12 sections and citation line bounds.
 React Flow renders model references; ELK computes coordinates. Generated content
 cannot supply executable HTML, JavaScript or diagram code. Source material is
@@ -121,6 +126,15 @@ always treated as untrusted data, including instructions found inside documents.
 The full [OpenAPI contract](backend/internal/api/openapi.json) is served at
 `GET /api/openapi.json`. Request IDs, exact-origin CORS, timeouts, a 1 MiB body
 limit, sanitized errors and structured logs come from the scaffold.
+
+Generation progress is saved with ordered events in SQLite. The passport page
+shows run and stage timing, recorded model usage, and an expandable activity feed.
+`GET /api/generations/{id}/events` streams `snapshot` and `update` SSE events.
+Each payload is a Run with only activity after the supplied cursor. Automatic
+reconnect uses `Last-Event-ID`; a new connection can use `?after=<event-id>`.
+Heartbeat comments keep idle streams open. The browser merges replayed events by
+ID, falls back to five-second status polling while disconnected, and closes the
+stream when the run finishes. A stream heartbeat does not mean worker progress.
 
 | Routes | Purpose |
 | --- | --- |

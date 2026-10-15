@@ -45,20 +45,23 @@ type Input struct {
 
 // Run exposes real processing stages and collection counts, not invented percentages.
 type Run struct {
-	ID                 string `json:"id"`
-	ProductID          string `json:"product_id"`
-	ConnectionID       string `json:"connection_id"`
-	ConnectionRevision int    `json:"connection_revision"`
-	Model              string `json:"model"`
-	Status             string `json:"status"`
-	Stage              string `json:"stage"`
-	ErrorCode          string `json:"error_code"`
-	ErrorMessage       string `json:"error_message"`
-	CreatedAt          string `json:"created_at"`
-	FinishedAt         string `json:"finished_at"`
-	DocumentCount      int    `json:"document_count"`
-	InputTokens        int64  `json:"input_tokens"`
-	OutputTokens       int64  `json:"output_tokens"`
+	ID                 string  `json:"id"`
+	ProductID          string  `json:"product_id"`
+	ConnectionID       string  `json:"connection_id"`
+	ConnectionRevision int     `json:"connection_revision"`
+	Model              string  `json:"model"`
+	Status             string  `json:"status"`
+	Stage              string  `json:"stage"`
+	ErrorCode          string  `json:"error_code"`
+	ErrorMessage       string  `json:"error_message"`
+	CreatedAt          string  `json:"created_at"`
+	StartedAt          string  `json:"started_at"`
+	StageStartedAt     string  `json:"stage_started_at"`
+	FinishedAt         string  `json:"finished_at"`
+	DocumentCount      int     `json:"document_count"`
+	InputTokens        int64   `json:"input_tokens"`
+	OutputTokens       int64   `json:"output_tokens"`
+	Events             []Event `json:"events"`
 }
 
 // Revision includes an immutable draft and the exact source snapshot manifest.
@@ -131,7 +134,7 @@ func (s *Service) Start(ctx context.Context, productID string, input Input) (Run
 	if err != nil {
 		return Run{}, fmt.Errorf("freeze source manifest: %w", err)
 	}
-	run := Run{ID: rand.Text(), ProductID: productID, ConnectionID: c.ID, ConnectionRevision: c.Revision, Model: input.Model, Status: "queued", Stage: "queued", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	run := Run{ID: rand.Text(), ProductID: productID, ConnectionID: c.ID, ConnectionRevision: c.Revision, Model: input.Model, Status: "queued", Stage: "queued", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano), Events: []Event{}}
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return Run{}, fmt.Errorf("begin generation: %w", err)
@@ -147,21 +150,51 @@ func (s *Service) Start(ctx context.Context, productID string, input Input) (Run
 	if checkErr := s.queue.SendTx(ctx, tx, goqite.Message{Body: []byte(run.ID)}); checkErr != nil {
 		return Run{}, fmt.Errorf("enqueue generation: %w", checkErr)
 	}
+	if err := recordEvent(ctx, tx, run.ID, "run_queued", "queued", "Waiting for the worker."); err != nil {
+		return Run{}, err
+	}
 	if checkErr := tx.Commit(); checkErr != nil {
 		return Run{}, fmt.Errorf("commit generation: %w", checkErr)
 	}
-	return run, nil
+	return s.GetRun(ctx, run.ID)
 }
 
 // GetRun returns processing state and recorded token usage.
 func (s *Service) GetRun(ctx context.Context, id string) (Run, error) {
 	var r Run
-	err := s.DB.QueryRowContext(ctx, `SELECT id,product_id,connection_id,connection_revision,model,status,stage,error_code,error_message,created_at,COALESCE(finished_at,''),
+	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return r, fmt.Errorf("begin generation snapshot: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	err = tx.QueryRowContext(ctx, `SELECT id,product_id,connection_id,connection_revision,model,status,stage,error_code,error_message,created_at,started_at,stage_started_at,COALESCE(finished_at,''),
  (SELECT COUNT(*) FROM source_documents d JOIN source_snapshots ss ON ss.id=d.snapshot_id WHERE ss.run_id=g.id),
  COALESCE((SELECT SUM(input_tokens) FROM llm_calls WHERE run_id=g.id),0),COALESCE((SELECT SUM(output_tokens) FROM llm_calls WHERE run_id=g.id),0)
- FROM generation_runs g WHERE id=?`, id).Scan(&r.ID, &r.ProductID, &r.ConnectionID, &r.ConnectionRevision, &r.Model, &r.Status, &r.Stage, &r.ErrorCode, &r.ErrorMessage, &r.CreatedAt, &r.FinishedAt, &r.DocumentCount, &r.InputTokens, &r.OutputTokens)
+ FROM generation_runs g WHERE id=?`, id).Scan(&r.ID, &r.ProductID, &r.ConnectionID, &r.ConnectionRevision, &r.Model, &r.Status, &r.Stage, &r.ErrorCode, &r.ErrorMessage, &r.CreatedAt, &r.StartedAt, &r.StageStartedAt, &r.FinishedAt, &r.DocumentCount, &r.InputTokens, &r.OutputTokens)
 	if err != nil {
 		return r, fmt.Errorf("read generation: %w", err)
+	}
+	rows, err := tx.QueryContext(ctx, "SELECT id,type,stage,message,created_at FROM generation_events WHERE run_id=? ORDER BY id", id)
+	if err != nil {
+		return r, fmt.Errorf("list generation events: %w", err)
+	}
+	defer rows.Close()
+	r.Events = make([]Event, 0)
+	for rows.Next() {
+		var event Event
+		if err := rows.Scan(&event.ID, &event.Type, &event.Stage, &event.Message, &event.CreatedAt); err != nil {
+			return r, fmt.Errorf("read generation event: %w", err)
+		}
+		r.Events = append(r.Events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return r, fmt.Errorf("read generation events: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return r, fmt.Errorf("close generation events: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return r, fmt.Errorf("commit generation snapshot: %w", err)
 	}
 	return r, nil
 }
@@ -170,7 +203,7 @@ func (s *Service) GetRun(ctx context.Context, id string) (Run, error) {
 //
 //nolint:nestif // A single worker owns task completion, failure recording and acknowledgement.
 func (s *Service) Work(ctx context.Context) {
-	if _, err := s.DB.ExecContext(ctx, "UPDATE generation_runs SET status='failed',error_code='interrupted',error_message='The server stopped during generation. Start a new run.',finished_at=? WHERE status='running'", time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+	if err := s.recoverRuns(ctx); err != nil {
 		s.Logger.Error().Err(err).Msg("recover generation runs")
 		return
 	}
@@ -196,7 +229,7 @@ func (s *Service) Work(ctx context.Context) {
 					code = failure.Code
 				}
 				finishCtx, finishCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
-				_, saveErr := s.DB.ExecContext(finishCtx, "UPDATE generation_runs SET status='failed',error_code=?,error_message=?,finished_at=? WHERE id=? AND status!='succeeded'", code, err.Error(), time.Now().UTC().Format(time.RFC3339Nano), run.ID)
+				saveErr := s.failRun(finishCtx, run.ID, code, err.Error())
 				finishCancel()
 				if saveErr != nil {
 					s.Logger.Error().Err(saveErr).Msg("save generation failure")
@@ -212,34 +245,7 @@ func (s *Service) Work(ctx context.Context) {
 	}
 }
 
-func (s *Service) stage(ctx context.Context, id, stage string) error {
-	_, err := s.DB.ExecContext(ctx, "UPDATE generation_runs SET status='running',stage=? WHERE id=?", stage, id)
-	if err != nil {
-		return fmt.Errorf("update generation stage: %w", err)
-	}
-	return nil
-}
-
-func (s *Service) collectSources(ctx context.Context, run Run, inputs []source.Input) (source.Collection, error) {
-	var collection source.Collection
-	var err error
-	if collector, ok := s.Collector.(selectingCollector); ok {
-		collection, err = collector.CollectSelected(ctx, inputs, func(selectCtx context.Context, catalog string) ([]string, error) {
-			if checkErr := s.stage(selectCtx, run.ID, "selecting_sources"); checkErr != nil {
-				return nil, checkErr
-			}
-			selection, selectErr := generate[source.FileSelection](selectCtx, s, run, "selecting_sources", catalog+"\n"+selectionPrompt)
-			return selection.Paths, selectErr
-		})
-	} else {
-		collection, err = s.Collector.Collect(ctx, inputs)
-	}
-	if err != nil {
-		return source.Collection{}, fmt.Errorf("collect generation sources: %w", err)
-	}
-	return collection, nil
-}
-
+//nolint:gocyclo // Keep the ordered generation stages and their failure boundaries visible together.
 func (s *Service) process(ctx context.Context, run Run) error {
 	if s.Connections == nil {
 		return errors.New("connection storage is unavailable; configure LLM_MASTER_KEY and start a new run")
@@ -255,12 +261,37 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	if checkErr := json.Unmarshal([]byte(manifest), &inputs); checkErr != nil {
 		return fmt.Errorf("decode source manifest: %w", checkErr)
 	}
-	collection, err := s.collectSources(ctx, run, inputs)
+	var productRepositories []string
+	for _, input := range inputs {
+		if input.Kind == "github" {
+			productRepositories = append(productRepositories, input.Locator)
+		}
+	}
+	var collection source.Collection
+	var err error
+	selected := false
+	if collector, ok := s.Collector.(selectingCollector); ok {
+		collection, err = collector.CollectSelected(ctx, inputs, func(selectCtx context.Context, catalog string) ([]string, error) {
+			selected = true
+			if checkErr := s.stage(selectCtx, run.ID, "selecting_sources"); checkErr != nil {
+				return nil, checkErr
+			}
+			selection, selectErr := generate[source.FileSelection](selectCtx, s, run, "selecting_sources", catalog+"\nPRODUCT REPOSITORIES:\n"+strings.Join(productRepositories, "\n")+"\n"+selectionPrompt)
+			return selection.Paths, selectErr
+		})
+	} else {
+		collection, err = s.Collector.Collect(ctx, inputs)
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("collect generation sources: %w", err)
 	}
 	if checkErr := s.saveSources(ctx, run.ID, collection); checkErr != nil {
 		return checkErr
+	}
+	if !selected {
+		if checkErr := s.event(ctx, run.ID, "stage_skipped", "selecting_sources", "Source selection was not needed for these inputs."); checkErr != nil {
+			return checkErr
+		}
 	}
 	contextText := source.Context(collection)
 	requirements, promptErr := sectionRequirements()
@@ -270,17 +301,12 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	if checkErr := s.stage(ctx, run.ID, "analyzing"); checkErr != nil {
 		return checkErr
 	}
-	analysis, err := generate[passport.Model](ctx, s, run, "analyzing", analysisPrompt+"\n"+architectureResearchPrompt+"\nSECTION REQUIREMENTS:\n"+requirements+"\nSOURCES:\n"+contextText)
+	model, err := generate[passport.Model](ctx, s, run, "analyzing", analysisPrompt+"\n"+reconcilePrompt+"\n"+architectureResearchPrompt+"\nSECTION REQUIREMENTS:\n"+requirements+"\nSOURCES:\n"+contextText)
 	if err != nil {
 		return err
 	}
-	if checkErr := s.stage(ctx, run.ID, "synthesizing"); checkErr != nil {
+	if checkErr := s.event(ctx, run.ID, "stage_skipped", "synthesizing", "Reconciliation is included in the analysis request."); checkErr != nil {
 		return checkErr
-	}
-	analysisJSON, _ := json.Marshal(analysis)
-	model, err := generate[passport.Model](ctx, s, run, "synthesizing", reconcilePrompt+"\nANALYSIS:\n"+string(analysisJSON)+"\nSOURCES:\n"+contextText)
-	if err != nil {
-		return err
 	}
 	if checkErr := s.stage(ctx, run.ID, "composing"); checkErr != nil {
 		return checkErr
@@ -299,9 +325,15 @@ func (s *Service) process(ctx context.Context, run Run) error {
 		documents[doc.ID] = doc.LineCount
 	}
 	if validationErr := passport.Validate(p, documents); validationErr != nil {
+		if checkErr := s.stage(ctx, run.ID, "repairing"); checkErr != nil {
+			return checkErr
+		}
 		encoded, _ := json.Marshal(p)
 		p, err = generate[passport.Passport](ctx, s, run, "repairing", repairPrompt+"\nSECTION REQUIREMENTS:\n"+requirements+"\nERROR:\n"+validationErr.Error()+"\nPASSPORT:\n"+string(encoded)+"\nSOURCES:\n"+contextText)
 		if err != nil {
+			return err
+		}
+		if err := s.stage(ctx, run.ID, "validating"); err != nil {
 			return err
 		}
 		if checkErr := passport.Validate(p, documents); checkErr != nil {
@@ -331,6 +363,9 @@ func generate[T any](ctx context.Context, s *Service, run Run, stage, input stri
 			return empty, errors.New("the selected connection is disabled or unavailable")
 		}
 		started := time.Now()
+		if err := s.event(ctx, run.ID, "model_call_started", stage, fmt.Sprintf("Model request started (attempt %d of 2). Waiting for the response.", attempt)); err != nil {
+			return empty, err
+		}
 		result, callErr := s.LLM.Generate(ctx, config, llm.Request{Model: run.Model, System: systemPrompt, Input: input, Schema: format})
 		code := ""
 		if callErr != nil {
@@ -344,7 +379,13 @@ func generate[T any](ctx context.Context, s *Service, run Run, stage, input stri
 			return empty, fmt.Errorf("save model call: %w", saveErr)
 		}
 		if callErr != nil {
+			if err := s.event(ctx, run.ID, "model_call_failed", stage, "The model request failed."); err != nil {
+				return empty, err
+			}
 			return empty, fmt.Errorf("generate %s: %w", stage, callErr)
+		}
+		if err := s.event(ctx, run.ID, "model_call_completed", stage, fmt.Sprintf("Model response received. Recorded usage: %d input tokens and %d output tokens.", result.InputTokens, result.OutputTokens)); err != nil {
+			return empty, err
 		}
 		value, validationErr := passport.CheckJSON[T](result.JSON)
 		if validationErr == nil {
@@ -352,6 +393,9 @@ func generate[T any](ctx context.Context, s *Service, run Run, stage, input stri
 		}
 		if attempt == 2 {
 			return empty, fmt.Errorf("model response failed schema validation: %w", validationErr)
+		}
+		if err := s.event(ctx, run.ID, "retry_started", stage, "The response did not match the required format. Retrying once."); err != nil {
+			return empty, err
 		}
 		input += "\n" + schemaRepairPrompt + "\nERROR:\n" + validationErr.Error() + "\nPREVIOUS RESPONSE:\n" + string(result.JSON)
 	}
@@ -375,6 +419,9 @@ func (s *Service) saveSources(ctx context.Context, runID string, collection sour
 			return fmt.Errorf("save source document: %w", err)
 		}
 	}
+	if err := recordEvent(ctx, tx, runID, "sources_collected", "collecting", fmt.Sprintf("Source collection completed: %d source documents saved.", len(collection.Documents))); err != nil {
+		return err
+	}
 	if checkErr := tx.Commit(); checkErr != nil {
 		return fmt.Errorf("commit source snapshot: %w", checkErr)
 	}
@@ -397,6 +444,12 @@ func (s *Service) saveRevision(ctx context.Context, run Run, p passport.Passport
 	}
 	if _, err := tx.ExecContext(ctx, "UPDATE generation_runs SET status='succeeded',stage='complete',finished_at=? WHERE id=?", time.Now().UTC().Format(time.RFC3339Nano), run.ID); err != nil {
 		return fmt.Errorf("complete generation: %w", err)
+	}
+	if err := recordEvent(ctx, tx, run.ID, "stage_completed", "validating", "Passport validation completed."); err != nil {
+		return err
+	}
+	if err := recordEvent(ctx, tx, run.ID, "run_succeeded", "complete", "Passport draft saved. Ready for review."); err != nil {
+		return err
 	}
 	if checkErr := tx.Commit(); checkErr != nil {
 		return fmt.Errorf("commit passport revision: %w", checkErr)

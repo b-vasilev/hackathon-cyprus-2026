@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -67,7 +68,7 @@ type Collection struct {
 
 // FileSelection is a bounded LLM selection from a verified repository file catalog.
 type FileSelection struct {
-	Paths []string `json:"paths" jsonschema:"Exact file paths from the supplied catalog, ordered by importance."`
+	Paths []string `json:"paths" jsonschema:"File IDs (such as f12) or exact paths from the supplied catalog, ordered by importance."`
 }
 
 // SelectFiles chooses useful files; only verified catalog entries can be packaged.
@@ -77,6 +78,9 @@ type SelectFiles func(context.Context, string) ([]string, error)
 type Collector struct {
 	WorkDir, RepomixBin, GitHubToken string
 	MaxBytes, MaxFiles               int
+	CacheScope                       string
+	cacheMu                          sync.Mutex
+	cache                            map[string]map[string]string
 }
 
 var commitPattern = regexp.MustCompile(`^[a-fA-F0-9]{40}$`)
@@ -122,6 +126,7 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 	for _, input := range inputs {
 		snapshot := Snapshot{ID: rand.Text(), Locator: input.Locator}
 		files := map[string]string{}
+		cached := false
 		if input.Kind == "text" {
 			snapshot.Locator = "Supplemental context"
 			hash := sha256.Sum256([]byte(input.Text))
@@ -133,11 +138,8 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 				return Collection{}, err
 			}
 			snapshot.Revision = sha
-			selected, err := c.selectPaths(ctx, input, sha, choose, max(1, c.MaxBytes/len(inputs)*8/10))
-			if err != nil {
-				return Collection{}, err
-			}
-			files, err = c.pack(ctx, input, sha, selected)
+			budget := max(1, c.MaxBytes/len(inputs)*8/10)
+			files, cached, err = c.repositoryFiles(ctx, input, sha, choose, budget)
 			if err != nil {
 				return Collection{}, err
 			}
@@ -166,12 +168,43 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 		}
 		snapshot.Coverage.Selection = input.Include
 		snapshot.Coverage.Note = "Selected text files only. Build outputs, dependencies, binary files and secret-like files are excluded. Missing material is not evidence of absent behavior."
+		if cached {
+			snapshot.Coverage.Note += " Reused the safe source package at the unchanged commit SHA."
+		}
 		result.Snapshots = append(result.Snapshots, snapshot)
 	}
 	if len(result.Documents) == 0 {
 		return Collection{}, errors.New("no usable source documents were collected")
 	}
 	return result, nil
+}
+
+func (c *Collector) repositoryFiles(ctx context.Context, input Input, sha string, choose SelectFiles, budget int) (map[string]string, bool, error) {
+	key := fmt.Sprintf("%s|%s|%s|%s|%d|%d", c.CacheScope, input.Locator, sha, input.Include, budget, c.MaxFiles)
+	c.cacheMu.Lock()
+	files, cached := c.cache[key]
+	c.cacheMu.Unlock()
+	if !cached {
+		selected, selectErr := c.selectPaths(ctx, input, sha, choose, budget)
+		if selectErr != nil {
+			return nil, false, selectErr
+		}
+		packed, packErr := c.pack(ctx, input, sha, selected)
+		files = packed
+		if packErr != nil {
+			return nil, false, packErr
+		}
+		c.cacheMu.Lock()
+		if len(c.cache) >= 8 {
+			clear(c.cache)
+		}
+		if c.cache == nil {
+			c.cache = make(map[string]map[string]string)
+		}
+		c.cache[key] = files
+		c.cacheMu.Unlock()
+	}
+	return files, cached, nil
 }
 
 func (c *Collector) resolve(ctx context.Context, input Input) (string, error) {
@@ -374,6 +407,8 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 		return nil, errors.New("GitHub returned an incomplete file catalog; use a smaller repository source")
 	}
 	eligible := make(map[string]int)
+	aliases := make(map[string]string)
+	lastDirectory := ""
 	var catalog strings.Builder
 	for _, file := range tree.Tree {
 		if !eligibleFile(file) {
@@ -397,7 +432,14 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 			break
 		}
 		eligible[file.Path] = file.Size
-		fmt.Fprintf(&catalog, "%s (%d bytes)\n", file.Path, file.Size)
+		id := fmt.Sprintf("f%d", len(eligible))
+		aliases[id] = file.Path
+		directory := filepath.Dir(file.Path)
+		if directory != lastDirectory {
+			fmt.Fprintf(&catalog, "\nDirectory: %s\n", directory)
+			lastDirectory = directory
+		}
+		fmt.Fprintf(&catalog, "%s %s %dB\n", id, filepath.Base(file.Path), file.Size)
 	}
 	if len(eligible) == 0 {
 		return nil, errors.New("no eligible text/source files match this repository selection")
@@ -413,6 +455,9 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 	seen := make(map[string]bool)
 	bytes := 0
 	for _, path := range chosen {
+		if resolved, ok := aliases[path]; ok {
+			path = resolved
+		}
 		size, ok := eligible[path]
 		if !ok {
 			return nil, errors.New("the model selected a file outside the verified source catalog")
@@ -446,7 +491,7 @@ func eligibleFile(file treeFile) bool {
 		return false
 	}
 	for part := range strings.SplitSeq(path, "/") {
-		if slices.Contains([]string{"node_modules", "vendor", ".git", "dist", "build", "bin", "obj", "coverage", "__pycache__"}, part) {
+		if slices.Contains([]string{"node_modules", "vendor", ".git", "dist", "build", "bin", "obj", "coverage", "__pycache__", "artifacts", "testdata", "fixtures", "__snapshots__"}, part) {
 			return false
 		}
 	}

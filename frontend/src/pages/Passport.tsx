@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Check, FileCode2, GitBranch, Play, RefreshCw } from 'lucide-react';
+import { ArrowRight, FileCode2, GitBranch, Play, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
-import { Badge, EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
+import { EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
 import {
   api,
   date,
@@ -16,19 +17,8 @@ import {
   type RevisionInfo,
   type Run,
 } from '../lib/api';
-
-const stages = [
-  'collecting',
-  'selecting_sources',
-  'analyzing',
-  'synthesizing',
-  'composing',
-  'validating',
-];
-
-function activeRun(status: string | undefined): boolean {
-  return status === 'queued' || status === 'running';
-}
+import { activeRun, stageLabels } from '../lib/generation';
+import { useGeneration } from '../lib/useGeneration';
 
 export function PassportPage() {
   const { id = '' } = useParams();
@@ -57,18 +47,16 @@ export function PassportPage() {
   const [object, setObject] = useState<ProductObject | null>(null);
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   const availableConnections = connections.data?.filter((item) => item.config.enabled) ?? [];
-  const connection =
-    availableConnections.find((item) => item.id === connectionId) ?? availableConnections.at(0);
-  const model =
-    connection?.config.models?.find((item) => item.id === modelId) ??
-    connection?.config.models?.at(0);
   const runId = product.data?.latest_run_id ?? '';
-  const run = useQuery({
-    queryKey: ['run', runId],
-    queryFn: ({ signal }) => api<Run>(`/generations/${runId}`, { signal }),
-    enabled: runId !== '',
-    refetchInterval: (query) => (activeRun(query.state.data?.status) ? 1500 : false),
-  });
+  const { run, streamState } = useGeneration(runId);
+  const connection =
+    availableConnections.find(
+      (item) => item.id === (connectionId === '' ? run.data?.connection_id : connectionId)
+    ) ?? availableConnections.at(0);
+  const model =
+    connection?.config.models?.find(
+      (item) => item.id === (modelId === '' ? run.data?.model : modelId)
+    ) ?? connection?.config.models?.at(0);
   useEffect(() => {
     if (run.data?.status === 'succeeded' || run.data?.status === 'failed') {
       void queryClient.invalidateQueries({ queryKey: ['product', id] });
@@ -98,6 +86,11 @@ export function PassportPage() {
       }),
     onSuccess: async (newRun) => {
       queryClient.setQueryData(['run', newRun.id], newRun);
+      queryClient.setQueryData<Product>(['product', id], (previous) =>
+        previous === undefined
+          ? previous
+          : { ...previous, latest_run_id: newRun.id, latest_run_status: newRun.status }
+      );
       setSelectedRevision('');
       await queryClient.invalidateQueries({ queryKey: ['product', id] });
     },
@@ -112,6 +105,7 @@ export function PassportPage() {
     revision.data?.content.views.sections?.find((item) => item.id === sectionId) ??
     revision.data?.content.views.sections?.at(0);
   const busy = activeRun(run.data?.status) || generate.isPending;
+  const generateLabel = run.data?.status === 'failed' ? 'Generate again' : 'Generate passport';
   return (
     <>
       <Link to="/" className="back-link">
@@ -126,9 +120,12 @@ export function PassportPage() {
               'Connect the sources. Generate the picture. Inspect the evidence.'}
           </p>
         </div>
-        <Badge tone="warning">
-          {revision.data === undefined ? 'Not generated yet' : 'Generated draft · review pending'}
-        </Badge>
+        <GenerationBadges
+          run={run.data}
+          pending={generate.isPending}
+          version={revision.data?.version}
+          hasDraft={product.data.latest_revision_id !== '' || revision.data !== undefined}
+        />
       </div>
       <div className="generation-controls">
         <label>
@@ -175,7 +172,7 @@ export function PassportPage() {
           onClick={() => generate.mutate()}
         >
           {busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
-          {busy ? 'Generating…' : 'Generate passport'}
+          {busy ? 'Generating…' : generateLabel}
         </button>
         {(history.data?.length ?? 0) > 0 && (
           <label className="revision-select">
@@ -204,27 +201,31 @@ export function PassportPage() {
           </div>
         )}
       {generate.isError && <ErrorNotice error={generate.error} />}
-      {run.data !== undefined && activeRun(run.data.status) && (
-        <GenerationProgress run={run.data} />
-      )}
+      {run.isError && <ErrorNotice error={run.error} />}
       {run.data?.status === 'failed' && (
         <div className="notice error" role="alert">
           <div>
-            <strong>Generation stopped at {run.data.stage}.</strong>
+            <strong>{`Generation stopped: ${stageLabels[run.data.stage] ?? run.data.stage}.`}</strong>
             <p>{run.data.error_message}</p>
             {revision.data !== undefined && <p>The previous passport remains available below.</p>}
           </div>
         </div>
       )}
+      {run.data !== undefined && (
+        <GenerationProgress key={run.data.id} run={run.data} streamState={streamState} />
+      )}
       {revision.isFetching && <Loading label="Loading passport revision…" />}
       {revision.isError && <ErrorNotice error={revision.error} />}
       {history.isError && <ErrorNotice error={history.error} />}
-      {revision.data === undefined && !busy && !revision.isFetching && (
-        <EmptyState title="Your sources are ready to explore">
-          Choose a connection and model, then generate a passport. It will cover the product’s
-          purpose, users, domain, scenarios, architecture and developer workflow.
-        </EmptyState>
-      )}
+      {revision.data === undefined &&
+        !busy &&
+        !revision.isFetching &&
+        run.data?.status !== 'failed' && (
+          <EmptyState title="Your sources are ready to explore">
+            Choose a connection and model, then generate a passport. It will cover the product’s
+            purpose, users, domain, scenarios, architecture and developer workflow.
+          </EmptyState>
+        )}
       {revision.data !== undefined && section !== undefined && (
         <>
           <div className="revision-meta">
@@ -322,32 +323,5 @@ export function PassportPage() {
         />
       )}
     </>
-  );
-}
-
-function GenerationProgress({ run }: Readonly<{ run: Run }>) {
-  const current = stages.indexOf(run.stage);
-  return (
-    <div className="generation-progress" role="status">
-      <div className="progress-heading">
-        <strong>
-          {run.status === 'queued'
-            ? 'Waiting for the worker'
-            : `Factory is ${run.stage} your passport`}
-        </strong>
-        <span className="meta">
-          {run.document_count} source documents ·{' '}
-          {(run.input_tokens + run.output_tokens).toLocaleString()} recorded tokens
-        </span>
-      </div>
-      <div className="stage-route">
-        {stages.map((stage, index) => (
-          <div className={`stage ${index === current ? 'current' : ''}`} key={stage}>
-            <span className="stage-dot">{index < current ? <Check size={12} /> : index + 1}</span>
-            <span>{stage}</span>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }

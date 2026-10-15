@@ -153,7 +153,7 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		if _, err := service.Evidence(ctx, r.ID, "unknown"); err == nil {
 			t.Fatal("accepted unknown evidence")
 		}
-		if finished.InputTokens != 300 || finished.OutputTokens != 150 {
+		if finished.InputTokens != 200 || finished.OutputTokens != 100 {
 			t.Fatal("call usage not recorded")
 		}
 	}
