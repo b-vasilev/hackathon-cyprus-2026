@@ -32,7 +32,8 @@ func (f *Factory) registerAccess(mux *http.ServeMux) {
 		value, err := f.me(r.Context(), currentUser(r))
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("GET /api/users", f.admin(func(w http.ResponseWriter, r *http.Request) {
+	// Leads pick people from this list when granting product access; only admins change accounts.
+	mux.HandleFunc("GET /api/users", f.lead(func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Access.Users(r.Context())
 		respond(w, r, value, err)
 	}))

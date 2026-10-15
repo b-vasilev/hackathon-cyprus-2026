@@ -123,7 +123,9 @@ func TestAccessRoles(t *testing.T) {
 	request(http.MethodGet, "/api/llm-connections", "", lead, http.StatusServiceUnavailable)
 	request(http.MethodPost, "/api/llm-connections", `{}`, lead, http.StatusForbidden)
 	request(http.MethodGet, "/api/git-connection", "", lead, http.StatusForbidden)
-	request(http.MethodGet, "/api/users", "", lead, http.StatusForbidden)
+	request(http.MethodGet, "/api/users", "", learner, http.StatusForbidden)
+	request(http.MethodGet, "/api/users", "", lead, http.StatusOK)
+	request(http.MethodPatch, "/api/users/"+learnerMe.User.ID, `{"role":"admin"}`, lead, http.StatusForbidden)
 
 	request(http.MethodPatch, "/api/users/"+adminMe.User.ID, `{"role":"user"}`, admin, http.StatusConflict)
 	request(http.MethodDelete, "/api/users/"+adminMe.User.ID, "", admin, http.StatusConflict)

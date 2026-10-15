@@ -6,7 +6,7 @@ import { GenerationBadges, GenerationProgress } from '../components/GenerationPr
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
 import { ProductAccess } from '../components/ProductAccess';
 import { SourceCoverage } from '../components/SourceCoverage';
-import { EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
+import { DisclosureHint, EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
 import {
   api,
   date,
@@ -295,6 +295,7 @@ export function PassportPage() {
             <summary>
               <GitBranch size={17} />
               Analyzed sources and coverage
+              <DisclosureHint show="Show sources" hide="Hide sources" />
             </summary>
             {revision.data.snapshots?.map((snapshot) => (
               <div className="source-row" key={snapshot.id}>
@@ -327,6 +328,7 @@ export function PassportPage() {
         <summary>
           <FileCode2 size={17} />
           Product source configuration
+          <DisclosureHint show="Show configuration" hide="Hide configuration" />
         </summary>
         {product.data.sources?.map((source) => (
           <div className="source-row" key={JSON.stringify(source)}>

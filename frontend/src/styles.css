@@ -1809,3 +1809,30 @@ summary {
 .product-access-list .sources-panel {
   margin-top: 16px;
 }
+.sources-panel summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure-hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--of-brand);
+  font-size: 13px;
+}
+summary:hover .disclosure-hint {
+  text-decoration: underline;
+}
+.disclosure-hide,
+details[open] > summary .disclosure-show {
+  display: none;
+}
+details[open] > summary .disclosure-hide {
+  display: inline;
+}
+.disclosure-chevron {
+  transition: transform 150ms ease;
+}
+details[open] > summary .disclosure-chevron {
+  transform: rotate(180deg);
+}

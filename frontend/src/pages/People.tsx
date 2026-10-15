@@ -108,12 +108,7 @@ export function People() {
         {products.data?.length === 0 && <p className="meta">No products yet.</p>}
         <div className="product-access-list">
           {products.data?.map((product) => (
-            <ProductAccess
-              key={product.id}
-              productId={product.id}
-              title={product.name}
-              users={users.data}
-            />
+            <ProductAccess key={product.id} productId={product.id} title={product.name} />
           ))}
         </div>
       </section>

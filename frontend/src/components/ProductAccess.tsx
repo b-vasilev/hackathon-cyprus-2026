@@ -3,17 +3,13 @@ import { Trash2, Users } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api, type Member, type User } from '../lib/api';
 import { useMe } from '../lib/auth';
-import { ErrorNotice, Loading } from './ui';
+import { DisclosureHint, ErrorNotice, Loading } from './ui';
 
-/**
- * Lets admins and product leads decide who can lead or learn a product.
- * When the caller can list accounts (admins), people are picked from them instead of typed.
- */
+/** Lets admins and product leads pick who can lead or learn a product. */
 export function ProductAccess({
   productId,
   title = 'People and access',
-  users,
-}: Readonly<{ productId: string; title?: string; users?: User[] }>) {
+}: Readonly<{ productId: string; title?: string }>) {
   const me = useMe();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -25,9 +21,15 @@ export function ProductAccess({
     queryFn: ({ signal }) => api<Member[]>(`/products/${productId}/members`, { signal }),
     enabled: open,
   });
-  const candidates = users?.filter(
-    (user) => members.data?.some((member) => member.user_id === user.id) !== true
-  );
+  const users = useQuery({
+    queryKey: ['users'],
+    queryFn: ({ signal }) => api<User[]>('/users', { signal }),
+    enabled: open,
+  });
+  const candidates =
+    users.data?.filter(
+      (user) => members.data?.some((member) => member.user_id === user.id) !== true
+    ) ?? [];
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ['members', productId] }),
@@ -59,8 +61,9 @@ export function ProductAccess({
   return (
     <details className="sources-panel" onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary>
-        <Users size={17} />
+        <Users size={17} aria-hidden="true" />
         {title}
+        <DisclosureHint show="Manage access" hide="Hide access" />
       </summary>
       <p className="field-help access-help">
         Product leads generate the passport and manage access. Learners read the product and its
@@ -68,6 +71,7 @@ export function ProductAccess({
       </p>
       {members.isLoading && <Loading label="Loading people…" />}
       {members.isError && <ErrorNotice error={members.error} />}
+      {users.isError && <ErrorNotice error={users.error} />}
       {members.data?.length === 0 && <p className="meta">Only admins can open this product.</p>}
       <ul className="people-list" aria-label="Product members">
         {members.data?.map((member) => (
@@ -100,34 +104,27 @@ export function ProductAccess({
         ))}
       </ul>
       <form className="member-form" onSubmit={submit}>
-        {candidates === undefined ? (
-          <label>
-            Email
-            <input
-              type="email"
-              required
-              maxLength={254}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="person@example.com"
-            />
-          </label>
-        ) : (
-          <label>
-            Person
-            <select required value={email} onChange={(event) => setEmail(event.target.value)}>
-              <option value="" disabled>
-                {candidates.length === 0 ? 'Everyone already has access' : 'Choose a person'}
+        <label>
+          Person
+          <select
+            required
+            value={email}
+            disabled={users.isPending}
+            onChange={(event) => setEmail(event.target.value)}
+          >
+            <option value="" disabled>
+              {candidates.length === 0 && users.isSuccess
+                ? 'Everyone already has access'
+                : 'Choose a person'}
+            </option>
+            {candidates.map((user) => (
+              <option key={user.id} value={user.email}>
+                {user.email}
+                {user.role === 'admin' ? ' (admin)' : ''}
               </option>
-              {candidates.map((user) => (
-                <option key={user.id} value={user.email}>
-                  {user.email}
-                  {user.role === 'admin' ? ' (admin)' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+            ))}
+          </select>
+        </label>
         <label>
           Role
           <select value={role} onChange={(event) => setRole(event.target.value)}>
