@@ -4,6 +4,7 @@ go 1.27.2
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.81.0
+	github.com/bmatcuk/doublestar/v4 v4.10.3
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/google/jsonschema-go v0.4.3
 	github.com/openai/openai-go/v3 v3.78.0
@@ -15,7 +16,6 @@ require (
 
 require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
-	github.com/bmatcuk/doublestar/v4 v4.10.3 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coder/websocket v1.8.15 // indirect

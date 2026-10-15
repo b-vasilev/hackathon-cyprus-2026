@@ -227,7 +227,13 @@ func (c *Collector) pack(ctx context.Context, input Input, sha string, selected 
 	if checkErr := os.Mkdir(repository, 0o700); checkErr != nil {
 		return nil, fmt.Errorf("create Git source workspace: %w", checkErr)
 	}
-	for _, args := range [][]string{{"init", "--quiet", repository}, {"-C", repository, "remote", "add", "origin", input.Locator}, {"-C", repository, "fetch", "--quiet", "--depth", "1", "--recurse-submodules=no", "origin", sha}} {
+	for _, args := range [][]string{
+		{"init", "--quiet", repository},
+		{"-C", repository, "remote", "add", "origin", input.Locator},
+		{"-C", repository, "config", "remote.origin.promisor", "true"},
+		{"-C", repository, "config", "remote.origin.partialclonefilter", "blob:none"},
+		{"-C", repository, "fetch", "--quiet", "--filter=blob:none", "--depth", "1", "--recurse-submodules=no", "origin", sha},
+	} {
 		//nolint:gosec // Fixed executable and argument list; no shell or repository code is executed.
 		command := exec.CommandContext(ctx, "git", args...)
 		command.Env = env
@@ -399,7 +405,7 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 	if choose == nil {
 		return nil, errors.New("automatic source selection requires a configured model")
 	}
-	chosen, err := choose(ctx, fmt.Sprintf("Repository: %s\nCommit: %s\nChoose at most %d files totaling no more than %d bytes. Prioritize product purpose, users, domain, core flows, architecture boundaries, entry points, setup, tests and deployment. The catalog is capped at 5000 eligible entries; excluded material must remain unknown. Return exact paths in priority order, not glob patterns.\nCATALOG:\n%s", input.Locator, sha, min(c.MaxFiles, 80), budget, catalog.String()))
+	chosen, err := choose(ctx, fmt.Sprintf("Repository: %s\nCommit: %s\nFile budget: at most %d files and %d bytes. Catalog limit: 5000 eligible entries.\nCATALOG:\n%s", input.Locator, sha, min(c.MaxFiles, 80), budget, catalog.String()))
 	if err != nil {
 		return nil, err
 	}

@@ -38,7 +38,7 @@ type Object struct {
 	Name       string   `json:"name"`
 	Summary    string   `json:"summary"`
 	Technology string   `json:"technology"`
-	Status     string   `json:"status" jsonschema:"One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."`
+	Status     string   `json:"status" jsonschema:"One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."`
 	Inputs     []string `json:"inputs"`
 	Outputs    []string `json:"outputs"`
 	Contracts  []string `json:"contracts"`
@@ -204,7 +204,7 @@ func Validate(p Passport, documents map[string]int) error {
 			return err
 		}
 		objects[o.ID] = true
-		if o.Name == "" || !slices.Contains([]string{"actor", "capability", "entity", "component", "store", "external_system", "interface", "environment", "decision", "owner"}, o.Kind) || !slices.Contains([]string{"implemented", "experimental", "planned", "unknown"}, o.Status) {
+		if o.Name == "" || !slices.Contains([]string{"actor", "capability", "entity", "component", "store", "external_system", "interface", "environment", "decision", "owner"}, o.Kind) || !slices.Contains([]string{"implemented", "in_development", "experimental", "planned", "unknown"}, o.Status) {
 			return fmt.Errorf("invalid model object: %s", o.ID)
 		}
 		if len(o.ClaimIDs) == 0 {

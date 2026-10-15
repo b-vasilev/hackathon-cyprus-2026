@@ -1,0 +1,3 @@
+Repair this passport using the validator diagnostics.
+Return a complete passport with model and views. Keep all 12 section IDs and the original source document IDs. Correct only invalid structure, anchors or inconsistent references, and preserve supported content.
+Check globally unique IDs, claim evidence, object and relation claims, scenario step references, and diagram membership including both relation endpoints. Never invent a source or widen a line range beyond the document. When support is missing, remove the unsupported assertion or mark it unknown. Preserve section-specific requirements.

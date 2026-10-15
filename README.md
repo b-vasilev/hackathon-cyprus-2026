@@ -104,6 +104,11 @@ entries and 80 selected files per repository. Catalog truncation and source cove
 are explicit. These are context limits, not a claim of complete repository analysis.
 Source text can be sent to the selected provider; use appropriate source access.
 
+Editable stage and section prompts live in
+[`backend/internal/generation/prompts`](backend/internal/generation/prompts/README.md).
+Each section has its own Markdown recipe. They are embedded at build time; rebuild
+and restart to apply edits. The prompt version is recorded with every model call.
+
 The same selected model performs file selection, analysis, reconciliation,
 composition and bounded repair. google/jsonschema-go checks each response.
 Semantic checks verify all references, all 12 sections and citation line bounds.

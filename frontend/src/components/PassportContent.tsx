@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   api,
   type Claim,
+  type Diagram,
   type EvidenceView,
   type ProductModel,
   type ProductObject,
@@ -128,13 +129,16 @@ export function EvidenceDialog({
             {evidence.data.locator} · revision <code>{evidence.data.revision.slice(0, 12)}</code>
           </p>
           <pre className="source-code">
-            {evidence.data.excerpt.split('\n').map((line, index) => (
-              <span className="code-line" key={index}>
-                <span className="line-number">{evidence.data.start_line + index}</span>
-                {line}
-                {'\n'}
-              </span>
-            ))}
+            {evidence.data.excerpt
+              .split('\n')
+              .map((text, offset) => ({ text, number: evidence.data.start_line + offset }))
+              .map((line) => (
+                <span className="code-line" key={line.number}>
+                  <span className="line-number">{line.number}</span>
+                  {line.text}
+                  {'\n'}
+                </span>
+              ))}
           </pre>
           {evidence.data.source_url !== '' && (
             <ExternalLink href={evidence.data.source_url}>Open this source revision</ExternalLink>
@@ -169,6 +173,11 @@ export function SectionContent({
   const scenarios = (model.scenarios ?? []).filter((scenario) =>
     section.scenario_ids?.includes(scenario.id)
   );
+  const scenarioDiagrams = new Set(
+    scenarios.map(
+      (scenario) => diagramForScenario(scenario, revision.content.views.diagrams ?? [])?.id
+    )
+  );
   return (
     <section className="passport-section" aria-label={section.title}>
       <div className="section-title">
@@ -179,9 +188,11 @@ export function SectionContent({
         )}
       </div>
       <p className="section-summary">{section.summary}</p>
-      {diagrams.map((diagram) => (
-        <DiagramViewer key={diagram.id} diagram={diagram} model={model} onSelect={onObject} />
-      ))}
+      {diagrams
+        .filter((diagram) => !scenarioDiagrams.has(diagram.id))
+        .map((diagram) => (
+          <DiagramViewer key={diagram.id} diagram={diagram} model={model} onSelect={onObject} />
+        ))}
       {scenarios.length > 0 && (
         <Scenarios
           scenarios={scenarios}
@@ -238,6 +249,17 @@ export function SectionContent({
   );
 }
 
+function diagramForScenario(scenario: Scenario, diagrams: Diagram[]): Diagram | undefined {
+  const ids = new Set(scenario.steps?.flatMap((step) => step.object_ids ?? []));
+  if (ids.size === 0) {
+    return undefined;
+  }
+  return diagrams
+    .filter((diagram) => [...ids].every((id) => diagram.node_ids?.includes(id)))
+    .toSorted((a, b) => (a.node_ids?.length ?? 0) - (b.node_ids?.length ?? 0))
+    .at(0);
+}
+
 function Scenarios({
   scenarios,
   revision,
@@ -259,9 +281,7 @@ function Scenarios({
   const claims = (revision.content.model.claims ?? []).filter((claim) =>
     step?.claim_ids?.includes(claim.id)
   );
-  const diagram =
-    revision.content.views.diagrams?.find((item) => item.kind === 'components') ??
-    revision.content.views.diagrams?.at(0);
+  const diagram = diagramForScenario(scenario, revision.content.views.diagrams ?? []);
   return (
     <div className="scenario-view">
       <div className="scenario-tabs">

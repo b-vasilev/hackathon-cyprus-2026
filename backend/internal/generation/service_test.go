@@ -50,6 +50,11 @@ func (g *fixtureGenerator) Generate(_ context.Context, c llmgateway.Config, r ll
 		}
 		result = m
 	case strings.HasPrefix(r.Input, "Create the standard"):
+		for _, id := range passport.SectionIDs() {
+			if !strings.Contains(r.Input, "# "+id+"\nGoal:") {
+				return llm.Result{}, fmt.Errorf("composition omitted the %s section recipe", id)
+			}
+		}
 		result = fixtureViews()
 	default:
 		return llm.Result{}, errors.New("unexpected generation stage")

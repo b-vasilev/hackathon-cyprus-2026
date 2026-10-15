@@ -429,7 +429,7 @@ export interface components {
               name: string;
               summary: string;
               technology: string;
-              /** @description One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
+              /** @description One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
               status: string;
               inputs: null | string[];
               outputs: null | string[];
@@ -569,7 +569,7 @@ export interface components {
             name: string;
             summary: string;
             technology: string;
-            /** @description One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
+            /** @description One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
             status: string;
             inputs: null | string[];
             outputs: null | string[];
@@ -632,7 +632,7 @@ export interface components {
       name: string;
       summary: string;
       technology: string;
-      /** @description One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
+      /** @description One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
       status: string;
       inputs: null | string[];
       outputs: null | string[];
@@ -669,7 +669,7 @@ export interface components {
                 name: string;
                 summary: string;
                 technology: string;
-                /** @description One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
+                /** @description One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence. */
                 status: string;
                 inputs: null | string[];
                 outputs: null | string[];

@@ -206,6 +206,9 @@ function ConnectionEditor({
   const [config, setConfig] = useState<ConnectionConfig>(() =>
     connection === null ? defaultConfig() : structuredClone(connection.config)
   );
+  const [modelKeys, setModelKeys] = useState(() =>
+    (config.models ?? []).map(() => crypto.randomUUID())
+  );
   const [headers, setHeaders] = useState(() =>
     JSON.stringify(connection?.config.headers ?? [], null, 2)
   );
@@ -229,6 +232,17 @@ function ConnectionEditor({
       'models',
       (config.models ?? []).map((item, i) => (i === index ? { ...item, ...update } : item))
     );
+  }
+  function addModel() {
+    set('models', [
+      ...(config.models ?? []),
+      { id: '', output_mode: 'json_schema', max_output_tokens: 12_000 },
+    ]);
+    setModelKeys((keys) => [...keys, crypto.randomUUID()]);
+  }
+  function removeModel(index: number) {
+    set('models', config.models?.filter((_, i) => i !== index) ?? []);
+    setModelKeys((keys) => keys.filter((_, i) => i !== index));
   }
   function preset(protocol: string) {
     const anthropic = protocol === 'anthropic_messages';
@@ -372,22 +386,13 @@ function ConnectionEditor({
         )}
         <div className="subheading">
           <h3>Models</h3>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() =>
-              set('models', [
-                ...(config.models ?? []),
-                { id: '', output_mode: 'json_schema', max_output_tokens: 12_000 },
-              ])
-            }
-          >
+          <button type="button" className="text-button" onClick={addModel}>
             <Plus size={14} />
             Add model
           </button>
         </div>
         {config.models?.map((item, index) => (
-          <div className="model-form" key={index}>
+          <div className="model-form" key={modelKeys.at(index)}>
             <label>
               Model ID
               <input
@@ -427,7 +432,7 @@ function ConnectionEditor({
               <button
                 type="button"
                 className="text-button destructive"
-                onClick={() => set('models', config.models?.filter((_, i) => i !== index) ?? [])}
+                onClick={() => removeModel(index)}
               >
                 Remove model
               </button>

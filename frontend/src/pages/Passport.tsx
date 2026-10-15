@@ -193,15 +193,16 @@ export function PassportPage() {
           </label>
         )}
       </div>
-      {availableConnections.length === 0 && !connections.isPending && (
-        <div className="notice">
-          <p>Add an enabled model connection to generate this passport.</p>
-          <Link className="text-link" to="/connections">
-            Set up a connection
-            <ArrowRight size={15} />
-          </Link>
-        </div>
-      )}
+      {availableConnections.length === 0 &&
+        (setup.data?.connections_enabled === false || !connections.isPending) && (
+          <div className="notice">
+            <p>Add an enabled model connection to generate this passport.</p>
+            <Link className="text-link" to="/connections">
+              Set up a connection
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+        )}
       {generate.isError && <ErrorNotice error={generate.error} />}
       {run.data !== undefined && activeRun(run.data.status) && (
         <GenerationProgress run={run.data} />
@@ -296,8 +297,8 @@ export function PassportPage() {
           <FileCode2 size={17} />
           Product source configuration
         </summary>
-        {product.data.sources?.map((source, index) => (
-          <div className="source-row" key={index}>
+        {product.data.sources?.map((source) => (
+          <div className="source-row" key={JSON.stringify(source)}>
             <strong>
               {source.kind === 'github' ? source.locator : 'Supplemental product context'}
             </strong>
