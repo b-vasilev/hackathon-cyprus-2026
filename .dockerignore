@@ -1,0 +1,8 @@
+.git
+.env
+.env.*
+**/node_modules
+**/bin
+**/data
+**/coverage*
+frontend

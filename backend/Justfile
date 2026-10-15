@@ -1,0 +1,45 @@
+default:
+    @just --list
+
+run:
+    go run ./cmd/api
+
+build:
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/onboarding-api ./cmd/api
+
+test *ARGS:
+    go test ./... {{ARGS}}
+
+test-race:
+    go test -race -count=1 ./...
+
+test-coverage:
+    go test -coverprofile=coverage.out ./...
+    go tool cover -func=coverage.out
+
+fmt:
+    go fmt ./...
+
+fmt-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    files=$(gofmt -l .)
+    if [ -n "$files" ]; then
+        printf '%s\n' 'Go files need formatting:' "$files"
+        exit 1
+    fi
+
+lint:
+    golangci-lint config verify
+    golangci-lint run
+
+check: fmt-check lint
+
+audit:
+    govulncheck ./...
+
+deps:
+    go mod download
+
+tidy:
+    go mod tidy

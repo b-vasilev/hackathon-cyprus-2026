@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v5
+        with:
+          cache: true
+          install_args: go golangci-lint just go:golang.org/x/vuln/cmd/govulncheck
+      - name: Check, test with race detector, audit and build
+        run: just ci
+      - name: Check dependency files are tidy
+        working-directory: backend
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Build runtime image
+        run: docker build --tag onboarding-factory:ci .
