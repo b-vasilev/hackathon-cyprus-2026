@@ -28,7 +28,7 @@ type PoolPolicy struct {
 
 // DefaultPoolPolicy supplies conservative per-credential limits.
 func DefaultPoolPolicy(key string) PoolPolicy {
-	return PoolPolicy{PoolKey: key, MaxActive: 2, MaxQueue: 8, MaxWaitMS: 60000, Mode: "auto"}
+	return PoolPolicy{PoolKey: key, MaxActive: 2, MaxQueue: 8, MaxWaitMS: 300000, Mode: "auto"}
 }
 
 // NetworkPolicy permits local destinations and public HTTPS, with explicit overrides.
@@ -144,11 +144,7 @@ func (t *connectionTransport) RoundTrip(r *http.Request) (*http.Response, error)
 		request.Header.Set(t.config.AuthHeader, t.config.AuthPrefix+t.config.Secret)
 	}
 	model, estimated := inspectTokenRequest(request)
-	sum := sha256.Sum256([]byte(t.config.EndpointURL + "\x00" + t.config.AuthHeader + "\x00" + t.config.AuthPrefix + "\x00" + t.config.Secret))
-	pool := hex.EncodeToString(sum[:])
-	if t.config.QuotaGroup != "" {
-		pool = "group:" + t.config.QuotaGroup
-	}
+	pool := connectionPoolKey(t.config)
 	policy := DefaultPoolPolicy(pool)
 	policy.MaxActive = t.config.MaxConcurrent
 	meta := RequestMeta{PoolKey: pool, API: true, Model: model, EstimatedTokens: estimated, AzureOpenAI: isAzureOpenAI(t.config.EndpointURL)}
@@ -156,6 +152,7 @@ func (t *connectionTransport) RoundTrip(r *http.Request) (*http.Response, error)
 	if err != nil {
 		return nil, fmt.Errorf("admit LLM request: %w", err)
 	}
+	meta.StartedAt = time.Now()
 	response, err := t.base.RoundTrip(request)
 	if err != nil {
 		finish(0, nil)
@@ -164,6 +161,14 @@ func (t *connectionTransport) RoundTrip(r *http.Request) (*http.Response, error)
 	t.limiter.ObserveResponse(meta, response.StatusCode, response.Header)
 	response.Body = &releaseBody{ReadCloser: response.Body, finish: func() { finish(0, nil) }}
 	return response, nil
+}
+
+func connectionPoolKey(config Config) string {
+	if config.QuotaGroup != "" {
+		return "group:" + config.QuotaGroup
+	}
+	sum := sha256.Sum256([]byte(config.EndpointURL + "\x00" + config.AuthHeader + "\x00" + config.AuthPrefix + "\x00" + config.Secret))
+	return hex.EncodeToString(sum[:])
 }
 
 type releaseBody struct {

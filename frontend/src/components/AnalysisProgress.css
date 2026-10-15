@@ -67,3 +67,53 @@
 .analysis-note {
   margin: 12px 0 0;
 }
+.analysis-plan-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 16px 0;
+}
+.analysis-plan-summary strong,
+.analysis-steps strong {
+  font-weight: 500;
+}
+.analysis-plan-summary > span {
+  color: var(--of-muted);
+}
+.analysis-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 0;
+  margin: 0 0 16px;
+  list-style: none;
+}
+.analysis-steps li {
+  display: flex;
+  align-items: flex-start;
+  flex: 1 1 220px;
+  gap: 8px;
+}
+.analysis-step-marker {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  border: 1px solid var(--of-control-border);
+  border-radius: 50%;
+  font-size: 12px;
+  color: var(--of-muted);
+}
+.analysis-steps [data-state="active"] .analysis-step-marker {
+  background: var(--of-brand);
+  border-color: var(--of-brand);
+  color: var(--of-on-brand);
+}
+.analysis-steps li > div {
+  display: grid;
+  gap: 4px;
+}
+.analysis-steps li > div > span {
+  font-size: 12px;
+  color: var(--of-muted);
+}

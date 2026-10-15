@@ -8,55 +8,46 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
-	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 	"github.com/rs/zerolog"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
 type repairingGenerator struct {
-	fixture fixtureGenerator
-	model   passport.Model
-	retried bool
+	fixture     fixtureGenerator
+	retried     atomic.Bool
+	partRetried atomic.Bool
 }
 
 func (g *repairingGenerator) Generate(ctx context.Context, config llmgateway.Config, request llm.Request) (llm.Result, error) {
-	if !g.retried {
-		g.retried = true
+	if strings.HasPrefix(request.Input, "Analyze") && !g.retried.Swap(true) {
 		return llm.Result{JSON: []byte(`{}`)}, nil
 	}
-	var value any
-	switch {
-	case strings.HasPrefix(request.Input, "Create the standard"):
-		views := fixtureViews()
-		views.Document.Chapters = views.Document.Chapters[:1] // Forces the passport repair path.
-		value = views
-	case strings.HasPrefix(request.Input, "Repair this passport") && strings.Contains(request.Input, "\nVIEWS:\n"):
-		value = fixtureViews()
-	case strings.HasPrefix(request.Input, "Repair this passport"):
-		value = g.model
-	default:
-		result, err := g.fixture.Generate(ctx, config, request)
-		if err != nil {
-			return result, fmt.Errorf("generate event fixture: %w", err)
-		}
-		if err := json.Unmarshal(result.JSON, &g.model); err != nil {
-			return result, fmt.Errorf("decode event fixture: %w", err)
-		}
-		return result, nil
-	}
-	data, err := json.Marshal(value)
+	result, err := g.fixture.Generate(ctx, config, request)
 	if err != nil {
-		return llm.Result{}, fmt.Errorf("encode event fixture: %w", err)
+		return result, fmt.Errorf("generate event fixture: %w", err)
 	}
-	return llm.Result{JSON: data}, nil
+	if strings.HasPrefix(request.Input, "Generate ONLY") && !g.partRetried.Swap(true) {
+		var fragment compositionFragment
+		if err := json.Unmarshal(result.JSON, &fragment); err != nil {
+			return result, fmt.Errorf("decode repair fixture fragment: %w", err)
+		}
+		fragment.Block.Markdown = "<script>invalid</script>"
+		data, err := json.Marshal(fragment)
+		if err != nil {
+			return result, fmt.Errorf("encode repair fixture fragment: %w", err)
+		}
+		result.JSON = data
+	}
+	return result, nil
 }
 
 //nolint:gocyclo // Integration test checks retries, repair, reload and interruption as one durable lifecycle.
-func TestRunEventsSurviveReloadAndRecordRepair(t *testing.T) {
+func TestRunEventsSurviveReloadAndRecordPartRepair(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	database, err := db.Open(ctx, filepath.Join(t.TempDir(), "events.db"))
@@ -109,10 +100,13 @@ func TestRunEventsSurviveReloadAndRecordRepair(t *testing.T) {
 		previous = event.ID
 		seen[event.Type+":"+event.Stage] = true
 	}
-	for _, expected := range []string{"sources_collected:collecting", "stage_skipped:selecting_sources", "model_call_started:analyzing", "model_call_completed:analyzing", "retry_started:analyzing", "validation_failed:validating", "stage_started:repairing", "stage_completed:repairing", "stage_completed:validating", "run_succeeded:complete"} {
+	for _, expected := range []string{"sources_collected:collecting", "stage_skipped:selecting_sources", "model_call_started:analyzing", "model_call_completed:analyzing", "retry_started:analyzing", "retry_started:composing", "composition_progress:composing", "stage_completed:composing", "stage_completed:validating", "run_succeeded:complete"} {
 		if !seen[expected] {
 			t.Errorf("missing event %s", expected)
 		}
+	}
+	if finished.Composition == nil || len(finished.Composition.Tasks) == 0 {
+		t.Fatal("composition tasks were not restored after reload")
 	}
 	interrupted, err := service.Start(ctx, p.ID, input)
 	if err != nil {

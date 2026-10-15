@@ -48,7 +48,6 @@ type targetLimit struct {
 	waiting      int
 	limit        int
 	successes    int
-	throttles    int
 	total429     int
 	total503     int
 	cooldownTill time.Time
@@ -156,9 +155,18 @@ type Limiter struct {
 	waiters       []*waiter
 }
 
+type queueWaitKey struct{}
+
+// WithQueueWait makes bounded background workers wait for queue space instead
+// of treating local admission pressure as a failed provider request. The normal
+// admission deadline and context cancellation still apply.
+func WithQueueWait(ctx context.Context) context.Context {
+	return context.WithValue(ctx, queueWaitKey{}, true)
+}
+
 func NewLimiter(globalMax, globalQueue, apiMax, apiQueue int) *Limiter {
 	return &Limiter{changed: make(chan struct{}), globalMax: globalMax,
-		globalQueue: globalQueue, globalWait: time.Minute, apiMax: apiMax, apiQueue: apiQueue,
+		globalQueue: globalQueue, globalWait: 5 * time.Minute, apiMax: apiMax, apiQueue: apiQueue,
 		targets: make(map[string]*targetLimit)}
 }
 
@@ -219,9 +227,7 @@ func (l *Limiter) Acquire(ctx context.Context, targetID string, api bool) (func(
 }
 
 func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy PoolPolicy) (func(int, http.Header), error) { //nolint:gocyclo // Admission keeps capacity, queue, timeout, and cancellation transitions together.
-	if meta.StartedAt.IsZero() {
-		meta.StartedAt = time.Now()
-	}
+	waitForQueue, _ := ctx.Value(queueWaitKey{}).(bool)
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("acquire LLM gateway request: %w", err)
 	}
@@ -245,8 +251,15 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 	}
 	deadline := time.Now().Add(waitLimit)
 	var w *waiter
+	waited := false
 	for {
 		now := time.Now()
+		if waited && !now.Before(deadline) {
+			l.removeWaiter(w)
+			l.signal()
+			l.mu.Unlock()
+			return nil, ErrQueueTimeout
+		}
 		if target != nil && target.policy.TokensPerMinute > 0 && meta.EstimatedTokens > target.policy.TokensPerMinute {
 			if w != nil {
 				l.removeWaiter(w)
@@ -262,6 +275,7 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 				l.removeWaiter(w)
 			}
 			l.globalActive++
+			meta.StartedAt = now
 			azureReserved := false
 			if target != nil {
 				target.active++
@@ -278,15 +292,18 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 			return func(status int, headers http.Header) { l.complete(meta, status, headers, azureReserved) }, nil
 		}
 		if w == nil {
-			if l.globalWaiting+l.lookupWaiting >= l.globalQueue || (target != nil && target.waiting >= target.policy.MaxQueue) {
+			full := l.globalWaiting+l.lookupWaiting >= l.globalQueue || (target != nil && target.waiting >= target.policy.MaxQueue)
+			if full && !waitForQueue {
 				l.mu.Unlock()
 				return nil, ErrQueueFull
 			}
-			w = &waiter{target: target, meta: meta}
-			l.waiters = append(l.waiters, w)
-			l.globalWaiting++
-			if target != nil {
-				target.waiting++
+			if !full {
+				w = &waiter{target: target, meta: meta}
+				l.waiters = append(l.waiters, w)
+				l.globalWaiting++
+				if target != nil {
+					target.waiting++
+				}
 			}
 		}
 		if !now.Before(deadline) {
@@ -300,6 +317,7 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 			wake = next
 		}
 		changed := l.changed
+		waited = true
 		l.mu.Unlock()
 		timer := time.NewTimer(time.Until(wake))
 		select {
@@ -444,25 +462,23 @@ func (l *Limiter) observeResponseLocked(meta RequestMeta, status int, headers ht
 		updateAzureRate(t, meta, headers, now)
 	}
 	switch status {
-	case http.StatusTooManyRequests:
-		t.total429++
-		t.throttles++
-		t.successes = 0
-		if t.throttles >= 2 && t.limit > 1 {
-			t.limit = (t.limit + 1) / 2
-			t.throttles = 0
+	case http.StatusTooManyRequests, http.StatusServiceUnavailable:
+		if status == http.StatusTooManyRequests {
+			t.total429++
+		} else {
+			t.total503++
 		}
-		l.cooldown(t, headers)
-	case http.StatusServiceUnavailable:
-		t.total503++
 		t.successes = 0
-		if t.limit > 1 {
+		// One overloaded batch lowers capacity once. Its remaining responses
+		// still extend the shared cooldown without collapsing capacity to one.
+		if !now.Before(t.cooldownTill) && t.limit > 1 {
 			t.limit = (t.limit + 1) / 2
 		}
-		l.cooldown(t, headers)
+		l.cooldown(t, headers, now)
 	default:
-		if status >= 200 && status < 400 {
-			t.throttles = 0
+		// Requests already running when throttling began cannot prove that
+		// the reduced capacity is safe, even if they finish after cooldown.
+		if status >= 200 && status < 400 && !meta.StartedAt.Before(t.cooldownTill) {
 			t.successes++
 			if t.successes >= 8 && t.limit < t.policy.MaxActive {
 				t.limit++
@@ -472,7 +488,7 @@ func (l *Limiter) observeResponseLocked(meta RequestMeta, status int, headers ht
 	}
 }
 
-func (l *Limiter) cooldown(t *targetLimit, headers http.Header) {
+func (l *Limiter) cooldown(t *targetLimit, headers http.Header, now time.Time) {
 	delay := parseRetryAfterMS(headers.Get("Retry-After-Ms"))
 	if delay == 0 {
 		delay = parseRetryAfter(headers.Get("Retry-After"))
@@ -480,7 +496,7 @@ func (l *Limiter) cooldown(t *targetLimit, headers http.Header) {
 	if delay == 0 {
 		delay = 5 * time.Second
 	}
-	until := time.Now().Add(delay)
+	until := now.Add(delay)
 	if until.After(t.cooldownTill) {
 		t.cooldownTill = until
 	}
@@ -489,6 +505,17 @@ func (l *Limiter) cooldown(t *targetLimit, headers http.Header) {
 func (l *Limiter) signal() {
 	close(l.changed)
 	l.changed = make(chan struct{})
+}
+
+// ConnectionStatus reports the same shared pool used by the HTTP transport.
+func (l *Limiter) ConnectionStatus(config Config) (PoolStatus, bool) {
+	key := connectionPoolKey(config)
+	for _, pool := range l.Snapshot().Pools {
+		if pool.PoolKey == key {
+			return pool, true
+		}
+	}
+	return PoolStatus{}, false
 }
 
 func (l *Limiter) Snapshot() Status {

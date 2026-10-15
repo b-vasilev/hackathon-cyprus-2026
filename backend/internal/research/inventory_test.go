@@ -48,3 +48,25 @@ func TestInventoryIsIndependentDeterministicAndRevisionBound(t *testing.T) {
 		t.Fatal("single-repository inventory invented a distributed boundary")
 	}
 }
+
+func TestInventoryGroupsNestedVariantsUnderSubsystem(t *testing.T) {
+	inv := buildInventory(source.Collection{
+		Snapshots: []source.Snapshot{{ID: "engine", Revision: "pinned"}},
+		Documents: []source.Document{
+			{SnapshotID: "engine", Path: "internal/convert/targets/sql/helpers/render.go"},
+			{SnapshotID: "engine", Path: "internal/convert/targets/dax/temporal/project.go"},
+		},
+	})
+	areas := 0
+	for _, c := range inv.Candidates {
+		if c.Kind == "source_area" {
+			areas++
+			if c.Path != "engine/internal/convert" {
+				t.Fatalf("nested variant became an independent discovery task: %s", c.Path)
+			}
+		}
+	}
+	if areas != 1 || inv.Repositories[0].Files != 2 {
+		t.Fatal("subsystem grouping lost source inventory")
+	}
+}

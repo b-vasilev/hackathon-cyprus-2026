@@ -71,26 +71,27 @@ func decodeManifest(data string) (sourceManifest, error) {
 
 // Run exposes real processing stages and collection counts, not invented percentages.
 type Run struct {
-	ID                    string          `json:"id"`
-	ProductID             string          `json:"product_id"`
-	ConnectionID          string          `json:"connection_id"`
-	ConnectionRevision    int             `json:"connection_revision"`
-	Model                 string          `json:"model"`
-	RequestTimeoutSeconds int             `json:"request_timeout_seconds"`
-	Status                string          `json:"status"`
-	Stage                 string          `json:"stage"`
-	ErrorCode             string          `json:"error_code"`
-	ErrorMessage          string          `json:"error_message"`
-	CreatedAt             string          `json:"created_at"`
-	StartedAt             string          `json:"started_at"`
-	StageStartedAt        string          `json:"stage_started_at"`
-	FinishedAt            string          `json:"finished_at"`
-	DocumentCount         int             `json:"document_count"`
-	InputTokens           int64           `json:"input_tokens"`
-	OutputTokens          int64           `json:"output_tokens"`
-	Events                []Event         `json:"events"`
-	Research              *research.State `json:"research,omitempty"`
-	Analysis              *AnalysisState  `json:"analysis,omitempty"`
+	ID                    string            `json:"id"`
+	ProductID             string            `json:"product_id"`
+	ConnectionID          string            `json:"connection_id"`
+	ConnectionRevision    int               `json:"connection_revision"`
+	Model                 string            `json:"model"`
+	RequestTimeoutSeconds int               `json:"request_timeout_seconds"`
+	Status                string            `json:"status"`
+	Stage                 string            `json:"stage"`
+	ErrorCode             string            `json:"error_code"`
+	ErrorMessage          string            `json:"error_message"`
+	CreatedAt             string            `json:"created_at"`
+	StartedAt             string            `json:"started_at"`
+	StageStartedAt        string            `json:"stage_started_at"`
+	FinishedAt            string            `json:"finished_at"`
+	DocumentCount         int               `json:"document_count"`
+	InputTokens           int64             `json:"input_tokens"`
+	OutputTokens          int64             `json:"output_tokens"`
+	Events                []Event           `json:"events"`
+	Research              *research.State   `json:"research,omitempty"`
+	Analysis              *AnalysisState    `json:"analysis,omitempty"`
+	Composition           *CompositionState `json:"composition,omitempty"`
 }
 
 // Revision includes an immutable draft and the exact source snapshot manifest.
@@ -101,15 +102,22 @@ type Revision struct {
 	Version       int               `json:"version"`
 	SchemaVersion string            `json:"schema_version"`
 	CreatedAt     string            `json:"created_at"`
+	ApprovedBy    string            `json:"approved_by"`
+	ApprovedAt    string            `json:"approved_at"`
+	PublishedBy   string            `json:"published_by"`
+	PublishedAt   string            `json:"published_at"`
+	Published     bool              `json:"published"`
 	Content       passport.Passport `json:"content"`
 	Snapshots     []source.Snapshot `json:"snapshots"`
 }
 
 // RevisionInfo is a small history entry without the full passport payload.
 type RevisionInfo struct {
-	ID        string `json:"id"`
-	Version   int    `json:"version"`
-	CreatedAt string `json:"created_at"`
+	ID         string `json:"id"`
+	Version    int    `json:"version"`
+	CreatedAt  string `json:"created_at"`
+	ApprovedAt string `json:"approved_at"`
+	Published  bool   `json:"published"`
 }
 
 // EvidenceView contains only the source lines needed to inspect an assertion.
@@ -220,8 +228,9 @@ func (s *Service) GetRun(ctx context.Context, id string) (Run, error) {
 	// Older plan snapshots are represented by a short activity entry; only the
 	// latest structured state is needed for polling and reconnects.
 	rows, err := tx.QueryContext(ctx, `SELECT id,type,stage,
- CASE WHEN type='research_plan' AND id < (SELECT MAX(id) FROM generation_events WHERE run_id=? AND type='research_plan') THEN '' ELSE message END,
- created_at FROM generation_events WHERE run_id=? ORDER BY id`, id, id)
+ CASE WHEN type='research_plan' AND id < (SELECT MAX(id) FROM generation_events WHERE run_id=? AND type='research_plan') THEN ''
+ WHEN type='composition_progress' AND id < (SELECT MAX(id) FROM generation_events WHERE run_id=? AND type='composition_progress') THEN '' ELSE message END,
+ created_at FROM generation_events WHERE run_id=? ORDER BY id`, id, id, id)
 	if err != nil {
 		return r, fmt.Errorf("list generation events: %w", err)
 	}
@@ -251,6 +260,19 @@ func (s *Service) GetRun(ctx context.Context, id string) (Run, error) {
 				return r, fmt.Errorf("read analysis progress: %w", decodeErr)
 			}
 			r.Analysis = &state
+			event.Message = state.Action
+		}
+		if event.Type == "composition_progress" {
+			if event.Message == "" {
+				event.Message = "Passport writing progress updated."
+				r.Events = append(r.Events, event)
+				continue
+			}
+			var state CompositionState
+			if err := json.Unmarshal([]byte(event.Message), &state); err != nil {
+				return r, fmt.Errorf("read composition progress: %w", err)
+			}
+			r.Composition = &state
 			event.Message = state.Action
 		}
 		r.Events = append(r.Events, event)
@@ -380,7 +402,10 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	if err != nil {
 		return err
 	}
-	brandContext := brand.Context()
+	brandContext := ""
+	if len(brand.References) > 0 || len(brand.Logos) > 0 {
+		brandContext = brand.Context()
+	}
 	var contextText string
 	if s.Research != nil {
 		collection, contextText, err = s.researchSources(ctx, run, collection)
@@ -408,9 +433,7 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	var model passport.Model
 	if s.Analysis != nil {
 		model, collection, err = s.analyzeIncrementally(ctx, run, collection)
-		// Source bodies remain accessible through paged analysis tools. They
-		// must not be replayed in a later document repair request.
-		contextText = ""
+		// Composition uses only the finalized canonical model, without source bodies.
 	} else {
 		// Compatibility for embedded consumers that have not configured the
 		// incremental runner. The application always installs Service.Analysis.
@@ -429,8 +452,11 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	if checkErr := s.stage(ctx, run.ID, "composing"); checkErr != nil {
 		return checkErr
 	}
-	modelJSON, _ := json.Marshal(model)
-	views, err := generate[passport.Views](ctx, s, run, "composing", compositionPrompt+"\nSECTION REQUIREMENTS:\n"+requirements+"\nMODEL:\n"+string(modelJSON)+brandContext)
+	documents := make(map[string]int)
+	for _, doc := range collection.Documents {
+		documents[doc.ID] = doc.LineCount
+	}
+	views, err := s.compose(ctx, run, model, documents, brandContext)
 	if err != nil {
 		return err
 	}
@@ -438,29 +464,8 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	if checkErr := s.stage(ctx, run.ID, "validating"); checkErr != nil {
 		return checkErr
 	}
-	documents := make(map[string]int)
-	for _, doc := range collection.Documents {
-		documents[doc.ID] = doc.LineCount
-	}
 	if validationErr := validateResearchPassport(p, documents, collection, s.Research != nil || s.Analysis != nil); validationErr != nil {
-		if checkErr := s.stage(ctx, run.ID, "repairing"); checkErr != nil {
-			return checkErr
-		}
-		if s.Analysis != nil {
-			encodedViews, _ := json.Marshal(p.Views)
-			p.Views, err = generate[passport.Views](ctx, s, run, "repairing", viewsRepairPrompt+"\nSECTION REQUIREMENTS:\n"+requirements+"\nERROR:\n"+validationErr.Error()+"\nMODEL:\n"+string(modelJSON)+"\nVIEWS:\n"+string(encodedViews)+brandContext)
-		} else {
-			p, err = repair(ctx, s, run, p, validationErr.Error(), requirements, contextText, brandContext)
-		}
-		if err != nil {
-			return err
-		}
-		if err := s.stage(ctx, run.ID, "validating"); err != nil {
-			return err
-		}
-		if checkErr := validateResearchPassport(p, documents, collection, s.Research != nil || s.Analysis != nil); checkErr != nil {
-			return fmt.Errorf("passport validation failed: %w", checkErr)
-		}
+		return fmt.Errorf("passport validation failed: %w", validationErr)
 	}
 	// Resolve assets after repair so image bytes never enter a model request.
 	p.Views.CardTheme = brand.Theme(p.Views.CardTheme)
@@ -470,24 +475,33 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	return s.saveRevision(ctx, run, p)
 }
 
-// repair fixes model and views in separate calls: the combined passport schema exceeds strict-output grammar limits.
-func repair(ctx context.Context, s *Service, run Run, p passport.Passport, diagnostics, requirements, contextText, brandContext string) (passport.Passport, error) {
-	encoded, _ := json.Marshal(p)
-	model, err := generate[passport.Model](ctx, s, run, "repairing", repairPrompt+"\nIn this step, return only the repaired model; the views are repaired next.\nSECTION REQUIREMENTS:\n"+requirements+"\nERROR:\n"+diagnostics+"\nPASSPORT:\n"+string(encoded)+"\nSOURCES:\n"+contextText)
-	if err != nil {
-		return p, err
-	}
-	modelJSON, _ := json.Marshal(model)
-	viewsJSON, _ := json.Marshal(p.Views)
-	views, err := generate[passport.Views](ctx, s, run, "repairing", repairPrompt+"\nIn this step, return only the repaired views. Reference only IDs in the repaired MODEL.\nSECTION REQUIREMENTS:\n"+requirements+"\nERROR:\n"+diagnostics+"\nMODEL:\n"+string(modelJSON)+"\nVIEWS:\n"+string(viewsJSON)+brandContext)
-	if err != nil {
-		return p, err
-	}
-	p.Model, p.Views = model, views
-	return p, nil
+func generate[T any](ctx context.Context, s *Service, run Run, stage, input string) (T, error) {
+	return generateWith[T](ctx, s, run, stage, input, generationCall{RetryProvider: true}, nil)
 }
 
-func generate[T any](ctx context.Context, s *Service, run Run, stage, input string) (T, error) {
+type generationCall struct {
+	Label           string
+	MaxOutputTokens int
+	RetryProvider   bool
+	OnAttempt       func(int) error
+}
+
+const (
+	maxProviderAttempts   = 6
+	maxValidationAttempts = 6
+	// Each failure spends only its own budget; the last request exhausts one.
+	maxGenerationAttempts = maxProviderAttempts + maxValidationAttempts - 1
+)
+
+func (o generationCall) maxAttempts() int {
+	if o.RetryProvider {
+		return maxGenerationAttempts
+	}
+	return maxValidationAttempts
+}
+
+//nolint:gocyclo // Keep per-attempt usage, provider retries and response checks at one request boundary.
+func generateWith[T any](ctx context.Context, s *Service, run Run, stage, input string, options generationCall, check func(T) error) (T, error) {
 	var empty T
 	schema, err := passport.OutputSchema[T]()
 	if err != nil {
@@ -501,7 +515,17 @@ func generate[T any](ctx context.Context, s *Service, run Run, stage, input stri
 	if checkErr := json.Unmarshal(encoded, &format); checkErr != nil {
 		return empty, fmt.Errorf("decode output schema: %w", checkErr)
 	}
-	for attempt := 1; attempt <= 2; attempt++ {
+	originalInput := input
+	providerFailures, validationFailures := 0, 0
+	for attempt := 1; attempt <= options.maxAttempts(); attempt++ {
+		if err := ctx.Err(); err != nil {
+			return empty, fmt.Errorf("model task interrupted: %w", err)
+		}
+		if options.OnAttempt != nil {
+			if err := options.OnAttempt(attempt); err != nil {
+				return empty, err
+			}
+		}
 		config, err := s.Connections.Load(ctx, run.ConnectionID, run.ConnectionRevision)
 		if err != nil {
 			return empty, errors.New("the selected connection is disabled or unavailable")
@@ -510,10 +534,14 @@ func generate[T any](ctx context.Context, s *Service, run Run, stage, input stri
 			config.TimeoutSeconds = run.RequestTimeoutSeconds
 		}
 		started := time.Now()
-		if err := s.event(ctx, run.ID, "model_call_started", stage, fmt.Sprintf("Model request started (attempt %d of 2). Waiting for the response.", attempt)); err != nil {
+		label := "Model request"
+		if options.Label != "" {
+			label = options.Label
+		}
+		if err := s.event(ctx, run.ID, "model_call_started", stage, fmt.Sprintf("%s started (attempt %d of %d). Waiting for the response.", label, attempt, options.maxAttempts())); err != nil {
 			return empty, err
 		}
-		result, callErr := s.LLM.Generate(ctx, config, llm.Request{Model: run.Model, System: systemPrompt, Input: input, Schema: format})
+		result, callErr := s.LLM.Generate(ctx, config, llm.Request{Model: run.Model, System: systemPrompt, Input: input, Schema: format, MaxOutputTokens: options.MaxOutputTokens})
 		code := ""
 		if callErr != nil {
 			code = "provider_error"
@@ -542,22 +570,40 @@ func generate[T any](ctx context.Context, s *Service, run Run, stage, input stri
 			if err := s.event(ctx, run.ID, "model_call_failed", stage, "The model request failed."); err != nil {
 				return empty, err
 			}
-			return empty, fmt.Errorf("generate %s: %w", stage, callErr)
 		}
-		if err := s.event(ctx, run.ID, "model_call_completed", stage, fmt.Sprintf("Model response received. Recorded usage: %d input tokens and %d output tokens.", result.InputTokens, result.OutputTokens)); err != nil {
-			return empty, err
+		if callErr != nil && code != "invalid_json" {
+			providerFailures++
+			if options.RetryProvider && providerFailures < maxProviderAttempts && ctx.Err() == nil && (code == "timeout" || code == "provider_error" || code == "rate_limited") {
+				if err := s.event(ctx, run.ID, "retry_started", stage, fmt.Sprintf("%s did not complete (API failure %d of %d). Retrying only this task.", label, providerFailures, maxProviderAttempts)); err != nil {
+					return empty, err
+				}
+				continue
+			}
+			return empty, fmt.Errorf("generate %s (%s): %w", stage, label, callErr)
 		}
-		value, validationErr := passport.CheckJSON[T](result.JSON)
+		if callErr == nil {
+			if err := s.event(ctx, run.ID, "model_call_completed", stage, fmt.Sprintf("%s response received. Recorded usage: %d input tokens and %d output tokens.", label, result.InputTokens, result.OutputTokens)); err != nil {
+				return empty, err
+			}
+		}
+		value, validationErr := empty, callErr
+		if validationErr == nil {
+			value, validationErr = passport.CheckJSON[T](result.JSON)
+		}
+		if validationErr == nil && check != nil {
+			validationErr = check(value)
+		}
 		if validationErr == nil {
 			return value, nil
 		}
-		if attempt == 2 {
-			return empty, fmt.Errorf("model response failed schema validation: %w", validationErr)
+		validationFailures++
+		if validationFailures == maxValidationAttempts {
+			return empty, fmt.Errorf("%s response failed validation: %w", label, validationErr)
 		}
-		if err := s.event(ctx, run.ID, "retry_started", stage, "The response did not match the required format. Retrying once."); err != nil {
+		if err := s.event(ctx, run.ID, "retry_started", stage, fmt.Sprintf("%s did not pass validation (invalid response %d of %d). Retrying only this task.", label, validationFailures, maxValidationAttempts)); err != nil {
 			return empty, err
 		}
-		input += "\n" + schemaRepairPrompt + "\nERROR:\n" + validationErr.Error() + "\nPREVIOUS RESPONSE:\n" + string(result.JSON)
+		input = originalInput + "\n" + schemaRepairPrompt + "\nERROR:\n" + validationErr.Error() + "\nPREVIOUS RESPONSE:\n" + string(result.JSON)
 	}
 	return empty, errors.New("model generation did not produce a result")
 }
@@ -663,7 +709,7 @@ func (s *Service) RevisionProduct(ctx context.Context, revisionID string) (strin
 
 // History returns compact revision metadata.
 func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id,version,created_at FROM passport_revisions WHERE product_id=? ORDER BY version DESC", productID)
+	rows, err := s.DB.QueryContext(ctx, "SELECT r.id,r.version,r.created_at,r.approved_at,COALESCE(p.published_revision_id=r.id,0) FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE r.product_id=? ORDER BY r.version DESC", productID)
 	if err != nil {
 		return nil, fmt.Errorf("list passport revisions: %w", err)
 	}
@@ -671,7 +717,7 @@ func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo
 	result := make([]RevisionInfo, 0)
 	for rows.Next() {
 		var r RevisionInfo
-		if checkErr := rows.Scan(&r.ID, &r.Version, &r.CreatedAt); checkErr != nil {
+		if checkErr := rows.Scan(&r.ID, &r.Version, &r.CreatedAt, &r.ApprovedAt, &r.Published); checkErr != nil {
 			return nil, fmt.Errorf("read revision history: %w", checkErr)
 		}
 		result = append(result, r)
@@ -682,11 +728,13 @@ func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo
 	return result, nil
 }
 
-// Revision returns one draft and its exact snapshot manifest.
+// Revision returns one saved version and its exact snapshot manifest.
 func (s *Service) Revision(ctx context.Context, id string) (Revision, error) {
 	var r Revision
 	var path, hash string
-	err := s.DB.QueryRowContext(ctx, "SELECT id,product_id,run_id,version,schema_version,content_path,content_hash,created_at FROM passport_revisions WHERE id=?", id).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &hash, &r.CreatedAt)
+	err := s.DB.QueryRowContext(ctx, `SELECT r.id,r.product_id,r.run_id,r.version,r.schema_version,r.content_path,r.content_hash,r.created_at,
+ r.approved_by,r.approved_at,r.published_by,r.published_at,COALESCE(p.published_revision_id=r.id,0)
+ FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE r.id=?`, id).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &hash, &r.CreatedAt, &r.ApprovedBy, &r.ApprovedAt, &r.PublishedBy, &r.PublishedAt, &r.Published)
 	if err != nil {
 		return r, fmt.Errorf("get passport revision: %w", err)
 	}

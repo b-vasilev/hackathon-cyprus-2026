@@ -98,9 +98,11 @@ func Specification() ([]byte, error) {
 		{methodGet, "/api/generations/{id}", "getGeneration", "", "Run", 200, false},
 		{methodPost, "/api/generations/{id}/cancel", "cancelGeneration", "", "Run", 200, false},
 		{methodGet, "/api/generations/{id}/events", "streamGeneration", "", "Run", 200, false},
-		{methodGet, "/api/products/{id}/passport", "getLatestPassport", "", "Revision", 200, false},
+		{methodGet, "/api/products/{id}/passport", "getPublishedPassport", "", "Revision", 200, false},
 		{methodGet, "/api/products/{id}/passport-revisions", "listRevisions", "", "RevisionInfo", 200, true},
 		{methodGet, "/api/passport-revisions/{id}", "getRevision", "", "Revision", 200, false},
+		{methodPost, "/api/passport-revisions/{id}/approve", "approveRevision", "", "Revision", 200, false},
+		{methodPost, "/api/passport-revisions/{id}/publish", "publishRevision", "", "Revision", 200, false},
 		{methodGet, "/api/passport-revisions/{id}/evidence/{evidenceId}", "getEvidence", "", "EvidenceView", 200, false},
 	} {
 		output := map[string]any{"$ref": "#/components/schemas/" + route.output}

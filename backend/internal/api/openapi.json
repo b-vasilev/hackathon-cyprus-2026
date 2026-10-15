@@ -1882,6 +1882,9 @@
           "latest_revision_id": {
             "type": "string"
           },
+          "published_revision_id": {
+            "type": "string"
+          },
           "latest_run_id": {
             "type": "string"
           },
@@ -1895,6 +1898,7 @@
           "sources",
           "created_at",
           "latest_revision_id",
+          "published_revision_id",
           "latest_run_id",
           "latest_run_status"
         ],
@@ -2465,6 +2469,21 @@
           },
           "created_at": {
             "type": "string"
+          },
+          "approved_by": {
+            "type": "string"
+          },
+          "approved_at": {
+            "type": "string"
+          },
+          "published_by": {
+            "type": "string"
+          },
+          "published_at": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean"
           },
           "content": {
             "type": "object",
@@ -3235,6 +3254,11 @@
           "version",
           "schema_version",
           "created_at",
+          "approved_by",
+          "approved_at",
+          "published_by",
+          "published_at",
+          "published",
           "content",
           "snapshots"
         ],
@@ -3251,12 +3275,20 @@
           },
           "created_at": {
             "type": "string"
+          },
+          "approved_at": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean"
           }
         },
         "required": [
           "id",
           "version",
-          "created_at"
+          "created_at",
+          "approved_at",
+          "published"
         ],
         "additionalProperties": false
       },
@@ -3662,6 +3694,41 @@
               },
               "relations": {
                 "type": "integer"
+              },
+              "scenarios": {
+                "type": "integer"
+              },
+              "validation_issues": {
+                "type": "integer"
+              },
+              "tasks": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "last_saved_at": {
+                "type": "string"
               }
             },
             "required": [
@@ -3672,7 +3739,78 @@
               "checkpoint_revision",
               "objects",
               "claims",
-              "relations"
+              "relations",
+              "scenarios",
+              "validation_issues"
+            ],
+            "additionalProperties": false
+          },
+          "composition": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "parallelism": {
+                "type": "integer"
+              },
+              "tasks": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "chapter_id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "attempt": {
+                      "type": "integer"
+                    },
+                    "max_attempts": {
+                      "type": "integer"
+                    },
+                    "started_at": {
+                      "type": "string"
+                    },
+                    "finished_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "chapter_id",
+                    "title",
+                    "kind",
+                    "status",
+                    "attempt",
+                    "started_at",
+                    "finished_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "action",
+              "parallelism",
+              "tasks"
             ],
             "additionalProperties": false
           }
@@ -4649,6 +4787,43 @@
         }
       }
     },
+    "/api/passport-revisions/{id}/approve": {
+      "post": {
+        "operationId": "approveRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revision"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
     "/api/passport-revisions/{id}/evidence/{evidenceId}": {
       "get": {
         "operationId": "getEvidence",
@@ -4676,6 +4851,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EvidenceView"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/passport-revisions/{id}/publish": {
+      "post": {
+        "operationId": "publishRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revision"
                 }
               }
             },
@@ -5003,7 +5215,7 @@
     },
     "/api/products/{id}/passport": {
       "get": {
-        "operationId": "getLatestPassport",
+        "operationId": "getPublishedPassport",
         "parameters": [
           {
             "in": "path",

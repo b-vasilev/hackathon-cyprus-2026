@@ -26,7 +26,7 @@ func RequiredSectionIDs() []string {
 // Evidence anchors an assertion to exact lines of a collected document.
 type Evidence struct {
 	ID         string `json:"id"`
-	DocumentID string `json:"document_id"`
+	DocumentID string `json:"document_id" description:"Exact document_id returned by list_sources or read_source; never a file path or snapshot ID."`
 	StartLine  int    `json:"start_line"`
 	EndLine    int    `json:"end_line"`
 }
@@ -35,23 +35,23 @@ type Evidence struct {
 type Claim struct {
 	ID          string   `json:"id"`
 	Text        string   `json:"text"`
-	Basis       string   `json:"basis" jsonschema:"One of source_backed, inferred, unknown. A source pointer is not expert approval."`
-	EvidenceIDs []string `json:"evidence_ids"`
+	Basis       string   `json:"basis" enum:"source_backed,inferred,unknown" jsonschema:"One of source_backed, inferred, unknown. A source pointer is not expert approval."`
+	EvidenceIDs []string `json:"evidence_ids" description:"Exact evidence IDs supporting this claim. Required for source_backed claims before finalization; referenced evidence may be saved in a later part."`
 }
 
 // Object is a shared actor, capability, domain entity, component or environment.
 type Object struct {
 	ID               string   `json:"id"`
-	Kind             string   `json:"kind" jsonschema:"One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."`
+	Kind             string   `json:"kind" enum:"repository,actor,capability,entity,component,store,external_system,interface,environment,decision,owner" description:"Use component for a software system or runtime unit, with architecture_role specifying its level. A repository describes source ownership." jsonschema:"One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."`
 	Name             string   `json:"name"`
 	Summary          string   `json:"summary"`
 	Technology       string   `json:"technology"`
-	Status           string   `json:"status" jsonschema:"One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."`
+	Status           string   `json:"status" enum:"implemented,in_development,experimental,planned,unknown" jsonschema:"One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."`
 	Inputs           []string `json:"inputs"`
 	Outputs          []string `json:"outputs"`
 	Contracts        []string `json:"contracts"`
-	ClaimIDs         []string `json:"claim_ids"`
-	ArchitectureRole string   `json:"architecture_role,omitempty" jsonschema:"Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."`
+	ClaimIDs         []string `json:"claim_ids" description:"Supporting canonical claim IDs. Can be filled in a later draft part; must be nonempty and resolved before finalization."`
+	ArchitectureRole string   `json:"architecture_role,omitempty" enum:"software_system,runtime_unit,component" description:"Architectural level of a component; distinct from kind. Omit for source repository provenance." jsonschema:"Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."`
 	ParentID         string   `json:"parent_id,omitempty" jsonschema:"Optional architectural parent object ID. Never a repository provenance link."`
 }
 
@@ -61,9 +61,9 @@ type Relation struct {
 	From        string   `json:"from"`
 	To          string   `json:"to"`
 	Label       string   `json:"label"`
-	Kind        string   `json:"kind" jsonschema:"One of call, data, dependency, ownership, association, transition."`
+	Kind        string   `json:"kind" enum:"call,data,dependency,ownership,association,transition" jsonschema:"One of call, data, dependency, ownership, association, transition."`
 	ClaimIDs    []string `json:"claim_ids"`
-	Interaction string   `json:"interaction,omitempty" jsonschema:"Optional in_process, sync, async, artifact, build or unknown."`
+	Interaction string   `json:"interaction,omitempty" enum:"in_process,sync,async,artifact,build,unknown" jsonschema:"Optional in_process, sync, async, artifact, build or unknown."`
 	Contract    string   `json:"contract,omitempty" jsonschema:"Optional specific protocol, payload or artifact contract."`
 }
 

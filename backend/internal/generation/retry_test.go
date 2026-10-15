@@ -385,8 +385,8 @@ func TestRetryRequestTimeoutPreservesFrozenConfiguration(t *testing.T) {
 	if checkErr := reloaded.process(ctx, persisted); checkErr != nil {
 		t.Fatal(checkErr)
 	}
-	if generator.calls.Load() != 2 || f.collector.calls.Load() != 1 {
-		t.Fatal("retry repeated collection or did not apply the timeout to both model calls")
+	if generator.calls.Load() <= 2 || f.collector.calls.Load() != 1 {
+		t.Fatal("retry repeated collection or did not apply the timeout to the composition tasks")
 	}
 	unchanged, err := reloaded.Connections.Load(ctx, f.run.ConnectionID, f.run.ConnectionRevision)
 	if err != nil || !reflect.DeepEqual(unchanged, original) {
@@ -420,7 +420,7 @@ func TestInitialRequestTimeoutDefaultsAndBounds(t *testing.T) {
 			if checkErr := f.service.process(t.Context(), run); checkErr != nil {
 				t.Fatal(checkErr)
 			}
-			if generator.calls.Load() != 2 {
+			if generator.calls.Load() <= 2 {
 				t.Fatal("timeout was not applied to the generation pipeline")
 			}
 		})

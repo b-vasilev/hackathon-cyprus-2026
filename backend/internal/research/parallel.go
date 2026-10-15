@@ -28,6 +28,7 @@ type researchTask struct {
 	Question     string   `json:"question"`
 	Exclude      []string `json:"other_worker_scopes,omitempty"`
 	historyStart int
+	questions    []string
 }
 
 func (t *researchTask) ownsCandidate(id string) bool {
@@ -56,7 +57,24 @@ func (w *workspace) validateTaskPatch(input planInput) error {
 	if input.Replace {
 		return errors.New("a worker cannot replace the shared research plan")
 	}
+	if strings.HasPrefix(t.Key, "scope/") {
+		names := map[string]bool{}
+		for _, name := range t.Boundaries {
+			names[name] = true
+		}
+		for _, b := range append(slices.Clone(w.plan), input.Boundaries...) {
+			if !slices.ContainsFunc(t.base.Boundaries, func(old researchBoundary) bool { return old.Name == b.Name }) {
+				names[b.Name] = true
+			}
+		}
+		if len(names) > 1 {
+			return errors.New("save one subsystem summary for the assigned source area; keep files, helpers and variants as evidence under that responsibility")
+		}
+	}
 	for _, b := range input.Boundaries {
+		if (strings.HasPrefix(t.Key, "responsibility/") || strings.HasPrefix(t.Key, "handoff/")) && !slices.Contains(t.Boundaries, b.Name) {
+			return fmt.Errorf("finish the assigned responsibility instead of creating %s; save helper and variant details as evidence under the existing responsibility", b.Name)
+		}
 		if slices.ContainsFunc(t.base.Boundaries, func(old researchBoundary) bool { return old.Name == b.Name }) && !slices.Contains(t.Boundaries, b.Name) {
 			return fmt.Errorf("responsibility %s belongs to another task; reference it without changing it", b.Name)
 		}
@@ -102,17 +120,17 @@ func (t *researchTask) ownsPath(file string) bool {
 	return false
 }
 
-// Group proof roles for one responsibility together. Discovery candidates go
-// to the deepest indexed source area, so a root directory cannot swallow the
-// whole repository and leave nineteen workers idle.
+// Research architecture source areas, not every file hint. Keep each
+// responsibility's proof roles together to avoid conflicting writers.
 func (w *workspace) researchTasks() []researchTask {
 	groups := map[string]*researchTask{}
-	group := func(key string, priority int) *researchTask {
+	group := func(key string, q researchQuestion) *researchTask {
 		if groups[key] == nil {
-			groups[key] = &researchTask{Key: key, priority: priority}
+			groups[key] = &researchTask{Key: key, priority: q.priority}
 		} else {
-			groups[key].priority = min(groups[key].priority, priority)
+			groups[key].priority = min(groups[key].priority, q.priority)
 		}
+		groups[key].questions = append(groups[key].questions, q.Key)
 		return groups[key]
 	}
 	for _, q := range w.pendingQuestions() {
@@ -123,7 +141,7 @@ func (w *workspace) researchTasks() []researchTask {
 			for _, b := range w.plan {
 				separator := strings.LastIndex(q.Key, "/")
 				if separator >= 0 && q.Key[:separator] == b.Name && roleQuestions[q.Key[separator+1:]] != "" {
-					t := group("responsibility/"+b.Repository+"/"+b.Name, q.priority)
+					t := group("responsibility/"+b.Repository+"/"+b.Name, q)
 					if !slices.Contains(t.Boundaries, b.Name) {
 						t.Boundaries = append(t.Boundaries, b.Name)
 					}
@@ -132,14 +150,14 @@ func (w *workspace) researchTasks() []researchTask {
 			for _, h := range w.ledger.Plan.Handoffs {
 				separator := strings.LastIndex(q.Key, "/")
 				if separator >= 0 && q.Key[:separator] == h.ID {
-					t := group("handoff/"+h.ID, q.priority)
+					t := group("handoff/"+h.ID, q)
 					if !slices.Contains(t.Handoffs, h.ID) {
 						t.Handoffs = append(t.Handoffs, h.ID)
 					}
 				}
 			}
 			if strings.HasPrefix(q.Key, "repository/") {
-				group("scope/"+q.Repository, q.priority)
+				group("scope/"+q.Repository, q)
 			}
 			continue
 		}
@@ -150,7 +168,7 @@ func (w *workspace) researchTasks() []researchTask {
 			var owner *researchTask
 			for _, b := range w.plan {
 				if b.Repository == c.Repository && boundaryTouches(b, c) {
-					owner = group("responsibility/"+b.Repository+"/"+b.Name, q.priority)
+					owner = group("responsibility/"+b.Repository+"/"+b.Name, q)
 					if !slices.Contains(owner.Boundaries, b.Name) {
 						owner.Boundaries = append(owner.Boundaries, b.Name)
 					}
@@ -161,14 +179,18 @@ func (w *workspace) researchTasks() []researchTask {
 				owner.Candidates = append(owner.Candidates, c)
 				continue
 			}
-			scope := c.Repository
-			for _, area := range w.inventory.Candidates {
-				prefix := path.Clean(area.Path)
-				if area.Kind == "source_area" && area.Repository == c.Repository && (path.Clean(c.Path) == prefix || strings.HasPrefix(c.Path, prefix+"/")) && len(prefix) > len(scope) {
-					scope = prefix
+			scope := path.Clean(c.Path)
+			if c.Kind != "source_area" && c.Kind != "repository" {
+				for _, area := range w.inventory.Candidates {
+					prefix := path.Clean(area.Path)
+					if area.Kind == "source_area" && isArchitectureScope(area) && area.Repository == c.Repository && (path.Clean(c.Path) == prefix || strings.HasPrefix(c.Path, prefix+"/")) {
+						if scope == path.Clean(c.Path) || len(prefix) > len(scope) {
+							scope = prefix
+						}
+					}
 				}
 			}
-			t := group("scope/"+scope, q.priority)
+			t := group("scope/"+scope, q)
 			t.Candidates = append(t.Candidates, c)
 		}
 	}
@@ -179,7 +201,7 @@ func (w *workspace) researchTasks() []researchTask {
 		} else if len(task.Handoffs) > 0 {
 			task.Question = "Verify producer, consumer and wiring for " + strings.Join(task.Handoffs, ", ")
 		} else {
-			task.Question = "Identify and explain the concrete behavior owned by " + w.taskLabel(*task) + "; save one source-backed answer before broadening the investigation"
+			task.Question = "Explain the architecture role of " + w.taskLabel(*task) + " using one representative input -> processing -> output flow, its caller and external contracts. Save one subsystem summary; do not catalog individual files or helpers."
 		}
 		for _, other := range groups {
 			if other.Key != task.Key && strings.HasPrefix(other.Key, task.Key+"/") {
@@ -260,7 +282,13 @@ func (w *workspace) taskContext() string {
 			readRanges[file] = map[string]any{"document_id": doc.ID, "ranges": mergeRanges(w.reads[doc.ID])}
 		}
 	}
-	data, _ := json.Marshal(map[string]any{"assignment": w.task, "existing_responsibilities": boundaries, "existing_handoffs": handoffs, "retained_findings": findings, "already_read": readRanges})
+	var remaining []researchQuestion
+	for _, question := range w.pendingQuestions() {
+		if question.Actionable && w.task.ownsQuestion(question) {
+			remaining = append(remaining, question)
+		}
+	}
+	data, _ := json.Marshal(map[string]any{"assignment": w.task, "remaining_questions": remaining, "existing_responsibilities": boundaries, "existing_handoffs": handoffs, "retained_findings": findings, "already_read": readRanges})
 	return string(data)
 }
 
@@ -280,8 +308,10 @@ func (w *workspace) forkTask(task researchTask, turns int) (*workspace, error) {
 	task.base = base
 	task.historyStart = len(ledger.History)
 	local := &workspace{
+		limiter:   w.limiter,
 		documents: w.documents, paths: w.paths, inventory: w.inventory,
-		reads: map[string][]source.LineRange{}, readFailures: map[string]string{},
+		sources: w.sourceIndex(),
+		reads:   map[string][]source.LineRange{}, readFailures: map[string]string{},
 		ledger: ledger, plan: ledger.Plan.Boundaries, searches: slices.Clone(w.searches),
 		summaryNotes: w.summaryNotes, submittedNotes: w.submittedNotes,
 		turnBudget: turns, deadline: w.deadline, task: &task,
@@ -413,8 +443,37 @@ type taskUpdate struct {
 }
 
 type taskAttempts struct {
-	count   int
-	stalled int
+	count     int
+	stalled   int
+	questions string
+	repaired  bool
+}
+
+func queueResearchTasks(tasks []researchTask, active map[string]researchTask, attempts map[string]taskAttempts) []researchTask {
+	queued := make([]researchTask, 0, len(tasks))
+	for _, task := range tasks {
+		claimed := false
+		for _, running := range active {
+			if tasksOverlap(task, running) {
+				claimed = true
+				break
+			}
+		}
+		if claimed {
+			continue
+		}
+		attempt := attempts[task.Key]
+		questions := strings.Join(task.questions, "\x00")
+		if attempt.questions != questions {
+			attempt.stalled, attempt.questions = 0, questions
+			attempt.repaired = false
+			attempts[task.Key] = attempt
+		}
+		if attempt.stalled < 2 || (attempt.stalled == 2 && !attempt.repaired) {
+			queued = append(queued, task)
+		}
+	}
+	return queued
 }
 
 func tasksOverlap(a, b researchTask) bool {
@@ -469,23 +528,16 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			}
 			return attempts[a.Key].count - attempts[b.Key].count
 		})
-		queued := make([]researchTask, 0, len(tasks))
-		for _, task := range tasks {
-			claimed := false
-			for _, running := range active {
-				if tasksOverlap(task, running) {
-					claimed = true
-					break
-				}
-			}
-			if !claimed && attempts[task.Key].stalled < 2 {
-				queued = append(queued, task)
-			}
+		queued := queueResearchTasks(tasks, active, attempts)
+		if len(active) < workers && len(queued) > 0 && w.activeLimit()-w.turn-reserved == 0 {
+			w.refillParallelBudget()
 		}
 		for fatal == nil && ctx.Err() == nil && !w.budget.stopped && len(active) < workers && len(queued) > 0 && w.activeLimit()-w.turn-reserved > 0 && (w.deadline.IsZero() || time.Until(w.deadline) > 30*time.Second) {
 			task := queued[0]
 			queued = queued[1:]
-			allowance := min(taskTurns, w.activeLimit()-w.turn-reserved)
+			available := w.activeLimit() - w.turn - reserved
+			slots := min(workers-len(active), len(queued)+1)
+			allowance := min(taskTurns, max(1, available/slots))
 			local, err := w.forkTask(task, allowance)
 			if err != nil {
 				fatal = err
@@ -501,7 +553,13 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			reserved += allowance
 			attempt := attempts[task.Key]
 			attempt.count++
+			repair := attempt.stalled == 2 && !attempt.repaired
+			if repair {
+				attempt.repaired = true
+				local.conversation = taskSession{}
+			}
 			attempts[task.Key] = attempt
+			recovering := w.budget.decisions[len(w.budget.decisions)-1].Kind == "recovery"
 			w.parallel.Workers = append(w.parallel.Workers, WorkerProgress{ID: id, Task: w.taskLabel(task), Question: task.Question, Focus: local.ledger.Focus, Status: "waiting"})
 			go func() {
 				before := local.workFingerprint()
@@ -523,6 +581,12 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 				}
 				local.event = func(message string) error { return local.publish(send, message) }
 				instructions := "PARALLEL ASSIGNMENT:\n" + local.taskContext() + "\nInvestigate ONLY this assigned question. Its candidate map and existing results are already supplied above; start with a focused source search or read, without reviewing inventory or selecting another question. Other workers exclusively own other_worker_scopes; read them only as dependencies, never independently investigate or change their responsibilities. Keep dependencies outside the assignment read-only. Use save_research_answer immediately after verifying EACH role; it saves the answer, exact citations and matching plan evidence together. Do not wait to finish all four roles. Continue with remaining roles after saving the first. Batch independent reads. With three turns left, prioritize saving known evidence. Return after saving; your conversation, read ranges and results are retained for continuation. Never return an unsaved prose-only answer or decide global completion."
+				if recovering {
+					instructions += "\nThe shared research budget is in its final recovery window. Close existing questions and save known evidence. Do not create new responsibilities or broaden discovery."
+				}
+				if repair {
+					instructions += "\nThis is a fresh closure attempt after two stalled windows. Use remaining_questions and the retained read ranges/findings. Save the missing role evidence, or record a precise role research_gap supported by actual prior searches when evidence cannot be established. Do not repeat unrelated discovery, create responsibilities or return only prose."
+				}
 				var usage Result
 				err := local.modelPass(ctx, newAgent(local), config, modelID, instructions, send, &usage)
 				updates <- taskUpdate{id: id, key: task.Key, local: local, result: usage, err: err, allowance: allowance, progressed: before != local.workFingerprint()}
@@ -549,7 +613,7 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			}
 			if len(queued) == 0 {
 				w.budget.stopped = true
-				w.budget.decisions = append(w.budget.decisions, BudgetDecision{Turn: w.turn, Limit: w.activeLimit(), Kind: "stopped", Reason: "No unattempted reachable tasks remain. Tasks that made no progress twice are saved for continuation."})
+				w.budget.decisions = append(w.budget.decisions, BudgetDecision{Turn: w.turn, Limit: w.activeLimit(), Kind: "stopped", Reason: "No independent tasks remain after stalled assignments received a fresh closure attempt. Unresolved evidence remains explicit research gaps."})
 				break
 			}
 			if !w.reviewBudget() {
@@ -570,17 +634,26 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 		}
 		if update.local != nil {
 			mergeErr := w.mergeTask(update.local)
+			// A request/tool failure is not evidence that research is exhausted.
+			// Preserve accepted work, then expose the failure for a resumable retry.
+			if update.err != nil && ctx.Err() == nil && fatal == nil {
+				fatal = fmt.Errorf("research task %s failed: %w", w.taskLabel(active[update.key]), update.err)
+				cancel()
+			}
 			delete(active, update.key)
 			reserved -= update.allowance - update.result.Steps
 			w.parallel.Workers = slices.DeleteFunc(w.parallel.Workers, func(p WorkerProgress) bool { return p.ID == update.id })
 			attempt := attempts[update.key]
-			if !update.progressed || mergeErr != nil || update.err != nil {
+			// A failed later model request must not erase actual saved progress.
+			if !update.progressed || mergeErr != nil {
 				attempt.stalled++
 			} else {
 				attempt.stalled = 0
 			}
 			attempts[update.key] = attempt
-			if mergeErr != nil || update.err != nil {
+			if update.err != nil && fatal != nil {
+				w.activity = fatal.Error()
+			} else if mergeErr != nil {
 				w.activity = fmt.Sprintf("Task %s saved available evidence and remains open for continuation.", update.key)
 			}
 			continue
@@ -597,16 +670,21 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 				w.ledger.Focus, w.activity = worker.Focus, worker.Activity
 			}
 		}
-		if update.progress.Step > 0 {
-			w.turn++
-			reserved--
-			result.Steps++
-			result.InputTokens += update.progress.InputTokens
-			result.OutputTokens += update.progress.OutputTokens
+		if update.progress.Step > 0 || update.progress.Retry {
+			if update.progress.Step > 0 {
+				w.turn++
+				reserved--
+				result.Steps++
+				result.InputTokens += update.progress.InputTokens
+				result.OutputTokens += update.progress.OutputTokens
+			}
 			state := w.state()
 			p := update.progress
-			p.Step, p.State = result.Steps, &state
-			p.Message = fmt.Sprintf("Research model turn %d completed across parallel workers.", result.Steps)
+			p.State = &state
+			if p.Step > 0 {
+				p.Step = result.Steps
+				p.Message = fmt.Sprintf("Research model turn %d completed across parallel workers.", result.Steps)
+			}
 			if err := progress(p); err != nil {
 				fatal = err
 				cancel()

@@ -157,6 +157,15 @@ func TestCrossRepositoryHandoffRequiresBothEndpointRoles(t *testing.T) {
 	if err := w.setPlan(plan); err == nil {
 		t.Fatal("missing endpoint accepted without a role gap")
 	}
+	search := searchedScope{Pattern: "consume", Glob: "consumer/**"}
+	w.search(searchQuery{Pattern: search.Pattern, Glob: search.Glob, Limit: 2})
+	plan.Handoffs[0].Gaps = []roleGap{{Role: "consumer", Kind: "research_gap", Reason: "Consumer endpoint evidence is not yet verified", Searches: []searchedScope{search}}}
+	if err := w.setPlan(plan); err != nil {
+		t.Fatalf("explicitly recorded endpoint gap rejected: %v", err)
+	}
+	if err := w.checkCoverage(coverageInput{Notes: notes, Status: researchPartial}); err != nil {
+		t.Fatalf("honest partial handoff coverage rejected: %v", err)
+	}
 }
 
 func TestRetainedSubsystemFindingsSurviveFinalSummary(t *testing.T) {

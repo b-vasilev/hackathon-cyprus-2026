@@ -30,8 +30,8 @@ export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
         title={registering ? 'Create your account.' : 'Sign in to Wayfinder.'}
         description={
           registering
-            ? 'An admin or product lead gives you access to product spaces.'
-            : 'Continue to your product spaces.'
+            ? 'An admin or product lead gives you access to products.'
+            : 'Open your Wayfinder workspace.'
         }
       />
       <form className="form-panel" onSubmit={onSubmit}>

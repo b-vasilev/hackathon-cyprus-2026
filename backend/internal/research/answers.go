@@ -59,7 +59,7 @@ func (w *workspace) saveAnswer(input answerInput) error {
 			*refs = append(slices.Clone(*refs), ref)
 		}
 	}
-	if _, err := w.evidenceContext(notes.String()); err != nil {
+	if _, err := w.evidenceRanges(notes.String()); err != nil {
 		return err
 	}
 	boundary.Gaps = slices.DeleteFunc(slices.Clone(boundary.Gaps), func(g roleGap) bool { return g.Role == input.Role })

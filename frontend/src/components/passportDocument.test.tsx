@@ -31,6 +31,11 @@ function revision(): Revision {
     version: 1,
     schema_version: '2',
     created_at: '2026-10-15T00:00:00Z',
+    approved_by: '',
+    approved_at: '',
+    published_by: '',
+    published_at: '',
+    published: false,
     snapshots: [],
     content: {
       model: {

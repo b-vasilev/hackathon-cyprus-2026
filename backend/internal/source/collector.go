@@ -191,7 +191,7 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 				return Collection{}, errors.New("source context exceeds the configured budget; narrow the source include patterns")
 			}
 			hash := sha256.Sum256([]byte(content))
-			result.Documents = append(result.Documents, Document{ID: rand.Text(), SnapshotID: snapshot.ID, Path: path, ContentHash: hex.EncodeToString(hash[:]), Content: content, LineCount: len(strings.Split(content, "\n"))})
+			result.Documents = append(result.Documents, Document{ID: rand.Text(), SnapshotID: snapshot.ID, Path: path, ContentHash: hex.EncodeToString(hash[:]), Content: content, LineCount: strings.Count(content, "\n") + 1})
 			snapshot.Coverage.FileCount++
 			snapshot.Coverage.Bytes += len(content)
 		}
@@ -546,8 +546,10 @@ func Context(collection Collection) string {
 	}
 	for _, doc := range collection.Documents {
 		fmt.Fprintf(&b, "\n<source_document id=%q path=%q>\n", doc.ID, doc.Path)
-		for i, line := range strings.Split(doc.Content, "\n") {
-			fmt.Fprintf(&b, "%d: %s\n", i+1, line)
+		n := 0
+		for line := range strings.SplitSeq(doc.Content, "\n") {
+			n++
+			fmt.Fprintf(&b, "%d: %s\n", n, line)
 		}
 		b.WriteString("</source_document>\n")
 	}

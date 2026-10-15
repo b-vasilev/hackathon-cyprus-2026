@@ -7,6 +7,7 @@ import { DocumentContent } from '../components/DocumentContent';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
 import { PartialResearchNotice } from '../components/PartialResearchNotice';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
+import { PassportPublication } from '../components/PassportPublication';
 import { ProductAccess } from '../components/ProductAccess';
 import { ProductBrandSources, ProductIdentity } from '../components/ProductIdentity';
 import { SourceCoverage } from '../components/SourceCoverage';
@@ -31,13 +32,13 @@ import { sectionTitles } from '../lib/passportSections';
 import { productCardTheme } from '../lib/productCardTheme';
 import { useGeneration } from '../lib/useGeneration';
 
-export function PassportPage() {
+export function PassportPage({ publishedView = false }: Readonly<{ publishedView?: boolean }>) {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const queryClient = useQueryClient();
   const me = useMe();
-  const manage = canManage(me, id);
+  const manage = !publishedView && canManage(me, id);
   const product = useQuery({
     queryKey: ['product', id],
     queryFn: ({ signal }) => api<Product>(`/products/${id}`, { signal }),
@@ -45,6 +46,7 @@ export function PassportPage() {
   const setup = useQuery({
     queryKey: ['factory-status'],
     queryFn: ({ signal }) => api<FactoryStatus>('/factory/status', { signal }),
+    enabled: !publishedView,
   });
   const connections = useQuery({
     queryKey: ['connections'],
@@ -54,6 +56,7 @@ export function PassportPage() {
   const history = useQuery({
     queryKey: ['revisions', id],
     queryFn: ({ signal }) => api<RevisionInfo[]>(`/products/${id}/passport-revisions`, { signal }),
+    enabled: !publishedView,
   });
   const [connectionId, setConnectionId] = useState('');
   const [modelId, setModelId] = useState('');
@@ -70,7 +73,7 @@ export function PassportPage() {
   const [object, setObject] = useState<ProductObject | null>(null);
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   const availableConnections = connections.data?.filter((item) => item.config.enabled) ?? [];
-  const runId = product.data?.latest_run_id ?? '';
+  const runId = publishedView ? '' : (product.data?.latest_run_id ?? '');
   const { run, streamState } = useGeneration(runId);
   const connection =
     availableConnections.find(
@@ -87,19 +90,12 @@ export function PassportPage() {
       void queryClient.invalidateQueries({ queryKey: ['products'] });
     }
   }, [run.data?.status, id, queryClient]);
-  const revisionId =
-    selectedRevision === ''
-      ? (history.data?.at(0)?.id ?? product.data?.latest_revision_id ?? '')
-      : selectedRevision;
-  const revision = useQuery({
-    queryKey: ['revision', revisionId],
-    queryFn: ({ signal }) => api<Revision>(`/passport-revisions/${revisionId}`, { signal }),
-    enabled: revisionId !== '',
-  });
-  const revisionRun = useQuery({
-    queryKey: ['run', revision.data?.run_id ?? ''],
-    queryFn: ({ signal }) => api<Run>(`/generations/${revision.data?.run_id ?? ''}`, { signal }),
-    enabled: revision.data !== undefined,
+  const { drafts, revisionId, revision, revisionRun } = usePassportRevision({
+    id,
+    selectedRevision,
+    publishedView,
+    product: product.data,
+    history: history.data,
   });
   const generate = useMutation({
     mutationFn: () =>
@@ -157,46 +153,29 @@ export function PassportPage() {
   const next = entries.at(position + 1);
   const documentRun =
     revisionRun.data ?? (run.data?.id === revision.data?.run_id ? run.data : undefined);
-  const generating = activeRun(run.data?.status ?? product.data.latest_run_status);
+  const generating =
+    !publishedView && activeRun(run.data?.status ?? product.data.latest_run_status);
   const busy = generating || generate.isPending || deletePassport.isPending;
   const generateLabel = run.data?.status === 'failed' ? 'Generate again' : 'Generate passport';
   return (
     <>
-      <Link to="/" className="back-link">
-        ← Product spaces
-      </Link>
-      <div
-        className={`passport-heading${revision.data?.content.views.card_theme ? ' product-branded' : ''}`}
-        style={productCardTheme(revision.data?.content.views.card_theme)}
-      >
-        <div>
-          <ProductIdentity
-            name={product.data.name}
-            theme={revision.data?.content.views.card_theme}
-          />
-          <p className="eyebrow">Product passport</p>
-          <h1>{revision.data?.content.model.title ?? product.data.name}</h1>
-          <p className="page-description">
-            {revision.data?.content.model.tagline ??
-              'Connect the sources. Generate the picture. Inspect the evidence.'}
-          </p>
-          {product.data.card_brandkit && (
-            <p className="brandkit-note">
-              Product brand kit:{' '}
-              {product.data.card_brandkit.file_name === ''
-                ? product.data.card_brandkit.url
-                : product.data.card_brandkit.file_name}
-            </p>
-          )}
-        </div>
-        <GenerationBadges
-          run={run.data}
-          pending={generate.isPending}
-          version={revision.data?.version}
-          hasDraft={product.data.latest_revision_id !== '' || revision.data !== undefined}
-        />
-      </div>
-      {isAdmin(me) && (
+      <PassportHeader
+        product={product.data}
+        revision={revision.data}
+        run={run.data}
+        pending={generate.isPending}
+        publishedView={publishedView}
+        hasRevision={revisionId !== ''}
+      />
+      {!publishedView && (
+        <nav className="passport-tabs" aria-label="Passport views">
+          <Link to={`/products/${id}`} className="active" aria-current="page">
+            Drafts
+          </Link>
+          <Link to={`/published/${id}`}>Published</Link>
+        </nav>
+      )}
+      {manage && isAdmin(me) && (
         <button
           type="button"
           className="text-button destructive"
@@ -224,73 +203,71 @@ export function PassportPage() {
           generation data? This cannot be undone. Original repositories stay unchanged.
         </DeleteConfirmation>
       )}
-      {(manage || (history.data?.length ?? 0) > 0) && (
+      {manage && (
         <div className="generation-controls">
-          {manage && (
-            <>
-              <label>
-                Connection
-                <select
-                  value={connection?.id ?? ''}
-                  disabled={busy}
-                  onChange={(event) => {
-                    setConnectionId(event.target.value);
-                    setModelId('');
-                  }}
-                >
-                  <option value="" disabled>
-                    Select a connection
-                  </option>
-                  {availableConnections.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.config.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Model
-                <select
-                  value={model?.id ?? ''}
-                  disabled={busy}
-                  onChange={(event) => setModelId(event.target.value)}
-                >
-                  <option value="" disabled>
-                    Select a model
-                  </option>
-                  {connection?.config.models?.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="button primary"
-                disabled={busy || connection === undefined || model === undefined}
-                onClick={() => generate.mutate()}
-              >
-                {busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
-                {busy ? 'Generating…' : generateLabel}
-              </button>
-              <CancelGenerationButton
-                status={run.data?.status}
-                pending={cancelGeneration.isPending}
-                onCancel={() => cancelGeneration.mutate()}
-              />
-            </>
-          )}
-          <VersionSelect history={history.data} value={revisionId} onChange={setSelectedRevision} />
+          <label>
+            Connection
+            <select
+              value={connection?.id ?? ''}
+              disabled={busy}
+              onChange={(event) => {
+                setConnectionId(event.target.value);
+                setModelId('');
+              }}
+            >
+              <option value="" disabled>
+                Select a connection
+              </option>
+              {availableConnections.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.config.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Model
+            <select
+              value={model?.id ?? ''}
+              disabled={busy}
+              onChange={(event) => setModelId(event.target.value)}
+            >
+              <option value="" disabled>
+                Select a model
+              </option>
+              {connection?.config.models?.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="button primary"
+            disabled={busy || connection === undefined || model === undefined}
+            onClick={() => generate.mutate()}
+          >
+            {busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
+            {busy ? 'Generating…' : generateLabel}
+          </button>
+          <CancelGenerationButton
+            status={run.data?.status}
+            pending={cancelGeneration.isPending}
+            onCancel={() => cancelGeneration.mutate()}
+          />
+          <VersionSelect history={drafts} value={revisionId} onChange={setSelectedRevision} />
         </div>
       )}
-      <MissingConnectionNotice
-        manage={manage}
-        admin={isAdmin(me)}
-        available={availableConnections.length}
-        setupEnabled={setup.data?.connections_enabled}
-        loading={connections.isPending}
-      />
+      {!publishedView && (
+        <MissingConnectionNotice
+          manage={manage}
+          admin={isAdmin(me)}
+          available={availableConnections.length}
+          setupEnabled={setup.data?.connections_enabled}
+          loading={connections.isPending}
+        />
+      )}
       {generate.isError && <ErrorNotice error={generate.error} />}
       {cancelGeneration.isError && <ErrorNotice error={cancelGeneration.error} />}
       {run.isError && <ErrorNotice error={run.error} />}
@@ -307,27 +284,45 @@ export function PassportPage() {
       {revision.isFetching && <Loading label="Loading passport revision…" />}
       {revision.isError && <ErrorNotice error={revision.error} />}
       {history.isError && <ErrorNotice error={history.error} />}
-      {revision.data === undefined &&
+      {manage && revision.data !== undefined && (
+        <PassportPublication
+          key={revision.data.id}
+          revision={revision.data}
+          history={history.data ?? []}
+        />
+      )}
+      {publishedView && revisionId === '' && !product.isFetching && (
+        <EmptyState title="No published passport yet">
+          This product does not have a published passport yet.
+        </EmptyState>
+      )}
+      {!publishedView &&
+        revision.data === undefined &&
         !busy &&
         !revision.isFetching &&
         run.data?.status !== 'failed' && (
-          <EmptyState title="Your sources are ready to explore">
-            {emptyPassportMessage(manage)}
-          </EmptyState>
+          <EmptyDraft hasPublished={product.data.published_revision_id !== ''} />
         )}
       {revision.data !== undefined && selected !== undefined && (
         <>
-          <div className="revision-meta">
-            <span>Version {revision.data.version}</span>
-            <span>{date(revision.data.created_at)}</span>
-            {revisionRun.data !== undefined && (
+          {!publishedView && (
+            <div className="revision-meta">
+              <span>Version {revision.data.version}</span>
+              <span>{date(revision.data.created_at)}</span>
+              {revision.data.published && <span>Published {date(revision.data.published_at)}</span>}
+              {revisionRun.data !== undefined && (
+                <span>
+                  {revisionRun.data.model} · connection revision{' '}
+                  {revisionRun.data.connection_revision}
+                </span>
+              )}
               <span>
-                {revisionRun.data.model} · connection revision{' '}
-                {revisionRun.data.connection_revision}
+                {revision.data.approved_at === ''
+                  ? 'Expert review pending'
+                  : `Approved ${date(revision.data.approved_at)}`}
               </span>
-            )}
-            <span>Expert review pending</span>
-          </div>
+            </div>
+          )}
           <PartialResearchNotice
             events={documentRun?.events}
             label="This passport has incomplete research"
@@ -436,21 +431,23 @@ export function PassportPage() {
           </details>
         </>
       )}
-      <details className="sources-panel">
-        <summary>
-          <FileCode2 size={17} />
-          Product source configuration
-          <DisclosureHint show="Show configuration" hide="Hide configuration" />
-        </summary>
-        {product.data.sources?.map((source) => (
-          <div className="source-row" key={JSON.stringify(source)}>
-            <strong>
-              {source.kind === 'github' ? source.locator : 'Supplemental product context'}
-            </strong>
-            <span className="meta">{sourceDescription(source)}</span>
-          </div>
-        ))}
-      </details>
+      {!publishedView && (
+        <details className="sources-panel">
+          <summary>
+            <FileCode2 size={17} />
+            Product source configuration
+            <DisclosureHint show="Show configuration" hide="Hide configuration" />
+          </summary>
+          {product.data.sources?.map((source) => (
+            <div className="source-row" key={JSON.stringify(source)}>
+              <strong>
+                {source.kind === 'github' ? source.locator : 'Supplemental product context'}
+              </strong>
+              <span className="meta">{sourceDescription(source)}</span>
+            </div>
+          ))}
+        </details>
+      )}
       {manage && <ProductAccess productId={id} />}
       {object !== null && revision.data !== undefined && (
         <ObjectDetail
@@ -532,12 +529,19 @@ function VersionSelect({
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {history.map((item) => (
           <option key={item.id} value={item.id}>
-            Version {item.version}
+            Version {item.version} · {revisionStatus(item)}
           </option>
         ))}
       </select>
     </label>
   );
+}
+
+function revisionStatus(revision: RevisionInfo): string {
+  if (revision.published) {
+    return 'Published';
+  }
+  return revision.approved_at === '' ? 'Draft' : 'Approved';
 }
 
 function MissingConnectionNotice({
@@ -572,8 +576,117 @@ function MissingConnectionNotice({
   );
 }
 
-function emptyPassportMessage(manage: boolean): string {
-  return manage
-    ? 'Choose a connection and model, then generate a passport. It will cover the product’s purpose, users, domain, scenarios, architecture and developer workflow.'
-    : 'No passport has been generated yet. A product lead can generate it.';
+function EmptyDraft({ hasPublished }: Readonly<{ hasPublished: boolean }>) {
+  return (
+    <EmptyState
+      title={hasPublished ? 'No unpublished drafts' : 'Your sources are ready to explore'}
+    >
+      {hasPublished
+        ? 'Generate a new version to update the published passport.'
+        : 'Choose a connection and model, then generate a passport.'}
+    </EmptyState>
+  );
+}
+
+function selectedDraftId(
+  drafts: RevisionInfo[] | undefined,
+  product: Product | undefined,
+  selected: string
+): string {
+  if (drafts !== undefined) {
+    return drafts.find((item) => item.id === selected)?.id ?? drafts.at(0)?.id ?? '';
+  }
+  return product?.latest_revision_id === product?.published_revision_id
+    ? ''
+    : (product?.latest_revision_id ?? '');
+}
+
+function PassportHeader({
+  product,
+  revision,
+  run,
+  pending,
+  publishedView,
+  hasRevision,
+}: Readonly<{
+  product: Product;
+  revision: Revision | undefined;
+  run: Run | undefined;
+  pending: boolean;
+  publishedView: boolean;
+  hasRevision: boolean;
+}>) {
+  return (
+    <>
+      <Link to={publishedView ? '/published' : '/'} className="back-link">
+        ← {publishedView ? 'Published passports' : 'Product studio'}
+      </Link>
+      <div
+        className={`passport-heading${revision?.content.views.card_theme ? ' product-branded' : ''}`}
+        style={productCardTheme(revision?.content.views.card_theme)}
+      >
+        <div>
+          <ProductIdentity name={product.name} theme={revision?.content.views.card_theme} />
+          <p className="eyebrow">Product passport</p>
+          <h1>{revision?.content.model.title ?? product.name}</h1>
+          <p className="page-description">
+            {revision?.content.model.tagline ??
+              'Connect the sources. Generate the picture. Inspect the evidence.'}
+          </p>
+          {!publishedView && product.card_brandkit && (
+            <p className="brandkit-note">
+              Product brand kit:{' '}
+              {product.card_brandkit.file_name === ''
+                ? product.card_brandkit.url
+                : product.card_brandkit.file_name}
+            </p>
+          )}
+        </div>
+        {!publishedView && (
+          <GenerationBadges
+            run={run}
+            pending={pending}
+            version={revision?.version}
+            hasDraft={hasRevision}
+            approvedAt={revision?.approved_at}
+            emptyLabel="No drafts yet"
+            published={revision?.published}
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
+function usePassportRevision({
+  id,
+  selectedRevision,
+  publishedView,
+  product,
+  history,
+}: Readonly<{
+  id: string;
+  selectedRevision: string;
+  publishedView: boolean;
+  product: Product | undefined;
+  history: RevisionInfo[] | undefined;
+}>) {
+  const drafts = history?.filter((item) => !item.published);
+  const draftRevisionId = selectedDraftId(drafts, product, selectedRevision);
+  const revisionId = publishedView ? (product?.published_revision_id ?? '') : draftRevisionId;
+  const revision = useQuery({
+    queryKey: [publishedView ? 'published-revision' : 'revision', revisionId],
+    queryFn: ({ signal }) =>
+      api<Revision>(
+        publishedView ? `/products/${id}/passport` : `/passport-revisions/${revisionId}`,
+        { signal }
+      ),
+    enabled: revisionId !== '',
+  });
+  const revisionRun = useQuery({
+    queryKey: ['run', revision.data?.run_id ?? ''],
+    queryFn: ({ signal }) => api<Run>(`/generations/${revision.data?.run_id ?? ''}`, { signal }),
+    enabled: !publishedView && revision.data !== undefined,
+  });
+  return { drafts, revisionId, revision, revisionRun };
 }

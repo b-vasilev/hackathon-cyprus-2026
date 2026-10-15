@@ -102,10 +102,12 @@ func SourceTools(collection source.Collection, recordRead func(context.Context, 
 				if !sourceGlobMatches(input.PathGlob, doc) {
 					continue
 				}
-				for i, line := range strings.Split(doc.Content, "\n") {
+				lineNumber := 0
+				for line := range strings.SplitSeq(doc.Content, "\n") {
+					lineNumber++
 					if re.MatchString(line) {
 						if total >= input.Offset && len(items) < limit {
-							items = append(items, sourceMatch{sourceIndex(doc), i + 1})
+							items = append(items, sourceMatch{sourceIndex(doc), lineNumber})
 						}
 						total++
 					}
@@ -124,10 +126,17 @@ func SourceTools(collection source.Collection, recordRead func(context.Context, 
 			if input.StartLine < 1 || input.EndLine < input.StartLine || input.EndLine > doc.LineCount || input.EndLine-input.StartLine+1 > sourceReadMaxLines {
 				return analysisToolError(fmt.Errorf("invalid range: choose 1..%d, at most %d lines; no ranges were recorded", doc.LineCount, sourceReadMaxLines)), nil
 			}
-			lines := strings.Split(doc.Content, "\n")
 			var text strings.Builder
-			for n := input.StartLine; n <= input.EndLine; n++ {
-				fmt.Fprintf(&text, "%d: %s\n", n, lines[n-1])
+			n := 0
+			for line := range strings.SplitSeq(doc.Content, "\n") {
+				n++
+				if n > input.EndLine {
+					break
+				}
+				if n < input.StartLine {
+					continue
+				}
+				fmt.Fprintf(&text, "%d: %s\n", n, line)
 				if text.Len() > sourceReadMaxBytes {
 					return analysisToolError(errors.New("source range exceeds 18 KiB; request smaller ranges; an oversized single line requires an explicit evidence gap, not a partial-line citation")), nil
 				}
@@ -157,7 +166,7 @@ func verifiedToolSources(collection source.Collection) ([]source.Document, map[s
 	for _, doc := range documents {
 		key := doc.SnapshotID + "/" + doc.Path
 		sum := sha256.Sum256([]byte(doc.Content))
-		if doc.ID == "" || len(doc.ID) > 128 || len(doc.Path) > 4096 || ids[doc.ID] || paths[key] || snapshots[doc.SnapshotID].ID == "" || !filepath.IsLocal(doc.Path) || !utf8.ValidString(doc.Content) || doc.LineCount != len(strings.Split(doc.Content, "\n")) || !strings.EqualFold(doc.ContentHash, hex.EncodeToString(sum[:])) {
+		if doc.ID == "" || len(doc.ID) > 128 || len(doc.Path) > 4096 || ids[doc.ID] || paths[key] || snapshots[doc.SnapshotID].ID == "" || !filepath.IsLocal(doc.Path) || !utf8.ValidString(doc.Content) || doc.LineCount != strings.Count(doc.Content, "\n")+1 || !strings.EqualFold(doc.ContentHash, hex.EncodeToString(sum[:])) {
 			return nil, nil, errors.New("analysis source identity, hash or original lines are invalid")
 		}
 		ids[doc.ID], paths[key] = true, true

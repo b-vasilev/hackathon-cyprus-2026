@@ -51,8 +51,11 @@ func validateModel(model Model, documents map[string]int, draft bool) (*modelInd
 		}
 		index.evidence[evidence.ID] = true
 		lines, known := documents[evidence.DocumentID]
-		if !known || evidence.StartLine < 1 || evidence.EndLine < evidence.StartLine || evidence.EndLine > lines {
-			return nil, fmt.Errorf("invalid evidence anchor: %s", evidence.ID)
+		if !known {
+			return nil, fmt.Errorf("evidence %s: unknown document_id %q; use the exact document_id returned by list_sources or read_source", evidence.ID, evidence.DocumentID)
+		}
+		if evidence.StartLine < 1 || evidence.EndLine < evidence.StartLine || evidence.EndLine > lines {
+			return nil, fmt.Errorf("evidence %s: invalid source range %d..%d for document %s; use original lines 1..%d", evidence.ID, evidence.StartLine, evidence.EndLine, evidence.DocumentID, lines)
 		}
 	}
 	for _, claim := range model.Claims {
@@ -60,10 +63,13 @@ func validateModel(model Model, documents map[string]int, draft bool) (*modelInd
 			return nil, err
 		}
 		index.claims[claim.ID] = true
-		if claim.Text == "" || !slices.Contains([]string{"source_backed", "inferred", "unknown"}, claim.Basis) {
-			return nil, fmt.Errorf("invalid claim: %s", claim.ID)
+		if claim.Text == "" {
+			return nil, fmt.Errorf("claim %s: text must be nonempty", claim.ID)
 		}
-		if claim.Basis == "source_backed" && len(claim.EvidenceIDs) == 0 {
+		if !slices.Contains([]string{"source_backed", "inferred", "unknown"}, claim.Basis) {
+			return nil, fmt.Errorf("claim %s: basis %q must be source_backed, inferred or unknown", claim.ID, claim.Basis)
+		}
+		if !draft && claim.Basis == "source_backed" && len(claim.EvidenceIDs) == 0 {
 			return nil, fmt.Errorf("source-backed claim lacks evidence: %s", claim.ID)
 		}
 		if err := refs(claim.EvidenceIDs, index.evidence); err != nil {
@@ -75,10 +81,16 @@ func validateModel(model Model, documents map[string]int, draft bool) (*modelInd
 			return nil, err
 		}
 		index.objects[object.ID] = true
-		if object.Name == "" || !slices.Contains([]string{"repository", "actor", "capability", "entity", "component", "store", "external_system", "interface", "environment", "decision", "owner"}, object.Kind) || !slices.Contains([]string{"implemented", "in_development", "experimental", "planned", "unknown"}, object.Status) {
-			return nil, fmt.Errorf("invalid model object: %s", object.ID)
+		if object.Name == "" {
+			return nil, fmt.Errorf("object %s: name must be nonempty", object.ID)
 		}
-		if len(object.ClaimIDs) == 0 {
+		if !slices.Contains([]string{"repository", "actor", "capability", "entity", "component", "store", "external_system", "interface", "environment", "decision", "owner"}, object.Kind) {
+			return nil, fmt.Errorf("object %s: kind %q must be repository, actor, capability, entity, component, store, external_system, interface, environment, decision or owner; software_system/runtime_unit belong in architecture_role with kind component", object.ID, object.Kind)
+		}
+		if !slices.Contains([]string{"implemented", "in_development", "experimental", "planned", "unknown"}, object.Status) {
+			return nil, fmt.Errorf("object %s: status %q must be implemented, in_development, experimental, planned or unknown", object.ID, object.Status)
+		}
+		if !draft && len(object.ClaimIDs) == 0 {
 			return nil, fmt.Errorf("object lacks supporting claims: %s", object.ID)
 		}
 		if err := refs(object.ClaimIDs, index.claims); err != nil {
@@ -90,7 +102,7 @@ func validateModel(model Model, documents map[string]int, draft bool) (*modelInd
 			return nil, err
 		}
 		index.relations[relation.ID] = relation
-		if (!draft && (!index.objects[relation.From] || !index.objects[relation.To])) || relation.From == "" || relation.To == "" || len(relation.ClaimIDs) == 0 || !slices.Contains([]string{"call", "data", "dependency", "ownership", "association", "transition"}, relation.Kind) {
+		if (!draft && (!index.objects[relation.From] || !index.objects[relation.To] || len(relation.ClaimIDs) == 0)) || relation.From == "" || relation.To == "" || !slices.Contains([]string{"call", "data", "dependency", "ownership", "association", "transition"}, relation.Kind) {
 			return nil, fmt.Errorf("invalid relation: %s", relation.ID)
 		}
 		if err := refs(relation.ClaimIDs, index.claims); err != nil {

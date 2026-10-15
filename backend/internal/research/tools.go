@@ -139,7 +139,9 @@ func (w *workspace) search(query searchQuery) any {
 				continue
 			}
 		}
-		for index, line := range strings.Split(w.documents[path].Content, "\n") {
+		lineNumber := 0
+		for line := range strings.SplitSeq(w.documents[path].Content, "\n") {
+			lineNumber++
 			if !re.MatchString(line) {
 				continue
 			}
@@ -148,7 +150,7 @@ func (w *workspace) search(query searchQuery) any {
 				if len(line) > 320 {
 					line = line[:320] + "…"
 				}
-				matches = append(matches, match{path, index + 1, line})
+				matches = append(matches, match{path, lineNumber, line})
 			}
 		}
 	}

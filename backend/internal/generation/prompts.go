@@ -9,7 +9,7 @@ import (
 )
 
 // PromptVersion is persisted with each model call for reproducibility.
-const PromptVersion = "passport-v10-incremental-analysis"
+const PromptVersion = "passport-v13-balanced-architecture"
 
 //go:embed prompts/system.md
 var systemPrompt string
@@ -29,11 +29,11 @@ var reconcilePrompt string
 //go:embed prompts/compose.md
 var compositionPrompt string
 
-//go:embed prompts/repair.md
-var repairPrompt string
+//go:embed prompts/compose-plan.md
+var chapterPlanPrompt string
 
-//go:embed prompts/repair-views.md
-var viewsRepairPrompt string
+//go:embed prompts/compose-part.md
+var fragmentPrompt string
 
 //go:embed prompts/select-files.md
 var selectionPrompt string

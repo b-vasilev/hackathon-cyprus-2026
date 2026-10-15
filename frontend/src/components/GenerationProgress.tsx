@@ -10,6 +10,7 @@ import {
 } from '../lib/generation';
 import { generationMessage } from '../lib/generationMessages';
 import { AnalysisProgress } from './AnalysisProgress';
+import { CompositionProgress } from './CompositionProgress';
 import { ResearchProgress } from './ResearchProgress';
 import { Badge } from './ui';
 import type { Run } from '../lib/api';
@@ -19,12 +20,19 @@ export function GenerationBadges({
   pending,
   version,
   hasDraft,
+  approvedAt = '',
+  published = false,
+  emptyLabel,
 }: Readonly<{
   run: Run | undefined;
   pending: boolean;
   version: number | undefined;
   hasDraft: boolean;
+  approvedAt?: string;
+  published?: boolean;
+  emptyLabel?: string;
 }>) {
+  const approved = approvedAt !== '';
   const busy = pending || activeRun(run?.status);
   let runLabel = 'Generating first draft';
   if (hasDraft) {
@@ -33,11 +41,19 @@ export function GenerationBadges({
   if (run?.status === 'queued') {
     runLabel = 'Queued for generation';
   }
+  let revisionLabel = version === undefined ? 'Draft available' : `Draft v${version}`;
+  if (published) {
+    revisionLabel = `Published v${version}`;
+  } else if (approved) {
+    revisionLabel = `Approved v${version}`;
+  }
   return (
     <div className="generation-badges" aria-live="polite">
       {hasDraft && (
-        <Badge tone="warning">
-          {version === undefined ? 'Draft available' : `Draft v${version}`} · review pending
+        <Badge tone={approved ? '' : 'warning'}>
+          {approved && <Check size={14} aria-hidden="true" />}
+          {revisionLabel}
+          {!approved && ' · review pending'}
         </Badge>
       )}
       {busy && (
@@ -60,7 +76,8 @@ export function GenerationBadges({
       )}
       {!hasDraft && !busy && run?.status !== 'failed' && (
         <Badge>
-          {run?.status === 'succeeded' ? 'Draft ready · review pending' : 'Not generated yet'}
+          {emptyLabel ??
+            (run?.status === 'succeeded' ? 'Draft ready · review pending' : 'Not generated yet')}
         </Badge>
       )}
     </div>
@@ -148,21 +165,25 @@ export function GenerationProgress({
       )}
       {analysis !== undefined && (
         <AnalysisProgress
-          area={analysis.area_title}
-          action={analysis.action}
-          step={analysis.step}
-          checkpointRevision={analysis.checkpoint_revision}
-          counts={{
-            objects: analysis.objects,
-            claims: analysis.claims,
-            relations: analysis.relations,
-          }}
+          analysis={analysis}
+          events={run.events}
+          stage={run.stage}
+          now={end}
           running={busy && run.stage === 'analyzing'}
         />
       )}
-      {latest !== undefined && (run.research === undefined || run.stage !== 'researching') && (
-        <p className="progress-latest">{generationMessage(latest.message)}</p>
+      {run.composition !== undefined && run.composition !== null && (
+        <CompositionProgress
+          composition={run.composition}
+          now={end}
+          running={busy && run.stage === 'composing'}
+        />
       )}
+      {latest !== undefined &&
+        run.stage !== 'composing' &&
+        (run.research === undefined || run.stage !== 'researching') && (
+          <p className="progress-latest">{generationMessage(latest.message)}</p>
+        )}
       <div className="progress-connection">
         {busy && <LoaderCircle size={14} aria-hidden="true" />}
         <span role="status">

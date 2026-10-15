@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"charm.land/fantasy"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
@@ -22,14 +23,18 @@ type analysisStateStore interface {
 	Checkpoint() Checkpoint
 	Collection() source.Collection
 	Finalize(context.Context) (passport.Model, error)
+	AreaRevision(string) int
 }
 
 type analysisSession struct {
-	store    analysisStateStore
-	input    Input
-	current  Task
-	progress ProgressFunc
-	turns    int
+	store           analysisStateStore
+	input           Input
+	current         Task
+	progress        ProgressFunc
+	turns           int
+	lastToolFailure string
+	assignedTaskID  string
+	budget          *analysisCallBudget
 }
 
 type modelPageInput struct {
@@ -72,6 +77,21 @@ func (s *analysisSession) emit(message string) {
 
 func (s *analysisSession) modelTools() []fantasy.AgentTool {
 	return []fantasy.AgentTool{
+		fantasy.NewAgentTool("list_research_sources", "Page document IDs, paths and exact ranges already read by research. Metadata only, no source code. Use the saved research citations; new source reads are unavailable. offset=0, limit=20.", func(_ context.Context, input modelPageInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
+			type researchedSource struct {
+				sourceIndexItem
+				ReadRanges []source.LineRange `json:"read_ranges"`
+			}
+			checkpoint := s.store.Checkpoint()
+			items := []researchedSource{}
+			for _, doc := range s.input.Collection.Documents {
+				if ranges := checkpoint.ReadRanges[doc.ID]; len(ranges) > 0 {
+					items = append(items, researchedSource{sourceIndexItem{doc.ID, doc.SnapshotID, doc.Path, doc.LineCount}, ranges})
+				}
+			}
+			slices.SortFunc(items, func(a, b researchedSource) int { return strings.Compare(a.DocumentID, b.DocumentID) })
+			return analysisPageResponse(items, input.Offset, input.Limit)
+		}),
 		fantasy.NewAgentTool("inspect_model_index", "Page canonical objects/relations/claims/evidence/scenarios, tasks or recent_changes by kind. Indexes contain IDs and short names, never full model bodies. Reuse existing stable IDs before creating new ones. offset=0, limit=20, max 50.", func(_ context.Context, input modelPageInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			items, err := s.modelIndex(input.Kind)
 			if err != nil {
@@ -90,34 +110,14 @@ func (s *analysisSession) modelTools() []fantasy.AgentTool {
 			}
 			return pagedAnalysisText(string(data), input.Offset, input.Limit, map[string]any{"kind": input.Kind, "id": input.ID})
 		}),
-		fantasy.NewAgentTool("upsert_model_part", "Durably save a small canonical part for the current area. Upsert stable IDs, reuse cross-area entities, cite exact read source lines. Existing changes/removals need a precise correction reason; do not silently erase relevant facts or duplicate IDs to bypass correction. Evidence/claims/entities may arrive in separate small patches; inspect validation issues for unresolved references. Maximum patch 64 KiB; split large patches. Metadata title/tagline/summary belongs to final reconciliation.", func(ctx context.Context, input ModelPart, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
+		fantasy.NewAgentTool("upsert_model_part", "Durably save a small canonical part for the current area. Start with one object, claim or evidence anchor. Supporting claim/evidence IDs can be filled in later draft parts; inspect_validation_issues reports what must be resolved before finalization. Use kind=component and architecture_role=software_system/runtime_unit for runtime architecture. Existing changes/removals need a correction reason. Exact source anchors must already be read. Maximum patch 64 KiB. Metadata may be provisional; reconcile final wording before finalization.", func(ctx context.Context, input ModelPart, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if input.AreaID != s.current.ID {
 				return analysisToolError(errors.New("model part must belong to the current area")), nil
-			}
-			if input.Metadata != nil && s.current.ID != ReconciliationTaskID {
-				return analysisToolError(errors.New("set coherent model metadata during final reconciliation")), nil
 			}
 			if err := s.store.Apply(ctx, input); err != nil {
 				return analysisToolError(err), nil
 			}
 			return s.savedResponse("model_part_saved")
-		}),
-		fantasy.NewAgentTool("add_analysis_tasks", "Persist newly discovered material responsibilities, variant families or cross-repository questions as separate bounded tasks. Use stable unique IDs and relevant finding_ids; add real open work, not one task per source file. Preserve the current canonical model. Do not add another final-reconciliation task.", func(ctx context.Context, input tasksInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
-			if len(input.Tasks) == 0 {
-				return analysisToolError(errors.New("provide at least one material task")), nil
-			}
-			for _, task := range input.Tasks {
-				if task.ID == ReconciliationTaskID {
-					return analysisToolError(errors.New("final reconciliation is already scheduled")), nil
-				}
-			}
-			if err := s.store.AddTasks(ctx, input.Tasks); err != nil {
-				return analysisToolError(err), nil
-			}
-			if err := s.reopenReconciliation(ctx); err != nil {
-				return analysisToolError(err), nil
-			}
-			return s.savedResponse("tasks_saved")
 		}),
 		fantasy.NewAgentTool("inspect_validation_issues", "Page actual current model/reference/citation/metadata requirements. Building may have explicit cross-part dangling references; global finalization requires them resolved. offset=0, limit=20, max 50.", func(_ context.Context, input modelPageInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			return analysisPageResponse(s.store.Issues(), input.Offset, input.Limit)
@@ -323,7 +323,27 @@ func (t observedAnalysisTool) Run(ctx context.Context, call fantasy.ToolCall) (f
 	if err == nil && !response.IsError {
 		t.session.emit("Analysis action completed: " + call.Name)
 	} else {
-		t.session.emit("Analysis action needs correction: " + call.Name)
+		reason := "tool returned an error"
+		if err != nil {
+			reason = err.Error()
+		} else {
+			var details struct {
+				Error string `json:"error"`
+			}
+			if json.Unmarshal([]byte(response.Content), &details) == nil && details.Error != "" {
+				reason = details.Error
+			} else if response.Content != "" {
+				reason = response.Content
+			}
+		}
+		if runes := []rune(reason); len(runes) > 2000 {
+			reason = string(runes[:2000])
+		}
+		t.session.lastToolFailure = call.Name + ": " + reason
+		t.session.emit("Analysis action needs correction: " + t.session.lastToolFailure)
+	}
+	if err == nil && !response.IsError && (call.Name == "upsert_model_part" || call.Name == "finish_analysis_area" || call.Name == "finalize_model") {
+		t.session.lastToolFailure = ""
 	}
 	return response, err
 }

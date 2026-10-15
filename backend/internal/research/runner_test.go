@@ -136,6 +136,9 @@ func TestResearchProtocolsKeepGatewayAndSourceAnchors(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				if result.Progress == nil || result.Progress.Budget.HardLimit != runner.MaxTurns {
+					t.Fatal("research lost its configured/default hard turn limit")
+				}
 				if calls.Load() != 3 || result.MCPReads != 2 || len(result.Collection.Documents) != 2 || result.Collection.Snapshots[0].Coverage.ReadFiles != 1 {
 					t.Fatalf("unexpected research coverage: calls=%d reads=%d documents=%d", calls.Load(), result.MCPReads, len(result.Collection.Documents))
 				}

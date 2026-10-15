@@ -171,7 +171,7 @@ func areaStatus(questions []QuestionProgress) string {
 func (w *workspace) unresearchedRepositories() []InventoryRepository {
 	var result []InventoryRepository
 	for _, repo := range w.inventory.Repositories {
-		if !slices.ContainsFunc(w.plan, func(b researchBoundary) bool { return b.Repository == repo.ID }) {
+		if !slices.ContainsFunc(w.plan, func(b researchBoundary) bool { return b.Repository == repo.ID && !b.Archived() }) {
 			result = append(result, repo)
 		}
 	}
@@ -192,6 +192,9 @@ func (w *workspace) state() State {
 	}
 	citations := w.citations()
 	for _, b := range w.plan {
+		if b.Archived() {
+			continue
+		}
 		area := AreaProgress{ID: "responsibility/" + b.Repository + "/" + b.Name, Name: b.Name, Repository: b.Repository}
 		roles := b.roles()
 		for _, role := range []string{"implementation", "callers", "contracts", "validation"} {
@@ -218,6 +221,9 @@ func (w *workspace) state() State {
 	groups := map[string]*AreaProgress{}
 	for _, c := range w.inventory.Candidates {
 		d := dispositions[c.ID]
+		if !isResearchCandidate(c, d) {
+			continue
+		}
 		if d.Disposition == "included" {
 			continue
 		}

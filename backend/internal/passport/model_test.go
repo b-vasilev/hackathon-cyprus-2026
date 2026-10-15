@@ -1,6 +1,8 @@
 package passport
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 )
 

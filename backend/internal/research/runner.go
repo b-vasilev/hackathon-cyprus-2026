@@ -23,7 +23,7 @@ import (
 var prompt string
 
 const (
-	defaultParallelism = llmgateway.MaxConcurrentRequests
+	defaultParallelism = 20
 	attemptTimeout     = 60 * time.Minute
 )
 
@@ -33,7 +33,7 @@ type Runner struct {
 	WorkDir, RepomixBin string
 	// MaxTurns optionally caps an attempt; zero means no turn cap.
 	MaxTurns int
-	// Parallelism is the worker pool size; zero uses 30 workers.
+	// Parallelism is the worker pool size; zero uses 20 workers.
 	Parallelism int
 }
 
@@ -54,6 +54,7 @@ type Result struct {
 type Progress struct {
 	Message                   string
 	Step                      int
+	Retry                     bool
 	InputTokens, OutputTokens int64
 	DurationMS                int64
 	State                     *State
@@ -63,6 +64,8 @@ type Progress struct {
 type workspace struct {
 	documents           map[string]source.Document
 	paths               []string
+	sourcesOnce         sync.Once
+	sources             *workspaceSources
 	mu                  sync.Mutex
 	reads               map[string][]source.LineRange
 	toolCalls, mcpReads int
@@ -85,12 +88,14 @@ type workspace struct {
 	sessions            map[string]taskSession
 	conversation        taskSession
 	execution           string
+	limiter             *llmgateway.Limiter
 }
 
 // run gives the model access to pinned source files with bounded paged tools.
 //
 //nolint:gocyclo // Keep workspace, checkpoint and adaptive research lifecycle cleanup together.
 func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, checkpoint *Checkpoint, progress func(Progress) error) (result Result, err error) {
+	ctx = llmgateway.WithQueueWait(ctx)
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, attemptTimeout)
 	defer cancel()
@@ -98,18 +103,20 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	reportProgress := progress
 	var lastState, lastCheckpoint time.Time
 	savedFindings, savedHistory := 0, 0
+	savedStatus := ""
 	progress = func(p Progress) error {
 		now := time.Now()
-		changed := w != nil && (len(w.ledger.Findings) != savedFindings || len(w.ledger.History) != savedHistory)
+		changed := w != nil && (w.ledger.Status != savedStatus || len(w.ledger.Findings) != savedFindings || len(w.ledger.History) != savedHistory)
 		if w != nil && (changed || (p.Step > 0 && now.Sub(lastCheckpoint) >= 10*time.Second)) {
 			p.Checkpoint = &Checkpoint{Ledger: w.ledger, Notes: w.submittedNotes, Snapshots: w.readCollection(collection).Snapshots, Sessions: w.sessions}
 			lastCheckpoint = now
 			savedFindings, savedHistory = len(w.ledger.Findings), len(w.ledger.History)
+			savedStatus = w.ledger.Status
 		}
 		if p.State != nil {
 			if !changed && now.Sub(lastState) < time.Second {
 				p.State = nil
-				if p.Step == 0 && p.Checkpoint == nil {
+				if p.Step == 0 && p.Checkpoint == nil && !p.Retry {
 					return nil
 				}
 			} else {
@@ -133,6 +140,7 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 	w = &workspace{documents: map[string]source.Document{}, reads: map[string][]source.LineRange{}, readFailures: map[string]string{}, event: event, turnBudget: r.MaxTurns}
+	w.limiter = r.Limiter
 	w.turnBudget = max(w.turnBudget, 0)
 	w.deadline, _ = ctx.Deadline()
 	for _, doc := range collection.Documents {
@@ -208,9 +216,8 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 		workers = defaultParallelism
 	}
 	workers = min(workers, defaultParallelism)
-	// Research concurrency follows the selected worker count, including runs
-	// resumed from older connection revisions with a lower request limit.
-	config.MaxConcurrent = workers
+	// Workers can inspect sources in parallel; model requests still obey the
+	// saved connection limit and the shared gateway's admission policy.
 	client, err := r.Policy.Client(config, r.Limiter)
 	if err != nil {
 		return result, fmt.Errorf("research gateway: %w", err)
@@ -241,7 +248,13 @@ func (w *workspace) orientation(collection source.Collection) string {
 	for _, snapshot := range collection.Snapshots {
 		fmt.Fprintf(&b, "Repository %s at %s; workspace prefix %s/; %d available files\n", snapshot.Locator, snapshot.Revision, snapshot.ID, snapshot.Coverage.FileCount)
 	}
-	fmt.Fprintf(&b, "Independent inventory: %d candidates. Review list_research_inventory and next_research_questions. This candidate map does not prove completeness.\n", len(w.inventory.Candidates))
+	scopes := 0
+	for _, c := range w.inventory.Candidates {
+		if isArchitectureScope(c) {
+			scopes++
+		}
+	}
+	fmt.Fprintf(&b, "Architecture scope: %d repository/subsystem candidates; %d optional file hints. Use representative flows, not a file-by-file audit. The inventory does not prove completeness.\n", scopes, len(w.inventory.Candidates)-scopes)
 	return b.String()
 }
 
@@ -304,26 +317,13 @@ func mergeRanges(ranges []source.LineRange) []source.LineRange {
 }
 
 func (w *workspace) evidenceContext(notes string) (string, error) {
+	ranges, err := w.evidenceRanges(notes)
+	if err != nil {
+		return "", err
+	}
+	byID := w.sourceIndex().byID
 	var b strings.Builder
 	b.WriteString("RESEARCH FINDINGS (verify against the original excerpts below):\n" + notes + "\nORIGINAL SOURCE EXCERPTS:\n")
-	byID := map[string]source.Document{}
-	for _, doc := range w.documents {
-		byID[doc.ID] = doc
-	}
-	anchors := citationPattern.FindAllStringSubmatch(notes, -1)
-	if len(anchors) == 0 {
-		return "", errors.New("research produced no original-source evidence anchors")
-	}
-	ranges := map[string][]source.LineRange{}
-	for _, match := range anchors {
-		doc, ok := byID[match[1]]
-		start, _ := strconv.Atoi(match[2])
-		end, _ := strconv.Atoi(match[3])
-		if !ok || !RangeCovered(w.reads[doc.ID], start, end) || end > doc.LineCount {
-			return "", errors.New("research cited a source range it did not read")
-		}
-		ranges[doc.ID] = append(ranges[doc.ID], source.LineRange{StartLine: start, EndLine: end})
-	}
 	ids := make([]string, 0, len(ranges))
 	for id := range ranges {
 		ids = append(ids, id)
@@ -341,4 +341,24 @@ func (w *workspace) evidenceContext(notes string) (string, error) {
 		}
 	}
 	return b.String(), nil
+}
+
+// Validate anchors without constructing source excerpts on every saved finding.
+func (w *workspace) evidenceRanges(notes string) (map[string][]source.LineRange, error) {
+	byID := w.sourceIndex().byID
+	anchors := citationPattern.FindAllStringSubmatch(notes, -1)
+	if len(anchors) == 0 {
+		return nil, errors.New("research produced no original-source evidence anchors")
+	}
+	ranges := map[string][]source.LineRange{}
+	for _, match := range anchors {
+		doc, ok := byID[match[1]]
+		start, _ := strconv.Atoi(match[2])
+		end, _ := strconv.Atoi(match[3])
+		if !ok || !RangeCovered(w.reads[doc.ID], start, end) || end > doc.LineCount {
+			return nil, errors.New("research cited a source range it did not read")
+		}
+		ranges[doc.ID] = append(ranges[doc.ID], source.LineRange{StartLine: start, EndLine: end})
+	}
+	return ranges, nil
 }

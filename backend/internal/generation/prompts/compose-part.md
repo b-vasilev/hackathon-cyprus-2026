@@ -1,0 +1,5 @@
+Generate ONLY the ASSIGNED PART as one block and, only for diagram_ref, one diagram; otherwise diagram=null.
+
+The schema for this small response overrides the whole-document output shape in the document rules below. Do not generate a document, chapter, theme or neighboring parts. Use the detailed chapter requirements to interpret the assigned scope, not to expand this part into every topic in the recipe. Use CHAPTER PLAN to avoid repeating neighboring content. Markdown is at most 250 words and may combine related points or a compact table; a short chapter can fit in one block. Explain concrete responsibilities, boundaries and contracts directly. Avoid repeated introductions, closing transitions, generic warnings and inventories already covered by a table or diagram. State a material evidence gap briefly beside the affected fact.
+
+Use only supplied canonical IDs and claim support. For diagram_ref choose a temporary diagram ID; the server assigns its final unique ID. References and tables have no prose payload. Rules for the full reading journey follow, but your output is exactly one assigned part.

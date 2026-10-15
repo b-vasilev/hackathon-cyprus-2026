@@ -139,10 +139,33 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 		return nil
 	}
 	maxOutput := int64(14000)
+	maxRetries := fantasy.DefaultRetryOptions().MaxRetries
+	retryAttempt := 0
+	onRetry := func(provider *fantasy.ProviderError, delay time.Duration) {
+		retryAttempt++
+		reason := "temporary provider failure"
+		if provider != nil {
+			reason = provider.Error()
+			if provider.StatusCode > 0 {
+				reason = fmt.Sprintf("HTTP %d: %s", provider.StatusCode, reason)
+			}
+		}
+		w.activity = fmt.Sprintf("Research model turn %d: retry %d/%d in %s. Reason: %s", w.turn, retryAttempt, maxRetries, delay, reason)
+		if w.limiter != nil {
+			if pool, ok := w.limiter.ConnectionStatus(config); ok {
+				cooldown := max(time.Duration(0), time.Until(pool.CooldownUntil)).Round(time.Second)
+				w.activity += fmt.Sprintf(" Gateway: request limit %d/%d; active %d; waiting %d; cooldown %s.",
+					pool.EffectiveLimit, config.MaxConcurrent, pool.Active, pool.Waiting, cooldown)
+			}
+		}
+		state := w.state()
+		_ = progress(Progress{Message: w.activity, State: &state, Retry: true})
+	}
 	stop := func(steps []fantasy.StepResult) bool {
 		return base+len(steps) >= w.activeLimit() || w.checkedNotes != "" || (!w.deadline.IsZero() && time.Until(w.deadline) <= 30*time.Second)
 	}
-	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: callPrompt, Messages: w.conversation.messages(), MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{stop}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
+	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: callPrompt, Messages: w.conversation.messages(), MaxOutputTokens: &maxOutput, MaxRetries: &maxRetries, OnRetry: onRetry, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{stop}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
+		retryAttempt = 0
 		if usageErr := report(options.Steps); usageErr != nil {
 			return stepCtx, fantasy.PrepareStepResult{}, usageErr
 		}
@@ -161,9 +184,9 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 		w.execution = "requesting"
 		w.turn = base + options.StepNumber + 1
 		stepStarted = time.Now()
-		hint := fmt.Sprintf("Attempt budget: turn %d; current allowance %d; hard limit %d. The runner alone extends the allowance in blocks of 10 for new read-and-cited planned evidence and reachable questions. The current allowance is a review point, not permission to finalize partial research. Save findings and plan evidence incrementally. Update set_research_focus before changing areas or questions. Continue independent useful work; do not repeat classifications or findings to earn turns.", w.turn, w.activeLimit(), w.turnBudget)
+		hint := fmt.Sprintf("Attempt budget: turn %d; current allowance %d; hard limit %d. Extensions require new read-and-cited evidence AND fewer open questions. Close existing questions before adding scope. Save findings and plan evidence incrementally. Update set_research_focus before changing areas or questions.", w.turn, w.activeLimit(), w.turnBudget)
 		if w.turnBudget == 0 {
-			hint = fmt.Sprintf("Attempt turn %d; current allowance %d. No fixed turn cap. The runner extends the allowance for new verified evidence while reachable questions and time remain. Save findings and plan evidence incrementally.", w.turn, w.activeLimit())
+			hint = fmt.Sprintf("Attempt turn %d; current allowance %d. Extensions require new verified evidence AND fewer open questions. Close existing questions before adding scope. Save findings and plan evidence incrementally.", w.turn, w.activeLimit())
 		}
 		if w.task != nil {
 			hint = fmt.Sprintf("Assigned task turn %d/%d. Use save_research_answer as soon as one role is verified. Do not wait for all four roles. With three turns left, save the evidence already read before more discovery. Your conversation and accepted answers survive the next task window. Do not review the inventory or other tasks.", w.turn, w.turnBudget)
@@ -177,7 +200,14 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 		return stepCtx, fantasy.PrepareStepResult{Messages: messages}, w.event(fmt.Sprintf("Research model turn %d started. Current allowance: %d.", w.turn, w.activeLimit()))
 	}})
 	if err != nil {
-		return errors.New("repository research failed through the selected connection; check protocol support, endpoint availability and timeout")
+		message := "repository research request failed"
+		if retries, ok := errors.AsType[*fantasy.RetryError](err); ok {
+			message += fmt.Sprintf(" after %d attempts", len(retries.Errors))
+		}
+		if provider, ok := errors.AsType[*fantasy.ProviderError](err); ok && provider.StatusCode > 0 {
+			message += fmt.Sprintf(" (HTTP %d)", provider.StatusCode)
+		}
+		return fmt.Errorf("%s: %w", message, err)
 	}
 	return report(response.Steps)
 }
