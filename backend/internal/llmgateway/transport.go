@@ -156,6 +156,7 @@ func (t *connectionTransport) RoundTrip(r *http.Request) (*http.Response, error)
 	if err != nil {
 		return nil, fmt.Errorf("admit LLM request: %w", err)
 	}
+	meta.StartedAt = time.Now()
 	response, err := t.base.RoundTrip(request)
 	if err != nil {
 		finish(0, nil)

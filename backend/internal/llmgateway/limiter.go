@@ -48,7 +48,6 @@ type targetLimit struct {
 	waiting      int
 	limit        int
 	successes    int
-	throttles    int
 	total429     int
 	total503     int
 	cooldownTill time.Time
@@ -229,9 +228,6 @@ func (l *Limiter) Acquire(ctx context.Context, targetID string, api bool) (func(
 
 func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy PoolPolicy) (func(int, http.Header), error) { //nolint:gocyclo // Admission keeps capacity, queue, timeout, and cancellation transitions together.
 	waitForQueue, _ := ctx.Value(queueWaitKey{}).(bool)
-	if meta.StartedAt.IsZero() {
-		meta.StartedAt = time.Now()
-	}
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("acquire LLM gateway request: %w", err)
 	}
@@ -279,6 +275,7 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 				l.removeWaiter(w)
 			}
 			l.globalActive++
+			meta.StartedAt = now
 			azureReserved := false
 			if target != nil {
 				target.active++
@@ -465,25 +462,23 @@ func (l *Limiter) observeResponseLocked(meta RequestMeta, status int, headers ht
 		updateAzureRate(t, meta, headers, now)
 	}
 	switch status {
-	case http.StatusTooManyRequests:
-		t.total429++
-		t.throttles++
-		t.successes = 0
-		if t.throttles >= 2 && t.limit > 1 {
-			t.limit = (t.limit + 1) / 2
-			t.throttles = 0
+	case http.StatusTooManyRequests, http.StatusServiceUnavailable:
+		if status == http.StatusTooManyRequests {
+			t.total429++
+		} else {
+			t.total503++
 		}
-		l.cooldown(t, headers)
-	case http.StatusServiceUnavailable:
-		t.total503++
 		t.successes = 0
-		if t.limit > 1 {
+		// One overloaded batch lowers capacity once. Its remaining responses
+		// still extend the shared cooldown without collapsing capacity to one.
+		if !now.Before(t.cooldownTill) && t.limit > 1 {
 			t.limit = (t.limit + 1) / 2
 		}
-		l.cooldown(t, headers)
+		l.cooldown(t, headers, now)
 	default:
-		if status >= 200 && status < 400 {
-			t.throttles = 0
+		// Requests already running when throttling began cannot prove that
+		// the reduced capacity is safe, even if they finish after cooldown.
+		if status >= 200 && status < 400 && !meta.StartedAt.Before(t.cooldownTill) {
 			t.successes++
 			if t.successes >= 8 && t.limit < t.policy.MaxActive {
 				t.limit++
@@ -493,7 +488,7 @@ func (l *Limiter) observeResponseLocked(meta RequestMeta, status int, headers ht
 	}
 }
 
-func (l *Limiter) cooldown(t *targetLimit, headers http.Header) {
+func (l *Limiter) cooldown(t *targetLimit, headers http.Header, now time.Time) {
 	delay := parseRetryAfterMS(headers.Get("Retry-After-Ms"))
 	if delay == 0 {
 		delay = parseRetryAfter(headers.Get("Retry-After"))
@@ -501,7 +496,7 @@ func (l *Limiter) cooldown(t *targetLimit, headers http.Header) {
 	if delay == 0 {
 		delay = 5 * time.Second
 	}
-	until := time.Now().Add(delay)
+	until := now.Add(delay)
 	if until.After(t.cooldownTill) {
 		t.cooldownTill = until
 	}

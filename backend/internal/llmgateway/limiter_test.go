@@ -3,10 +3,84 @@ package llmgateway
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestAdaptiveLimitAfterOverload(t *testing.T) {
+	for _, status := range []int{http.StatusTooManyRequests, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			limiter := NewLimiter(30, 60, 30, 60)
+			policy := DefaultPoolPolicy("pool")
+			policy.MaxActive = 30
+			pool := &targetLimit{limit: 30, policy: policy}
+			limiter.targets["pool"] = pool
+			now := time.Unix(100, 0)
+			meta := RequestMeta{PoolKey: "pool", API: true, StartedAt: now.Add(-time.Second)}
+			headers := http.Header{"Retry-After": []string{"10"}}
+			limiter.observeResponseLocked(meta, status, headers, now)
+			if pool.limit != 15 {
+				t.Fatalf("first overload must halve 30 slots, got %d", pool.limit)
+			}
+			if allowed, wake := limiter.canStart(pool, meta, now); allowed || !wake.Equal(now.Add(10*time.Second)) {
+				t.Fatalf("pool did not honor shared cooldown: allowed=%v wake=%v", allowed, wake)
+			}
+			// Successes and more errors from the original batch must neither
+			// undo the reduction nor reduce once for every in-flight request.
+			for range 8 {
+				limiter.observeResponseLocked(meta, http.StatusOK, nil, now.Add(time.Second))
+			}
+			for range 21 {
+				limiter.observeResponseLocked(meta, status, headers, now.Add(time.Second))
+			}
+			if pool.limit != 15 || pool.successes != 0 {
+				t.Fatalf("in-flight batch changed recovery: limit=%d successes=%d", pool.limit, pool.successes)
+			}
+			if pool.total429+pool.total503 != 22 {
+				t.Fatalf("overload counters lost responses: 429=%d 503=%d", pool.total429, pool.total503)
+			}
+			after := pool.cooldownTill.Add(time.Second)
+			for range 8 {
+				limiter.observeResponseLocked(meta, http.StatusOK, nil, after)
+			}
+			if pool.limit != 15 || pool.successes != 0 {
+				t.Fatalf("late old successes raised capacity: limit=%d successes=%d", pool.limit, pool.successes)
+			}
+			meta.StartedAt = after
+			if allowed, _ := limiter.canStart(pool, meta, after); !allowed {
+				t.Fatal("pool did not resume after cooldown")
+			}
+			for range 8 {
+				limiter.observeResponseLocked(meta, http.StatusOK, nil, after)
+			}
+			if pool.limit != 16 {
+				t.Fatalf("fresh successes did not recover gradually: %d", pool.limit)
+			}
+			limiter.observeResponseLocked(meta, status, headers, after)
+			if pool.limit != 8 {
+				t.Fatalf("new overload did not lower capacity again: %d", pool.limit)
+			}
+		})
+	}
+}
+
+func TestAdmissionRecordsDispatchTime(t *testing.T) {
+	limiter := NewLimiter(30, 60, 30, 60)
+	policy := DefaultPoolPolicy("pool")
+	pool := &targetLimit{limit: policy.MaxActive, policy: policy, cooldownTill: time.Now().Add(-time.Second)}
+	limiter.targets["pool"] = pool
+	meta := RequestMeta{PoolKey: "pool", API: true, StartedAt: time.Now().Add(-time.Hour)}
+	finish, err := limiter.AcquireRequest(t.Context(), meta, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	finish(http.StatusOK, nil)
+	if pool.successes != 1 {
+		t.Fatal("request admitted after cooldown was counted as an older request")
+	}
+}
 
 // Signal each blocking select so the test can coordinate without sleeps.
 type observedWaitContext struct {
