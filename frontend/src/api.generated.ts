@@ -229,6 +229,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/me/learning': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getLearningProgress'];
+    put: operations['saveLearningProgress'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/openapi.json': {
     parameters: {
       query?: never;
@@ -678,6 +694,26 @@ export interface components {
     Health: {
       /** @enum {string} */
       status: 'ok' | 'ready' | 'unavailable';
+    };
+    LearningState: {
+      modules: {
+        [key: string]: {
+          lessons: null | string[];
+          quiz_passed: boolean;
+          visited: boolean;
+          /** @description Best quiz result as a share of correct answers, from 0 to 1. */
+          best_score: number;
+          failed_quiz: boolean;
+          /** @description The quiz was passed after a failed attempt. */
+          comeback: boolean;
+        };
+      };
+      /** @description Easter eggs found, by identifier. */
+      flags: null | string[];
+      /** @description When each achievement was first unlocked, as an ISO 8601 date. */
+      unlocked: {
+        [key: string]: string;
+      };
     };
     Me: {
       user: {
@@ -2052,6 +2088,68 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ProbeResult'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getLearningProgress: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningState'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  saveLearningProgress: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LearningState'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningState'];
         };
       };
       /** @description Request failed */

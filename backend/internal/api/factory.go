@@ -14,6 +14,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
@@ -23,6 +24,7 @@ import (
 // Factory exposes product, connection and generation operations.
 type Factory struct {
 	Access      *access.Store
+	Learning    *learning.Store
 	GitHub      *githubconnection.Store
 	GitHubOAuth githubconnection.OAuthConfig
 	Service     *generation.Service
@@ -57,6 +59,7 @@ type FactoryStatus struct {
 
 func (f *Factory) register(mux *http.ServeMux) {
 	f.registerAccess(mux)
+	f.registerLearning(mux)
 	f.registerGitHub(mux)
 	if f.FrontendDir != "" {
 		mux.Handle("GET /", frontend(f.FrontendDir))
@@ -356,6 +359,8 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusConflict, "approval_required", err.Error())
 	case errors.Is(err, llmgateway.ErrInUse):
 		problem(w, http.StatusConflict, "connection_in_use", err.Error())
+	case errors.Is(err, learning.ErrInvalid):
+		problem(w, http.StatusBadRequest, "invalid_learning_progress", err.Error())
 	case errors.Is(err, product.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid_product", err.Error())
 	case errors.Is(err, llmgateway.ErrInvalid):

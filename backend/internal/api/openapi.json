@@ -729,6 +729,77 @@
         ],
         "type": "object"
       },
+      "LearningState": {
+        "type": "object",
+        "properties": {
+          "modules": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "lessons": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "quiz_passed": {
+                  "type": "boolean"
+                },
+                "visited": {
+                  "type": "boolean"
+                },
+                "best_score": {
+                  "type": "number",
+                  "description": "Best quiz result as a share of correct answers, from 0 to 1."
+                },
+                "failed_quiz": {
+                  "type": "boolean"
+                },
+                "comeback": {
+                  "type": "boolean",
+                  "description": "The quiz was passed after a failed attempt."
+                }
+              },
+              "required": [
+                "lessons",
+                "quiz_passed",
+                "visited",
+                "best_score",
+                "failed_quiz",
+                "comeback"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "flags": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Easter eggs found, by identifier."
+          },
+          "unlocked": {
+            "type": "object",
+            "description": "When each achievement was first unlocked, as an ISO 8601 date.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "modules",
+          "flags",
+          "unlocked"
+        ],
+        "additionalProperties": false
+      },
       "Me": {
         "type": "object",
         "properties": {
@@ -4714,6 +4785,68 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProbeResult"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/me/learning": {
+      "get": {
+        "operationId": "getLearningProgress",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningState"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveLearningProgress",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearningState"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningState"
                 }
               }
             },

@@ -3,6 +3,7 @@ import { LogOut } from 'lucide-react';
 import { Link, Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom';
 import { AchievementCenter } from './components/Achievements';
 import { Badge, Brand, ErrorNotice, Loading } from './components/ui';
+import { syncLearning } from './foundations/sync';
 import { api, ApiError, type Me } from './lib/api';
 import { canManage, canUseStudio, isAdmin, MeContext, useMe } from './lib/auth';
 import { AuthPage } from './pages/Auth';
@@ -25,6 +26,15 @@ function signOut() {
 function SignedInApp({ me }: Readonly<{ me: Me }>) {
   const admin = isAdmin(me);
   const studio = canUseStudio(me);
+  // Learning progress lives in the account; pages render once the browser copy is merged with it.
+  const learning = useQuery({
+    queryKey: ['learning', me.user.id],
+    queryFn: () => syncLearning(me.user.id),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  if (learning.isPending) {
+    return <Loading label="Loading your progress…" />;
+  }
   return (
     <MeContext value={me}>
       <header className="site-header">
