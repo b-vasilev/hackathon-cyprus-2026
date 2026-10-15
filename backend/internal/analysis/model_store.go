@@ -379,6 +379,39 @@ func (store *ModelStore) RecordRead(ctx context.Context, documentID string, span
 	return store.publish(ctx, next)
 }
 
+// prepareSynthesis replaces an old research queue while retaining saved facts
+// and read provenance. Retries of the fixed plan retain their completed steps.
+func (store *ModelStore) prepareSynthesis(ctx context.Context, tasks []Task) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	next := cloneCheckpoint(store.state)
+	samePlan := len(next.Tasks) == len(tasks)
+	for _, old := range next.Tasks {
+		if !slices.ContainsFunc(tasks, func(task Task) bool { return task.ID == old.ID }) {
+			samePlan = false
+		}
+	}
+	updated := cloneTasks(tasks)
+	if samePlan {
+		for i := range updated {
+			for _, old := range next.Tasks {
+				if updated[i].ID == old.ID {
+					updated[i].Status = old.Status
+				}
+			}
+		}
+	}
+	if err := store.validateTasks(updated); err != nil {
+		return err
+	}
+	if reflect.DeepEqual(next.Tasks, updated) {
+		return nil
+	}
+	next.Tasks = updated
+	next.LastChange = &Change{Kind: "synthesis_plan", Reason: "Synthesize saved research in three steps; preserve accepted model facts and citations."}
+	return store.publish(ctx, next)
+}
+
 // AddTasks adds discovered work without erasing prior areas or completion state.
 func (store *ModelStore) AddTasks(ctx context.Context, tasks []Task) error {
 	if err := boundedPart(tasks); err != nil {

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"charm.land/fantasy"
@@ -56,10 +55,10 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 	if store.Checkpoint().Finalized {
 		return result, nil
 	}
-	session := &analysisSession{store: store, input: input, progress: progress}
-	if err := session.ensureTasks(ctx); err != nil {
+	if err := store.prepareSynthesis(ctx, input.Tasks); err != nil {
 		return result, err
 	}
+	session := &analysisSession{store: store, input: input, progress: progress}
 	client, err := r.Policy.Client(config, r.Limiter)
 	if err != nil {
 		return result, fmt.Errorf("analysis connection: %w", err)
@@ -82,16 +81,11 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 }
 
 func (s *analysisSession) tools() ([]fantasy.AgentTool, error) {
-	sources, err := SourceTools(s.input.Collection, s.store.RecordRead)
-	if err != nil {
-		return nil, err
-	}
 	findings, err := FindingTools(s.input.Findings)
 	if err != nil {
 		return nil, err
 	}
-	all := append(s.modelTools(), sources...)
-	all = append(all, findings...)
+	all := append(s.modelTools(), findings...)
 	for i, tool := range all {
 		all[i] = observedAnalysisTool{AgentTool: tool, session: s}
 	}
@@ -99,59 +93,35 @@ func (s *analysisSession) tools() ([]fantasy.AgentTool, error) {
 }
 
 func prepareAnalysisInput(input Input) Input {
-	input.Tasks = slices.Clone(input.Tasks)
-	for i := range input.Tasks {
-		if input.Tasks[i].Status == "" {
-			input.Tasks[i].Status = TaskPending
-		}
-	}
-	if len(input.Tasks) == 0 && input.Checkpoint == nil {
-		for _, snapshot := range input.Collection.Snapshots {
-			input.Tasks = append(input.Tasks, Task{ID: "repository-" + snapshot.ID, Title: "Repository " + snapshot.Locator, Question: "Establish this repository's verified responsibilities, manifests, source ownership, entry points and concrete contracts with other supplied repositories. A repository is not automatically a service. Reuse shared canonical entities.", Status: TaskPending})
-		}
-		for _, finding := range input.Findings {
-			sum := sha256.Sum256([]byte(finding.ID))
-			title := finding.Title
-			if strings.TrimSpace(title) == "" {
-				title = "Research area " + finding.ID
+	input.Tasks = SynthesisTasks()
+	for _, finding := range input.Findings {
+		if finding.Title == "Architecture synthesis brief" || finding.Title == "Accepted research coverage and unresolved questions" {
+			for i := range input.Tasks {
+				input.Tasks[i].FindingIDs = append(input.Tasks[i].FindingIDs, finding.ID)
 			}
-			input.Tasks = append(input.Tasks, Task{ID: fmt.Sprintf("finding-%x", sum[:8]), Title: title, Question: "Model the material responsibilities, supported variants and source-backed behavior in this finding. Inspect exact original sources and discover omitted shared implementations and cross-area dependencies. Save distinct meaningful components and scenarios; retain explicit evidence questions.", FindingIDs: []string{finding.ID}, Status: TaskPending})
 		}
 	}
 	return input
 }
 
-func requiredAnalysisTasks() []Task {
+// SynthesisTasks stays fixed regardless of repository, source or finding counts.
+func SynthesisTasks() []Task {
 	return []Task{
-		{ID: "product-context", Title: "Product scope and core concerns", Question: "Establish source-backed product purpose, intended users, capabilities, boundaries and major outcomes. Reconcile technology uses, domain/data, runtime and operations where materially supported. Reuse shared IDs; distinguish unknown research from product limitations. Preserve important modules and variants rather than compressing an entire engine into one object.", Status: TaskPending},
-		{ID: SharedExecutionTaskID, Title: "Shared execution, completion and contracts", Question: "For every important agent/generator/task family, follow target-specific registrations through shared base implementations and actual callers. Verify prepared inputs, invocation, generated candidates, accepted outputs, rejected or unresolved/cannot-resolve results, validation/acceptance gates, repair/retry bounds and stop rules. Follow materially different variants and both cross-repository endpoints. Separate generation, acceptance and deployment completion. Inspect code behind generic wrappers, not only registries or existing notes. Save relevant objects, contracts, claims and ordered scenarios; create material follow-up tasks for newly found areas.", Status: TaskPending},
-		{ID: ReconciliationTaskID, Title: "Canonical reconciliation", Question: "Reconcile all saved areas into one coherent canonical model. Resolve shared IDs, hierarchy, cross-area references, technology attribution, important variants, evidence and open questions without erasing researched detail. Verify shared execution/completion contracts and generation versus deployment. Set title, tagline and summary from the verified shared facts, inspect validation issues, then finalize the server-assembled model. Do not print the whole model.", Status: TaskPending},
+		{ID: "architecture-synthesis", Title: "Architecture from research", Question: "From saved research, assemble product purpose, source repositories, major runtime units/components, external systems, technologies and principal contracts. Reuse saved IDs. Save useful model parts immediately. Do not inspect code, audit every area or add tasks. Missing research stays an explicit question.", Status: TaskPending},
+		{ID: "passport-synthesis", Title: "Passport flows and supporting facts", Question: "From the same saved research, assemble representative main scenarios, data/artifacts and supported deployment/development facts. Reuse architecture entities and exact research citations. Preserve material completion/failure differences already found. Do not investigate new variants or read code.", Status: TaskPending},
+		{ID: ReconciliationTaskID, Title: "Reconcile and finalize", Question: "Resolve saved model IDs, hierarchy and references, reconcile title/tagline/summary, preserve research gaps, then finalize. Fix consistency from saved research only. Use inspect_validation_issues and finalize_model; do not start research or add tasks.", Status: TaskPending},
 	}
-}
-
-func (s *analysisSession) ensureTasks(ctx context.Context) error {
-	cp := s.store.Checkpoint()
-	var missing []Task
-	for _, required := range requiredAnalysisTasks() {
-		if !slices.ContainsFunc(cp.Tasks, func(t Task) bool { return t.ID == required.ID }) {
-			missing = append(missing, required)
-		}
-	}
-	if len(missing) > 0 {
-		return s.store.AddTasks(ctx, missing)
-	}
-	return nil
 }
 
 func nextAnalysisTask(tasks []Task) (Task, bool) {
 	for _, status := range []string{TaskActive, TaskPending} {
 		for _, task := range tasks {
-			if task.Status == status && task.ID != SharedExecutionTaskID && task.ID != ReconciliationTaskID {
+			if task.Status == status && task.ID != ReconciliationTaskID {
 				return task, true
 			}
 		}
 	}
-	for _, id := range []string{SharedExecutionTaskID, ReconciliationTaskID} {
+	for _, id := range []string{ReconciliationTaskID} {
 		for _, task := range tasks {
 			if task.ID == id && task.Status != TaskDone {
 				return task, true

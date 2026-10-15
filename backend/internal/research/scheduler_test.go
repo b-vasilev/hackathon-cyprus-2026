@@ -53,11 +53,18 @@ func TestArchitectureResearchDoesNotTurnFileHintsIntoObligations(t *testing.T) {
 	}
 }
 
-func TestStalledTasksRetryOnlyWhenTheirQuestionsChange(t *testing.T) {
+func TestStalledTasksGetOneFreshClosureAttempt(t *testing.T) {
 	task := researchTask{Key: "responsibility/repo/tools", Boundaries: []string{"tools"}, questions: []string{"tools/implementation", "tools/callers"}}
 	sibling := researchTask{Key: "scope/repo/other", questions: []string{"other"}}
 	attempts := map[string]taskAttempts{task.Key: {count: 2, stalled: 2, questions: "tools/implementation\x00tools/callers"}}
 	queued := queueResearchTasks([]researchTask{task, sibling}, nil, attempts)
+	if len(queued) != 2 {
+		t.Fatal("stalled assignment was dropped without a fresh closure attempt")
+	}
+	attempt := attempts[task.Key]
+	attempt.repaired = true
+	attempts[task.Key] = attempt
+	queued = queueResearchTasks([]researchTask{task, sibling}, nil, attempts)
 	if len(queued) != 1 || queued[0].Key != sibling.Key {
 		t.Fatal("stalled task blocked independent work or was retried unchanged")
 	}

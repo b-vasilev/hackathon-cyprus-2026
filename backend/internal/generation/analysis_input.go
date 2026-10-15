@@ -138,59 +138,101 @@ func splitFinding(title, notes string) []analysis.Finding {
 }
 
 func (s *Service) analysisResearchInput(ctx context.Context, runID string, collection source.Collection) ([]analysis.Finding, []analysis.Task, error) {
-	var findings []analysis.Finding
-	var tasks []analysis.Task
-	tasks = append(tasks, analysis.Task{ID: "product-context", Title: "Product purpose and boundary", Question: "Establish the evidenced product purpose, actors, outcomes, scope and supported limits. Reconcile final wording after the implementation areas.", Status: analysis.TaskPending})
-	for _, snapshot := range collection.Snapshots {
-		tasks = append(tasks, analysis.Task{ID: analysisAreaID("repository", snapshot.ID), Title: "Repository: " + snapshot.Locator, Question: "Account for this supplied repository's real responsibilities, source ownership and produced/consumed cross-repository contracts. A repository is not a runtime service.", Status: analysis.TaskPending})
+	if s.Research == nil {
+		return nil, analysis.SynthesisTasks(), nil
 	}
-	if s.Research != nil {
-		checkpoint, err := s.latestAnalysisResearch(ctx, runID)
-		if err != nil {
-			return nil, nil, err
+	checkpoint, err := s.latestAnalysisResearch(ctx, runID)
+	if err != nil {
+		return nil, nil, err
+	}
+	brief, err := synthesisBrief(checkpoint, collection)
+	if err != nil {
+		return nil, nil, err
+	}
+	findings := splitFinding("Architecture synthesis brief", brief)
+	var prefix strings.Builder
+	for index, finding := range checkpoint.Ledger.Findings {
+		title := fmt.Sprintf("%s [research record %d]", finding.Name, index+1)
+		findings = append(findings, splitFinding(title, finding.Notes)...)
+		fmt.Fprintf(&prefix, "\n## %s\n%s\n", finding.Name, finding.Notes)
+	}
+	summary := strings.TrimPrefix(checkpoint.Notes, prefix.String())
+	findings = append(findings, splitFinding("Research summary", summary)...)
+	coverage, err := json.Marshal(struct {
+		Status     string   `json:"status"`
+		StopReason string   `json:"stop_reason"`
+		Frontier   []string `json:"frontier"`
+	}{checkpoint.Ledger.Status, checkpoint.Ledger.StopReason, checkpoint.Ledger.Frontier})
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode accepted research gaps: %w", err)
+	}
+	findings = append(findings, splitFinding("Accepted research coverage and unresolved questions", string(coverage))...)
+	return findings, analysis.SynthesisTasks(), nil
+}
+
+// synthesisBrief selects representative accepted findings for each subsystem.
+// Complete research notes stay available; source bodies are never inspected.
+func synthesisBrief(checkpoint *research.Checkpoint, collection source.Collection) (string, error) {
+	documents := make(map[string]source.Document, len(collection.Documents))
+	for _, doc := range collection.Documents {
+		documents[doc.SnapshotID+"/"+doc.Path] = doc
+	}
+	var brief strings.Builder
+	brief.WriteString("Saved research synthesis: representative findings, not an exhaustive file audit. Preserve explicit research gaps.\n")
+	for _, repo := range collection.Snapshots {
+		fmt.Fprintf(&brief, "Repository %s: %s at %s\n", repo.ID, repo.Locator, repo.Revision)
+	}
+	writeEvidence := func(role, file, finding string, start, end int) error {
+		doc, ok := documents[file]
+		if !ok {
+			return fmt.Errorf("saved research cites an unknown source: %s", file)
 		}
-		byName := map[string][]string{}
-		var prefix strings.Builder
-		for index, finding := range checkpoint.Ledger.Findings {
-			title := fmt.Sprintf("%s [research record %d]", finding.Name, index+1)
-			parts := splitFinding(title, finding.Notes)
-			findings = append(findings, parts...)
-			for _, part := range parts {
-				byName[finding.Name] = append(byName[finding.Name], part.ID)
+		fmt.Fprintf(&brief, "%s: %s [%s:L%d-L%d]\n", role, finding, doc.ID, start, end)
+		return nil
+	}
+	for _, boundary := range checkpoint.Ledger.Plan.Boundaries {
+		if boundary.Archived() {
+			continue
+		}
+		fmt.Fprintf(&brief, "\n## %s (%s)\n", boundary.Name, boundary.Repository)
+		refs := boundary.Implementation
+		for _, role := range []string{"implementation", "callers", "contracts", "validation"} {
+			switch role {
+			case "callers":
+				refs = boundary.Callers
+			case "contracts":
+				refs = boundary.Contracts
+			case "validation":
+				refs = boundary.Validation
 			}
-			fmt.Fprintf(&prefix, "\n## %s\n%s\n", finding.Name, finding.Notes)
-		}
-		summary := strings.TrimPrefix(checkpoint.Notes, prefix.String())
-		findings = append(findings, splitFinding("Research summary", summary)...)
-		coverage, err := json.Marshal(struct {
-			Status     string   `json:"status"`
-			StopReason string   `json:"stop_reason"`
-			Frontier   []string `json:"frontier"`
-		}{checkpoint.Ledger.Status, checkpoint.Ledger.StopReason, checkpoint.Ledger.Frontier})
-		if err != nil {
-			return nil, nil, fmt.Errorf("encode accepted research gaps: %w", err)
-		}
-		findings = append(findings, splitFinding("Accepted research coverage and unresolved questions", string(coverage))...)
-		seen := map[string]bool{}
-		for _, boundary := range checkpoint.Ledger.Plan.Boundaries {
-			id := analysisAreaID("responsibility", boundary.Repository+"\n"+boundary.Name)
-			if seen[id] {
-				continue
+			if len(refs) > 0 {
+				ref := refs[0]
+				if err := writeEvidence(role, ref.Path, ref.Finding, ref.StartLine, ref.EndLine); err != nil {
+					return "", err
+				}
 			}
-			seen[id] = true
-			tasks = append(tasks, analysis.Task{ID: id, Title: boundary.Name, Question: "Explain this material responsibility in " + boundary.Repository + ": actual implementation, callers/wiring, tools, contracts, status and materially distinct variants. Use original source ranges to close gaps; missing investigation is not a product limitation.", FindingIDs: byName[boundary.Name], Status: analysis.TaskPending})
+		}
+		for _, gap := range boundary.Gaps {
+			fmt.Fprintf(&brief, "%s %s: %s\n", gap.Role, gap.Kind, gap.Reason)
 		}
 	}
-	for _, task := range []analysis.Task{
-		{ID: analysis.SharedExecutionTaskID, Title: "Shared execution and completion contracts", Question: "Trace shared/base implementations behind specialized tasks and variants. Verify prepared inputs, invocation, candidates, accepted, rejected, cannot-resolve and repair outcomes, acceptance gates and retry/stop bounds where supported. Distinguish generation/validation/artifact persistence from remote deployment or publication."},
-		{ID: "flows-variants", Title: "Main flows and material variants", Question: "Reconcile representative triggers, ordered stages, participants, handoff contracts and actual terminal outcomes; account for material variants without duplicating a whole flow per parameter combination."},
-		{ID: "data-contracts", Title: "Data and artifact meaning", Question: "Reconcile core concepts, invariants, important artifact definitions/writers/readers/validation, persistence and source of truth."},
-		{ID: "technology-attribution", Title: "Technology attribution", Question: "Attribute significant runtimes, frameworks, tools, agent tasks and specialized libraries to actual responsibilities and runtime/build/test/development scope. Verify version assertions."},
-		{ID: "runtime-development-operations", Title: "Runtime and practical engineering", Question: "Preserve useful evidenced execution modes, startup/configuration, development checks, diagnostics and recovery conditions; record precise gaps without inventing production infrastructure or commands."},
-		{ID: analysis.ReconciliationTaskID, Title: "Canonical reconciliation and overview", Question: "Reconcile identities, hierarchy, cross-area references, supported material variants and explicit research gaps. Set coherent title/tagline/summary last. Resolve validation issues and finalize the canonical model through the server tool."},
-	} {
-		task.Status = analysis.TaskPending
-		tasks = append(tasks, task)
+	for _, handoff := range checkpoint.Ledger.Plan.Handoffs {
+		fmt.Fprintf(&brief, "\nHandoff %s -> %s: %s\n", handoff.FromBoundary, handoff.ToBoundary, handoff.Contract)
+		refs := handoff.Producer
+		for _, role := range []string{"producer", "consumer", "wiring"} {
+			switch role {
+			case "consumer":
+				refs = handoff.Consumer
+			case "wiring":
+				refs = handoff.Wiring
+			}
+			if len(refs) > 0 {
+				ref := refs[0]
+				if err := writeEvidence(role, ref.Path, ref.Finding, ref.StartLine, ref.EndLine); err != nil {
+					return "", err
+				}
+			}
+		}
 	}
-	return findings, tasks, nil
+	return brief.String(), nil
 }

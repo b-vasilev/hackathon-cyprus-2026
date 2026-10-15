@@ -75,9 +75,6 @@ func (s *Service) analyzeIncrementally(ctx context.Context, run Run, researched 
 		config.TimeoutSeconds = run.RequestTimeoutSeconds
 	}
 	input := analysis.Input{Collection: full, Findings: findings, Tasks: tasks, Instructions: incrementalAnalysisPrompt, Checkpoint: checkpoint}
-	if checkpoint != nil {
-		input.Tasks = checkpoint.Tasks
-	}
 	areaTitles := make(map[string]string, len(input.Tasks))
 	for _, task := range input.Tasks {
 		areaTitles[task.ID] = task.Title

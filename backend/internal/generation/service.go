@@ -408,8 +408,8 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	var model passport.Model
 	if s.Analysis != nil {
 		model, collection, err = s.analyzeIncrementally(ctx, run, collection)
-		// Source bodies remain accessible through paged analysis tools. They
-		// must not be replayed in a later document repair request.
+		// Analysis synthesizes saved research. Source bodies are unavailable to
+		// its model and must not be replayed in document composition or repair.
 		contextText = ""
 	} else {
 		// Compatibility for embedded consumers that have not configured the

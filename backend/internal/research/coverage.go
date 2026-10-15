@@ -396,6 +396,9 @@ func (w *workspace) unfinishedFrontier() []string {
 		}
 	}
 	for _, b := range w.plan {
+		if b.Archived() {
+			continue
+		}
 		check(b.Name, b.roles(), b.Gaps)
 	}
 	for _, h := range w.ledger.Plan.Handoffs {
@@ -544,6 +547,9 @@ func (w *workspace) checkCoverage(input coverageInput) error {
 	var missing, frontier []string
 
 	for _, b := range w.plan {
+		if b.Archived() {
+			continue
+		}
 		m, f := w.roleCoverage(b.Name, b.roles(), b.Gaps, citations)
 		missing = append(missing, m...)
 		frontier = append(frontier, f...)

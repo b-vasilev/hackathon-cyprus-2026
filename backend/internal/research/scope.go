@@ -6,6 +6,30 @@ import (
 	"strings"
 )
 
+func isArchivePath(file string) bool {
+	for _, part := range strings.Split(strings.ToLower(file), "/") {
+		if part == "archive" || part == "archived" || strings.HasPrefix(part, "_archive") {
+			return true
+		}
+	}
+	return false
+}
+
+// Archived reports historical source context, not a current runtime boundary.
+// A caller or other evidence outside the archive makes it a runtime question.
+func (b researchBoundary) Archived() bool {
+	found := false
+	for _, refs := range b.roles() {
+		for _, ref := range refs {
+			found = true
+			if !isArchivePath(ref.Path) {
+				return false
+			}
+		}
+	}
+	return found
+}
+
 // File patterns are navigation hints, not a checklist for an architecture
 // passport. Read support areas only when a concrete product flow needs them.
 func isArchitectureScope(c Candidate) bool {
@@ -16,6 +40,9 @@ func isArchitectureScope(c Candidate) bool {
 		return false
 	}
 	file := strings.TrimPrefix(path.Clean(c.Path), c.Repository+"/")
+	if isArchivePath(file) {
+		return false
+	}
 	for _, part := range strings.Split(strings.ToLower(file), "/") {
 		if slices.Contains([]string{".github", ".agents", ".claude", ".codex", "docs", "doc", "tests", "test", "tools", "scripts", "examples", "fixtures", "benchmarks", "vendor", "generated"}, part) {
 			return false

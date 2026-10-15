@@ -282,7 +282,13 @@ func (w *workspace) taskContext() string {
 			readRanges[file] = map[string]any{"document_id": doc.ID, "ranges": mergeRanges(w.reads[doc.ID])}
 		}
 	}
-	data, _ := json.Marshal(map[string]any{"assignment": w.task, "existing_responsibilities": boundaries, "existing_handoffs": handoffs, "retained_findings": findings, "already_read": readRanges})
+	var remaining []researchQuestion
+	for _, question := range w.pendingQuestions() {
+		if question.Actionable && w.task.ownsQuestion(question) {
+			remaining = append(remaining, question)
+		}
+	}
+	data, _ := json.Marshal(map[string]any{"assignment": w.task, "remaining_questions": remaining, "existing_responsibilities": boundaries, "existing_handoffs": handoffs, "retained_findings": findings, "already_read": readRanges})
 	return string(data)
 }
 
@@ -439,6 +445,7 @@ type taskAttempts struct {
 	count     int
 	stalled   int
 	questions string
+	repaired  bool
 }
 
 func queueResearchTasks(tasks []researchTask, active map[string]researchTask, attempts map[string]taskAttempts) []researchTask {
@@ -458,9 +465,10 @@ func queueResearchTasks(tasks []researchTask, active map[string]researchTask, at
 		questions := strings.Join(task.questions, "\x00")
 		if attempt.questions != questions {
 			attempt.stalled, attempt.questions = 0, questions
+			attempt.repaired = false
 			attempts[task.Key] = attempt
 		}
-		if attempt.stalled < 2 {
+		if attempt.stalled < 2 || (attempt.stalled == 2 && !attempt.repaired) {
 			queued = append(queued, task)
 		}
 	}
@@ -544,6 +552,11 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			reserved += allowance
 			attempt := attempts[task.Key]
 			attempt.count++
+			repair := attempt.stalled == 2 && !attempt.repaired
+			if repair {
+				attempt.repaired = true
+				local.conversation = taskSession{}
+			}
 			attempts[task.Key] = attempt
 			recovering := w.budget.decisions[len(w.budget.decisions)-1].Kind == "recovery"
 			w.parallel.Workers = append(w.parallel.Workers, WorkerProgress{ID: id, Task: w.taskLabel(task), Question: task.Question, Focus: local.ledger.Focus, Status: "waiting"})
@@ -569,6 +582,9 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 				instructions := "PARALLEL ASSIGNMENT:\n" + local.taskContext() + "\nInvestigate ONLY this assigned question. Its candidate map and existing results are already supplied above; start with a focused source search or read, without reviewing inventory or selecting another question. Other workers exclusively own other_worker_scopes; read them only as dependencies, never independently investigate or change their responsibilities. Keep dependencies outside the assignment read-only. Use save_research_answer immediately after verifying EACH role; it saves the answer, exact citations and matching plan evidence together. Do not wait to finish all four roles. Continue with remaining roles after saving the first. Batch independent reads. With three turns left, prioritize saving known evidence. Return after saving; your conversation, read ranges and results are retained for continuation. Never return an unsaved prose-only answer or decide global completion."
 				if recovering {
 					instructions += "\nThe shared research budget is in its final recovery window. Close existing questions and save known evidence. Do not create new responsibilities or broaden discovery."
+				}
+				if repair {
+					instructions += "\nThis is a fresh closure attempt after two stalled windows. Use remaining_questions and the retained read ranges/findings. Save the missing role evidence, or record a precise role research_gap supported by actual prior searches when evidence cannot be established. Do not repeat unrelated discovery, create responsibilities or return only prose."
 				}
 				var usage Result
 				err := local.modelPass(ctx, newAgent(local), config, modelID, instructions, send, &usage)
@@ -596,7 +612,7 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			}
 			if len(queued) == 0 {
 				w.budget.stopped = true
-				w.budget.decisions = append(w.budget.decisions, BudgetDecision{Turn: w.turn, Limit: w.activeLimit(), Kind: "stopped", Reason: "No unattempted reachable tasks remain. Tasks that made no progress twice are saved for continuation."})
+				w.budget.decisions = append(w.budget.decisions, BudgetDecision{Turn: w.turn, Limit: w.activeLimit(), Kind: "stopped", Reason: "No independent tasks remain after stalled assignments received a fresh closure attempt. Unresolved evidence remains explicit research gaps."})
 				break
 			}
 			if !w.reviewBudget() {
@@ -621,7 +637,8 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			reserved -= update.allowance - update.result.Steps
 			w.parallel.Workers = slices.DeleteFunc(w.parallel.Workers, func(p WorkerProgress) bool { return p.ID == update.id })
 			attempt := attempts[update.key]
-			if !update.progressed || mergeErr != nil || update.err != nil {
+			// A failed later model request must not erase actual saved progress.
+			if !update.progressed || mergeErr != nil {
 				attempt.stalled++
 			} else {
 				attempt.stalled = 0

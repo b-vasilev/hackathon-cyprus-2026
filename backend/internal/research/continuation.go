@@ -73,6 +73,9 @@ func (w *workspace) pendingQuestions() []researchQuestion {
 		}
 	}
 	for _, b := range w.plan {
+		if b.Archived() {
+			continue
+		}
 		roles(b.Name, b.Repository, b.roles(), b.Gaps)
 	}
 	for _, h := range w.ledger.Plan.Handoffs {
