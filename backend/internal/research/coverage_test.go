@@ -70,8 +70,11 @@ func TestRoleGapsCannotWaiveOtherRolesOrClaimComplete(t *testing.T) {
 	plan.Boundaries[0].Contracts = nil
 	plan.Boundaries[0].Validation = nil
 	plan.Boundaries[0].Gaps = []roleGap{{Role: "contracts", Kind: "research_gap", Reason: "Contract behavior was not resolved", Searches: []searchedScope{search}}}
-	if err := w.setPlan(plan); err == nil {
-		t.Fatal("one role gap waived validation")
+	if err := w.setPlan(plan); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.checkCoverage(coverageInput{Notes: notes, Status: "complete"}); err == nil {
+		t.Fatal("pending validation was accepted as complete")
 	}
 	plan.Boundaries[0].Validation = []roleEvidence{{Path: "repo/internal/engine/run_test.go", StartLine: 1, EndLine: 2, Finding: "Test source"}}
 	if err := w.setPlan(plan); err != nil {

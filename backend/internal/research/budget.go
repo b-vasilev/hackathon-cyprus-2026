@@ -13,6 +13,14 @@ type attemptBudget struct {
 	recovery  bool
 	seen      map[string][]source.LineRange
 	decisions []BudgetDecision
+	block     int
+}
+
+func (w *workspace) capTurns(turns int) int {
+	if w.turnBudget > 0 {
+		return min(turns, w.turnBudget)
+	}
+	return turns
 }
 
 func (w *workspace) activeLimit() int {
@@ -23,9 +31,20 @@ func (w *workspace) activeLimit() int {
 }
 
 func (w *workspace) startBudget() {
-	w.budget = &attemptBudget{limit: min(30, w.turnBudget), seen: map[string][]source.LineRange{}}
+	w.budget = &attemptBudget{limit: w.capTurns(30), block: 10, seen: map[string][]source.LineRange{}}
 	w.evidenceProgress() // Restored evidence must not earn another extension.
-	w.budget.decisions = []BudgetDecision{{Limit: w.budget.limit, Kind: "started", Reason: fmt.Sprintf("Start with %d turns. Extend by up to 10 only for new read-and-cited source evidence and reachable questions. Hard limit: %d turns or 30 minutes, whichever comes first.", w.budget.limit, w.turnBudget)}}
+	reason := fmt.Sprintf("Start with %d turns. Extend for new read-and-cited source evidence and reachable questions. Time limit: 60 minutes. No fixed turn cap.", w.budget.limit)
+	if w.turnBudget > 0 {
+		reason = fmt.Sprintf("Start with %d turns. Hard limit: %d turns or 60 minutes, whichever comes first.", w.budget.limit, w.turnBudget)
+	}
+	w.budget.decisions = []BudgetDecision{{Limit: w.budget.limit, Kind: "started", Reason: reason}}
+}
+
+func (w *workspace) startParallelBudget(workers int) {
+	w.startBudget()
+	w.budget.block = max(10, workers*taskTurns)
+	w.budget.limit = w.capTurns(max(30, workers*taskTurns))
+	w.budget.decisions = []BudgetDecision{{Limit: w.budget.limit, Kind: "started", Reason: fmt.Sprintf("Shared allowance: %d turns for up to %d workers. Extend only for new verified evidence and reachable questions. Time limit: 60 minutes.", w.budget.limit, workers)}}
 }
 
 // Only new source ranges attached to planned proof roles count. Searches,
@@ -78,19 +97,19 @@ func (w *workspace) reviewBudget() bool {
 	reachable := reachableQuestions(state)
 	newLines := w.evidenceProgress()
 	switch {
-	case w.turn >= w.turnBudget:
+	case w.turnBudget > 0 && w.turn >= w.turnBudget:
 		decision.Reason = fmt.Sprintf("Hard limit reached: %d/%d turns. Remaining questions are saved for continuation.", w.turn, w.turnBudget)
 	case !w.deadline.IsZero() && time.Until(w.deadline) <= 30*time.Second:
 		decision.Reason = "Time limit reached; reserve the final 30 seconds for saving and checking the partial result."
 	case reachable == 0:
 		decision.Reason = "No reachable unanswered questions remain in the current plan. Source gaps stay visible."
 	case newLines > 0:
-		b.limit = min(b.limit+10, w.turnBudget)
+		b.limit = w.capTurns(b.limit + max(b.block, 10))
 		decision.Kind, decision.Limit = "extended", b.limit
 		decision.Reason = fmt.Sprintf("Added %d turns: %d new source lines were read, cited and attached to planned evidence; %d reachable questions remain.", b.limit-state.Budget.Limit, newLines, reachable)
 	case !b.recovery:
 		b.recovery = true
-		b.limit = min(b.limit+10, w.turnBudget)
+		b.limit = w.capTurns(b.limit + max(b.block, 10))
 		decision.Kind, decision.Limit = "recovery", b.limit
 		decision.Reason = fmt.Sprintf("No new verified evidence. Allow one final %d-turn attempt with a different search or independent area; %d reachable questions remain. Repeated bookkeeping will not extend the budget.", b.limit-state.Budget.Limit, reachable)
 	default:

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/research"
 )
@@ -24,6 +25,10 @@ func researchArtifactPath(runID string, attempt int) string {
 		return "runs/" + runID + "/research/findings.json"
 	}
 	return fmt.Sprintf("runs/%s/research/attempt-%d/findings.json", runID, attempt+1)
+}
+
+func researchLivePath(artifact string) string {
+	return strings.TrimSuffix(artifact, "findings.json") + "checkpoint.json"
 }
 
 // Each retry gets an immutable artifact; earlier evidence remains available.
@@ -45,7 +50,11 @@ func (s *Service) researchCheckpoint(ctx context.Context, runID string) (*savedR
 		checkpointPath := researchArtifactPath(runID, previous)
 		file, err := root.Open(checkpointPath)
 		if errors.Is(err, os.ErrNotExist) {
-			continue
+			checkpointPath = researchLivePath(checkpointPath)
+			file, err = root.Open(checkpointPath)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 		}
 		if err != nil {
 			return nil, "", fmt.Errorf("open research checkpoint: %w", err)

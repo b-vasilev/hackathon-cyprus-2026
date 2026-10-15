@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, FileCode2, GitBranch, Play, RefreshCw, Square } from 'lucide-react';
+import { ArrowRight, FileCode2, GitBranch, Play, RefreshCw, Square, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { DocumentContent } from '../components/DocumentContent';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
 import { PartialResearchNotice } from '../components/PartialResearchNotice';
@@ -30,6 +31,8 @@ import { useGeneration } from '../lib/useGeneration';
 
 export function PassportPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const queryClient = useQueryClient();
   const product = useQuery({
     queryKey: ['product', id],
@@ -119,6 +122,18 @@ export function PassportPage() {
       );
     },
   });
+  const deletePassport = useMutation({
+    mutationFn: () => api<Product>(`/products/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void navigate('/');
+      queryClient.removeQueries({ queryKey: ['product', id] });
+      queryClient.removeQueries({ queryKey: ['revisions', id] });
+      for (const item of history.data ?? []) {
+        queryClient.removeQueries({ queryKey: ['revision', item.id] });
+      }
+      void queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
   if (product.isPending) {
     return <Loading label="Loading product space…" />;
   }
@@ -138,7 +153,8 @@ export function PassportPage() {
   const next = entries.at(position + 1);
   const documentRun =
     revisionRun.data ?? (run.data?.id === revision.data?.run_id ? run.data : undefined);
-  const busy = activeRun(run.data?.status) || generate.isPending;
+  const generating = activeRun(run.data?.status ?? product.data.latest_run_status);
+  const busy = generating || generate.isPending || deletePassport.isPending;
   const generateLabel = run.data?.status === 'failed' ? 'Generate again' : 'Generate passport';
   return (
     <>
@@ -176,6 +192,32 @@ export function PassportPage() {
           hasDraft={product.data.latest_revision_id !== '' || revision.data !== undefined}
         />
       </div>
+      <button
+        type="button"
+        className="text-button destructive"
+        disabled={busy}
+        onClick={() => {
+          deletePassport.reset();
+          setConfirmDelete(true);
+        }}
+      >
+        <Trash2 size={16} aria-hidden="true" />
+        Delete passport
+      </button>
+      {confirmDelete && (
+        <DeleteConfirmation
+          title="Delete product passport?"
+          label="Delete passport"
+          pending={deletePassport.isPending}
+          disabled={busy}
+          error={deletePassport.error}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => deletePassport.mutate()}
+        >
+          Delete “{product.data.name}”, all passport versions, connected source settings and
+          generation data? This cannot be undone. Original repositories stay unchanged.
+        </DeleteConfirmation>
+      )}
       <div className="generation-controls">
         <label>
           Connection

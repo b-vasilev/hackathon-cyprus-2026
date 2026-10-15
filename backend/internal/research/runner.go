@@ -22,12 +22,19 @@ import (
 //go:embed prompts/research.md
 var prompt string
 
+const (
+	defaultParallelism = llmgateway.MaxConcurrentRequests
+	attemptTimeout     = 60 * time.Minute
+)
+
 type Runner struct {
 	Policy              llmgateway.NetworkPolicy
 	Limiter             *llmgateway.Limiter
 	WorkDir, RepomixBin string
-	// MaxTurns is the hard cap for one attempt; zero uses 120 turns.
+	// MaxTurns optionally caps an attempt; zero means no turn cap.
 	MaxTurns int
+	// Parallelism is the worker pool size; zero uses 30 workers.
+	Parallelism int
 }
 
 type Result struct {
@@ -40,6 +47,7 @@ type Result struct {
 	Steps, ToolCalls, MCPReads int
 	DurationMS                 int64
 	Progress                   *State
+	Sessions                   map[string]taskSession
 }
 
 // Progress reports activity and the usage of each completed model turn.
@@ -49,6 +57,7 @@ type Progress struct {
 	InputTokens, OutputTokens int64
 	DurationMS                int64
 	State                     *State
+	Checkpoint                *Checkpoint
 }
 
 type workspace struct {
@@ -70,6 +79,12 @@ type workspace struct {
 	readFailures        map[string]string
 	budget              *attemptBudget
 	activity            string
+	parallel            ParallelProgress
+	task                *researchTask
+	stepGate            chan struct{}
+	sessions            map[string]taskSession
+	conversation        taskSession
+	execution           string
 }
 
 // run gives the model access to pinned source files with bounded paged tools.
@@ -77,9 +92,32 @@ type workspace struct {
 //nolint:gocyclo // Keep workspace, checkpoint and adaptive research lifecycle cleanup together.
 func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, checkpoint *Checkpoint, progress func(Progress) error) (result Result, err error) {
 	started := time.Now()
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, attemptTimeout)
 	defer cancel()
 	var w *workspace
+	reportProgress := progress
+	var lastState, lastCheckpoint time.Time
+	savedFindings, savedHistory := 0, 0
+	progress = func(p Progress) error {
+		now := time.Now()
+		changed := w != nil && (len(w.ledger.Findings) != savedFindings || len(w.ledger.History) != savedHistory)
+		if w != nil && (changed || (p.Step > 0 && now.Sub(lastCheckpoint) >= 10*time.Second)) {
+			p.Checkpoint = &Checkpoint{Ledger: w.ledger, Notes: w.submittedNotes, Snapshots: w.readCollection(collection).Snapshots, Sessions: w.sessions}
+			lastCheckpoint = now
+			savedFindings, savedHistory = len(w.ledger.Findings), len(w.ledger.History)
+		}
+		if p.State != nil {
+			if !changed && now.Sub(lastState) < time.Second {
+				p.State = nil
+				if p.Step == 0 && p.Checkpoint == nil {
+					return nil
+				}
+			} else {
+				lastState = now
+			}
+		}
+		return reportProgress(p)
+	}
 	event := func(message string) error {
 		if w != nil && strings.HasPrefix(message, "Investigating ") {
 			return w.publish(progress, message)
@@ -95,9 +133,7 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 	w = &workspace{documents: map[string]source.Document{}, reads: map[string][]source.LineRange{}, readFailures: map[string]string{}, event: event, turnBudget: r.MaxTurns}
-	if w.turnBudget <= 0 {
-		w.turnBudget = 120
-	}
+	w.turnBudget = max(w.turnBudget, 0)
 	w.deadline, _ = ctx.Deadline()
 	for _, doc := range collection.Documents {
 		path := doc.SnapshotID + "/" + doc.Path
@@ -122,7 +158,13 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 			return result, restoreErr
 		}
 	}
+	if w.ledger.Status != researchComplete {
+		if scopeErr := w.excludeDevelopmentGuidance(); scopeErr != nil {
+			return result, scopeErr
+		}
+	}
 	defer func() {
+		result.Sessions = w.sessions
 		result.Ledger = w.ledger
 		result.Plan = w.plan
 		result.Notes = w.submittedNotes
@@ -161,6 +203,14 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 		return result, err
 	}
 	defer session.Close()
+	workers := r.Parallelism
+	if workers <= 0 {
+		workers = defaultParallelism
+	}
+	workers = min(workers, defaultParallelism)
+	// Research concurrency follows the selected worker count, including runs
+	// resumed from older connection revisions with a lower request limit.
+	config.MaxConcurrent = workers
 	client, err := r.Policy.Client(config, r.Limiter)
 	if err != nil {
 		return result, fmt.Errorf("research gateway: %w", err)
@@ -171,9 +221,15 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	if err != nil {
 		return result, err
 	}
-	tools := append(w.tools(session), w.coverageTools()...)
-	agent := fantasy.NewAgent(model, fantasy.WithSystemPrompt(prompt), fantasy.WithTools(tools...))
-	if loopErr := w.investigate(ctx, agent, config, modelID, orientation, progress, &result); loopErr != nil {
+	if loopErr := w.investigateParallel(ctx, workers, func(local *workspace) fantasy.Agent {
+		tools := append(local.tools(session), local.coverageTools()...)
+		if local.task != nil {
+			tools = slices.DeleteFunc(tools, func(tool fantasy.AgentTool) bool {
+				return slices.Contains([]string{"check_research_coverage", "list_research_inventory", "next_research_questions"}, tool.Info().Name)
+			})
+		}
+		return fantasy.NewAgent(model, fantasy.WithSystemPrompt(prompt), fantasy.WithTools(tools...))
+	}, config, modelID, orientation, progress, &result); loopErr != nil {
 		return result, loopErr
 	}
 	result.Context, err = w.resultContext(orientation)

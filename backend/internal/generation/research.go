@@ -30,6 +30,11 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 		if _, checkErr := s.Connections.Load(ctx, run.ConnectionID, run.ConnectionRevision); checkErr != nil {
 			return errors.New("the research connection was disabled or removed")
 		}
+		if progress.Checkpoint != nil {
+			if saveErr := s.Content.SaveCheckpoint(researchLivePath(artifactPath), progress.Checkpoint); saveErr != nil {
+				return fmt.Errorf("save live research checkpoint: %w", saveErr)
+			}
+		}
 		return s.recordResearchProgress(ctx, run.ID, progress)
 	}
 	var result research.Result
@@ -58,6 +63,7 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 	// Persist the independent inventory, exact role evidence and unfinished
 	// frontier even when a model/time budget ends before acceptance.
 	payload := map[string]any{"context": result.Context, "notes": result.Notes, "plan": result.Plan, "ledger": result.Ledger, "duration_ms": result.DurationMS, "model_turns": result.Steps, "tool_batches": result.ToolCalls, "mcp_reads": result.MCPReads, "input_tokens": result.InputTokens, "output_tokens": result.OutputTokens, "snapshots": result.Collection.Snapshots, "accepted_research_reused": reused}
+	payload["sessions"] = result.Sessions
 	payload["progress"] = result.Progress
 	if checkpoint != nil {
 		payload["checkpoint_source"] = map[string]string{"path": checkpoint.Path, "hash": checkpoint.Hash}

@@ -143,7 +143,7 @@ export interface paths {
     get: operations['getConnection'];
     put?: never;
     post?: never;
-    delete?: never;
+    delete: operations['deleteConnection'];
     options?: never;
     head?: never;
     patch: operations['updateConnection'];
@@ -240,7 +240,7 @@ export interface paths {
     get: operations['getProduct'];
     put?: never;
     post?: never;
-    delete?: never;
+    delete: operations['deleteProduct'];
     options?: never;
     head?: never;
     patch?: never;
@@ -1108,6 +1108,7 @@ export interface components {
         created_at: string;
       }[];
       research?: {
+        execution?: string;
         status: string;
         areas: {
           id: string;
@@ -1146,6 +1147,26 @@ export interface components {
             limit: number;
             kind: string;
             reason: string;
+          }[];
+        };
+        parallel?: {
+          waiting?: number;
+          requests?: number;
+          limit: number;
+          active: number;
+          queued: number;
+          workers: {
+            question?: string;
+            status?: string;
+            turns?: number;
+            id: string;
+            task: string;
+            focus: {
+              area: string;
+              question: string;
+              reason: string;
+            };
+            activity: string;
           }[];
         };
       };
@@ -1578,6 +1599,37 @@ export interface operations {
       };
     };
   };
+  deleteConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Connection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   updateConnection: {
     parameters: {
       query?: never;
@@ -1794,6 +1846,37 @@ export interface operations {
     };
   };
   getProduct: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Product'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  deleteProduct: {
     parameters: {
       query?: never;
       header?: never;

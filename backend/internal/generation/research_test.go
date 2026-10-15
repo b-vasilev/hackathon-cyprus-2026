@@ -55,8 +55,8 @@ func TestResearchCountsAreVisibleWhileRunningAndSurviveFailure(t *testing.T) {
 		if run.Status != "running" || run.Stage != "researching" || run.DocumentCount != 1 || run.InputTokens != (call-1)*100 || run.OutputTokens != (call-1)*50 {
 			t.Errorf("incorrect in-progress counts: status=%s stage=%s documents=%d input=%d output=%d", run.Status, run.Stage, run.DocumentCount, run.InputTokens, run.OutputTokens)
 		}
-		if run.Research == nil || run.Research.Budget.HardLimit != 120 || len(run.Research.Areas) == 0 {
-			t.Error("live research plan or hard budget is missing")
+		if run.Research == nil || run.Research.Budget.HardLimit != 0 || len(run.Research.Areas) == 0 {
+			t.Error("live research plan or uncapped turn budget is missing")
 		}
 		message := map[string]any{"role": "assistant", "content": "RESEARCH_INCOMPLETE"}
 		reason := "stop"
@@ -78,7 +78,7 @@ func TestResearchCountsAreVisibleWhileRunningAndSurviveFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.Research = &research.Runner{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8), WorkDir: t.TempDir(), RepomixBin: binary}
+	service.Research = &research.Runner{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8), WorkDir: t.TempDir(), RepomixBin: binary, Parallelism: 1}
 	p, err := service.Products.Create(ctx, product.Input{Name: "Fixture", Sources: []source.Input{{Kind: "text", Text: "Payment service stores requests."}}})
 	if err != nil {
 		t.Fatal(err)

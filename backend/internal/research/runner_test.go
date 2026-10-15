@@ -119,7 +119,7 @@ func TestResearchProtocolsKeepGatewayAndSourceAnchors(t *testing.T) {
 					t.Fatal(err)
 				}
 				config := llmgateway.Config{Protocol: protocol, EndpointURL: server.URL + "/tenant/v1", EndpointMode: "base", AuthMode: "header", AuthHeader: "Authorization", AuthPrefix: "Bearer ", Secret: "fixture-secret", TimeoutSeconds: 20, MaxConcurrent: 1, Models: []llmgateway.Model{{ID: "test-model", OutputMode: "json_schema", MaxOutputTokens: 6000}}}
-				runner := Runner{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8), WorkDir: t.TempDir(), RepomixBin: binary}
+				runner := Runner{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8), WorkDir: t.TempDir(), RepomixBin: binary, Parallelism: 1}
 				if outcome == "partial" {
 					runner.MaxTurns = 4
 				}

@@ -1,13 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, BookOpen, FileCode2, Plus } from 'lucide-react';
+import { ArrowRight, BookOpen, FileCode2, Plus, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { ProductIdentity } from '../components/ProductIdentity';
 import { Badge, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import { api, date, type Product, type ProductInput } from '../lib/api';
+import { activeRun } from '../lib/generation';
 import { productCardTheme } from '../lib/productCardTheme';
 
 export function Products() {
+  const client = useQueryClient();
+  const [deleting, setDeleting] = useState<Product | null>(null);
+  const remove = useMutation({
+    mutationFn: (id: string) => api<Product>(`/products/${id}`, { method: 'DELETE' }),
+    onSuccess: (_, id) => {
+      client.setQueryData<Product[]>(['products'], (products) =>
+        products?.filter((product) => product.id !== id)
+      );
+      client.removeQueries({ queryKey: ['product', id] });
+      client.removeQueries({ queryKey: ['revisions', id] });
+      setDeleting(null);
+      void client.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
   const query = useQuery({
     queryKey: ['products'],
     queryFn: ({ signal }) => api<Product[]>('/products', { signal }),
@@ -50,30 +66,56 @@ export function Products() {
       )}
       <div className="product-grid">
         {query.data?.map((product) => (
-          <Link
+          <article
             className={`product-card${product.card_theme ? ' product-branded' : ''}`}
             style={productCardTheme(product.card_theme)}
-            to={`/products/${product.id}`}
             key={product.id}
           >
-            <div className="card-top">
-              <ProductIdentity name={product.name} theme={product.card_theme} />
-              <Badge>
-                {product.latest_revision_id === '' ? 'Sources connected' : 'Draft available'}
-              </Badge>
-            </div>
-            <h2>{product.name}</h2>
-            <p>
-              <FileCode2 size={15} aria-hidden="true" />
-              {product.sources?.length ?? 0} sources
-            </p>
+            <Link className="product-card-content" to={`/products/${product.id}`}>
+              <div className="card-top">
+                <ProductIdentity name={product.name} theme={product.card_theme} />
+                <Badge>
+                  {product.latest_revision_id === '' ? 'Sources connected' : 'Draft available'}
+                </Badge>
+              </div>
+              <h2>{product.name}</h2>
+              <p>
+                <FileCode2 size={15} aria-hidden="true" />
+                {product.sources?.length ?? 0} sources
+              </p>
+            </Link>
             <div className="card-bottom">
               <span>{date(product.created_at)}</span>
-              <ArrowRight size={18} aria-hidden="true" />
+              <button
+                type="button"
+                className="text-button destructive"
+                disabled={activeRun(product.latest_run_status) || remove.isPending}
+                aria-label={`Delete passport for ${product.name}`}
+                onClick={() => {
+                  remove.reset();
+                  setDeleting(product);
+                }}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                Delete passport
+              </button>
             </div>
-          </Link>
+          </article>
         ))}
       </div>
+      {deleting !== null && (
+        <DeleteConfirmation
+          title="Delete product passport?"
+          label="Delete passport"
+          pending={remove.isPending}
+          error={remove.error}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => remove.mutate(deleting.id)}
+        >
+          Delete “{deleting.name}”, all passport versions, connected source settings and generation
+          data? This cannot be undone. Original repositories stay unchanged.
+        </DeleteConfirmation>
+      )}
     </>
   );
 }

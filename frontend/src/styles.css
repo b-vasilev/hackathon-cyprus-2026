@@ -277,6 +277,9 @@ code {
 .product-card:hover {
   border-color: var(--of-brand);
 }
+.product-card-content {
+  display: block;
+}
 .product-branded {
   background: var(--product-card-background, var(--of-surface));
   color: var(--product-card-ink, var(--of-ink));
@@ -285,7 +288,7 @@ code {
   background: var(--product-card-accent, var(--of-brand));
   color: var(--product-card-on-accent, var(--of-on-brand));
 }
-.product-card.product-branded > p,
+.product-card.product-branded .product-card-content > p,
 .product-card.product-branded .card-bottom,
 .passport-heading.product-branded .page-description,
 .passport-heading.product-branded .eyebrow,
@@ -326,7 +329,7 @@ code {
   background: var(--product-card-accent);
   color: var(--product-card-on-accent);
 }
-.product-card.product-branded .card-bottom svg {
+.product-card.product-branded .card-bottom > svg {
   color: var(--product-card-link);
 }
 .brand-sources li {
@@ -411,7 +414,7 @@ code {
   font-size: 22px;
   margin: 28px 0 12px;
 }
-.product-card > p {
+.product-card-content > p {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -425,7 +428,7 @@ code {
   font-size: 12px;
   color: var(--of-muted);
 }
-.card-bottom svg {
+.card-bottom > svg {
   color: var(--of-brand);
 }
 .badge {
