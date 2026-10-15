@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
+import { AchievementCenter } from './components/Achievements';
 import { Badge, Brand, ErrorNotice, Loading } from './components/ui';
 import { api, ApiError, type Me } from './lib/api';
 import { isAdmin, MeContext } from './lib/auth';
 import { AuthPage } from './pages/Auth';
 import { Connections } from './pages/Connections';
+import { FoundationAchievements, FoundationModulePage, Foundations } from './pages/Foundations';
+import { NotFound } from './pages/NotFound';
 import { PassportPage } from './pages/Passport';
 import { People } from './pages/People';
 import { NewProduct, Products } from './pages/Products';
@@ -27,6 +30,7 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
             <NavLink to="/" end>
               Product spaces
             </NavLink>
+            <NavLink to="/foundations">Foundations</NavLink>
             {admin && <NavLink to="/connections">Connections</NavLink>}
             {admin && <NavLink to="/access">People</NavLink>}
           </nav>
@@ -47,13 +51,17 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
           <Route path="/" element={<Products />} />
           {admin && <Route path="/products/new" element={<NewProduct />} />}
           <Route path="/products/:id" element={<PassportPage />} />
+          <Route path="/foundations" element={<Foundations />} />
+          <Route path="/foundations/achievements" element={<FoundationAchievements />} />
+          <Route path="/foundations/:id" element={<FoundationModulePage />} />
           {admin && <Route path="/connections" element={<Connections />} />}
           {admin && <Route path="/access" element={<People />} />}
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/register" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<Products />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+      <AchievementCenter />
     </MeContext>
   );
 }
