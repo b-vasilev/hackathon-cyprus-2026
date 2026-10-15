@@ -1,0 +1,82 @@
+.composition-progress {
+  --of-error: #b42335;
+  margin: 16px 0;
+  padding: 16px 20px;
+  border: 1px solid var(--of-border);
+  border-radius: 12px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.composition-heading {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.composition-heading h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.composition-heading > span,
+.composition-summary,
+.composition-chapter li span {
+  color: var(--of-muted);
+  font-variant-numeric: tabular-nums;
+}
+.composition-summary {
+  margin: 8px 0;
+}
+.composition-action {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.composition-chapter {
+  border-top: 1px solid var(--of-border);
+  margin-top: 12px;
+}
+.composition-chapter summary {
+  cursor: pointer;
+  padding: 12px 0;
+  min-height: 44px;
+  text-transform: capitalize;
+}
+.composition-chapter summary:focus-visible {
+  outline: 2px solid var(--of-brand);
+  outline-offset: 2px;
+}
+.composition-chapter ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.composition-chapter li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.composition-chapter li > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--of-muted);
+}
+.composition-chapter li[data-status="running"] > svg {
+  color: var(--of-brand);
+}
+.composition-chapter li[data-status="failed"] > svg {
+  color: var(--of-error);
+}
+.composition-chapter li > div {
+  display: grid;
+  gap: 4px;
+}
+.composition-chapter li strong {
+  font-weight: 500;
+}
+.composition-chapter li span {
+  font-size: 12px;
+}

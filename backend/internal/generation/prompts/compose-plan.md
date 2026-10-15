@@ -1,0 +1,9 @@
+Plan one product-passport chapter, not its prose. Return a title, question and ordered parts.
+
+Each part is exactly one small markdown point (at most 250 words), one focused diagram, one object table or one scenario reference. Split long explanations, inventories and complex subsystems into more parts; never ask a part to write the whole chapter. Instructions must explain its question, selection, boundaries and transition to its neighbors.
+
+Select exact object_ids, claim_ids and scenario_ids from MODEL for every part. They select the facts available to that part; include every supporting object/claim it needs. A diagram's object_ids include both endpoints of every desired relation and its architectural scope. The server supplies relevant relations, ancestors and claim evidence automatically.
+
+Only the scenarios chapter may use scenario_ref; each full reference occurs once. Each scenario_ref has exactly one scenario ID in scenario_ids. Account for every canonical scenario either as a reference or in a concise cited variant matrix; list the matrix's scenario IDs in that markdown part's scenario_ids too. The server assembles scenario references directly. For object_table, supply disjoint object_ids batches, supporting claim_ids and table_style (objects, repositories or technologies); the server assembles tables directly, without a model call. Preserve complete repository/technology coverage.
+
+Begin each included chapter with a short markdown answer. Plan all useful details without duplicating other chapters. Required chapters are overview, repositories, architecture, scenarios and technologies. For an optional chapter with no distinct supported content, return parts=[]. For required evidence gaps, plan an explicit, precise gap. Preserve architectural hierarchy across focused views. The server generates prose and diagram parts independently in parallel and assembles them in planned order.

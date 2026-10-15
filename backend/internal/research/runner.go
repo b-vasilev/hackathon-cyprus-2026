@@ -54,6 +54,7 @@ type Result struct {
 type Progress struct {
 	Message                   string
 	Step                      int
+	Retry                     bool
 	InputTokens, OutputTokens int64
 	DurationMS                int64
 	State                     *State

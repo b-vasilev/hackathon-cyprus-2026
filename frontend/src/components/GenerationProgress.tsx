@@ -10,6 +10,7 @@ import {
 } from '../lib/generation';
 import { generationMessage } from '../lib/generationMessages';
 import { AnalysisProgress } from './AnalysisProgress';
+import { CompositionProgress } from './CompositionProgress';
 import { ResearchProgress } from './ResearchProgress';
 import { Badge } from './ui';
 import type { Run } from '../lib/api';
@@ -148,21 +149,25 @@ export function GenerationProgress({
       )}
       {analysis !== undefined && (
         <AnalysisProgress
-          area={analysis.area_title}
-          action={analysis.action}
-          step={analysis.step}
-          checkpointRevision={analysis.checkpoint_revision}
-          counts={{
-            objects: analysis.objects,
-            claims: analysis.claims,
-            relations: analysis.relations,
-          }}
+          analysis={analysis}
+          events={run.events}
+          stage={run.stage}
+          now={end}
           running={busy && run.stage === 'analyzing'}
         />
       )}
-      {latest !== undefined && (run.research === undefined || run.stage !== 'researching') && (
-        <p className="progress-latest">{generationMessage(latest.message)}</p>
+      {run.composition !== undefined && run.composition !== null && (
+        <CompositionProgress
+          composition={run.composition}
+          now={end}
+          running={busy && run.stage === 'composing'}
+        />
       )}
+      {latest !== undefined &&
+        run.stage !== 'composing' &&
+        (run.research === undefined || run.stage !== 'researching') && (
+          <p className="progress-latest">{generationMessage(latest.message)}</p>
+        )}
       <div className="progress-connection">
         {busy && <LoaderCircle size={14} aria-hidden="true" />}
         <span role="status">

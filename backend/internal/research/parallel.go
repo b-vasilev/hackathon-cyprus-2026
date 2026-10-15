@@ -633,6 +633,12 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 		}
 		if update.local != nil {
 			mergeErr := w.mergeTask(update.local)
+			// A request/tool failure is not evidence that research is exhausted.
+			// Preserve accepted work, then expose the failure for a resumable retry.
+			if update.err != nil && ctx.Err() == nil && fatal == nil {
+				fatal = fmt.Errorf("research task %s failed: %w", w.taskLabel(active[update.key]), update.err)
+				cancel()
+			}
 			delete(active, update.key)
 			reserved -= update.allowance - update.result.Steps
 			w.parallel.Workers = slices.DeleteFunc(w.parallel.Workers, func(p WorkerProgress) bool { return p.ID == update.id })
@@ -644,7 +650,9 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 				attempt.stalled = 0
 			}
 			attempts[update.key] = attempt
-			if mergeErr != nil || update.err != nil {
+			if update.err != nil && fatal != nil {
+				w.activity = fatal.Error()
+			} else if mergeErr != nil {
 				w.activity = fmt.Sprintf("Task %s saved available evidence and remains open for continuation.", update.key)
 			}
 			continue
@@ -661,16 +669,21 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 				w.ledger.Focus, w.activity = worker.Focus, worker.Activity
 			}
 		}
-		if update.progress.Step > 0 {
-			w.turn++
-			reserved--
-			result.Steps++
-			result.InputTokens += update.progress.InputTokens
-			result.OutputTokens += update.progress.OutputTokens
+		if update.progress.Step > 0 || update.progress.Retry {
+			if update.progress.Step > 0 {
+				w.turn++
+				reserved--
+				result.Steps++
+				result.InputTokens += update.progress.InputTokens
+				result.OutputTokens += update.progress.OutputTokens
+			}
 			state := w.state()
 			p := update.progress
-			p.Step, p.State = result.Steps, &state
-			p.Message = fmt.Sprintf("Research model turn %d completed across parallel workers.", result.Steps)
+			p.State = &state
+			if p.Step > 0 {
+				p.Step = result.Steps
+				p.Message = fmt.Sprintf("Research model turn %d completed across parallel workers.", result.Steps)
+			}
 			if err := progress(p); err != nil {
 				fatal = err
 				cancel()

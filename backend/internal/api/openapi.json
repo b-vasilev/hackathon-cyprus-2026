@@ -3662,6 +3662,41 @@
               },
               "relations": {
                 "type": "integer"
+              },
+              "scenarios": {
+                "type": "integer"
+              },
+              "validation_issues": {
+                "type": "integer"
+              },
+              "tasks": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "last_saved_at": {
+                "type": "string"
               }
             },
             "required": [
@@ -3672,7 +3707,75 @@
               "checkpoint_revision",
               "objects",
               "claims",
-              "relations"
+              "relations",
+              "scenarios",
+              "validation_issues"
+            ],
+            "additionalProperties": false
+          },
+          "composition": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "parallelism": {
+                "type": "integer"
+              },
+              "tasks": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "chapter_id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "attempt": {
+                      "type": "integer"
+                    },
+                    "started_at": {
+                      "type": "string"
+                    },
+                    "finished_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "chapter_id",
+                    "title",
+                    "kind",
+                    "status",
+                    "attempt",
+                    "started_at",
+                    "finished_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "action",
+              "parallelism",
+              "tasks"
             ],
             "additionalProperties": false
           }

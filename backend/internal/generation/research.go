@@ -97,7 +97,12 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 func (s *Service) recordResearchProgress(ctx context.Context, runID string, progress research.Progress) error {
 	if progress.Step == 0 {
 		if progress.State != nil {
-			return recordResearchState(ctx, s.DB, runID, progress.State)
+			if err := recordResearchState(ctx, s.DB, runID, progress.State); err != nil {
+				return err
+			}
+			if !progress.Retry {
+				return nil
+			}
 		}
 		return s.event(ctx, runID, "research_activity", "researching", progress.Message)
 	}

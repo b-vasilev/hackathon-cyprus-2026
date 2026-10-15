@@ -1,4 +1,4 @@
-Create the standard product passport as a v2 authored document over the supplied canonical model. Return Views matching the supplied schema: sections=[], document populated, shared diagrams, and card_theme only as allowed by the supplied branding context. Do not return a separate model or change canonical facts/IDs.
+These rules define the assembled product passport as a v2 authored document over the supplied canonical model. The server plans chapters and assembles independently generated blocks and shared diagrams. Return only the assigned part using its supplied schema; the document contract below describes its destination, not an instruction to generate the whole document. Do not change canonical facts/IDs or generate a theme in a document part.
 
 Document contract:
 - document: {version: 2, chapters: [...]}

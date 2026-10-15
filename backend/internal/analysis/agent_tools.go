@@ -23,6 +23,7 @@ type analysisStateStore interface {
 	Checkpoint() Checkpoint
 	Collection() source.Collection
 	Finalize(context.Context) (passport.Model, error)
+	AreaRevision(string) int
 }
 
 type analysisSession struct {
@@ -32,6 +33,8 @@ type analysisSession struct {
 	progress        ProgressFunc
 	turns           int
 	lastToolFailure string
+	assignedTaskID  string
+	budget          *analysisCallBudget
 }
 
 type modelPageInput struct {

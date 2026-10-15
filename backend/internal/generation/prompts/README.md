@@ -13,10 +13,12 @@ binary; the integrating chat owns rebuild/restart and end-to-end verification.
 | reconcile.md | Identity, coverage, contradictions and cross-view consistency |
 | research-architecture.md | Caller/implementation/contract checks and scoped structural views |
 | compose.md | Ordered v2 document blocks over canonical facts |
+| compose-plan.md | A short ordered plan for one chapter; no chapter prose |
+| compose-part.md | Exactly one small prose or diagram block using the chapter recipe |
 | sections/*.md | Goal, question, inputs, investigation, output, evidence/gaps, exclusions and acceptance |
 | repair-schema.md | Schema repair without invented fields or evidence |
-| repair.md | Semantic repair while retaining supported facts and version |
-| repair-views.md | Repair authored Views over an immutable finalized model |
+| repair.md | Legacy whole-passport repair reference, unused by chunked composition |
+| repair-views.md | Legacy whole-Views repair reference, unused by chunked composition |
 | ../../research/prompts/ | Source investigation owned separately from generation |
 
 The recipe loader uses passport.ChapterIDs(): overview -> repositories ->
@@ -24,7 +26,11 @@ architecture -> scenarios -> technologies, then useful data/runtime/development/
 operations and conditional decisions/ownership. Legacy users/capabilities normally
 integrate into overview; domain integrates into data. Existing SectionIDs() and
 saved v1 sections retain their compatibility contract. Recipes guide analysis and
-composition together; each category is not a separate model or model call.
+composition together. Composition plans each chapter separately, then generates
+its small prose and diagram blocks in a bounded worker pool. Both planning and
+each block request receive that chapter's detailed recipe. Tables and scenario
+references are assembled directly from the plan. Overview follows the detailed
+chapters. A failed task retries independently; whole-document repair is not used.
 
 New composition returns Views with sections=[] and document.version=2. Each
 Chapter has id/title/question and freely ordered blocks. The only block kinds are
@@ -62,8 +68,8 @@ replay. The integration retains research read ranges and merges analysis follow-
 reads into final coverage. Canonical checkpoints and their UI counts become visible
 only after immutable content and a checksum-bound DB reference are committed.
 After a provider failure the same run restores its last accepted checkpoint.
-Document composition consumes the server-assembled model; its repair changes only
-Views and cannot rewrite canonical facts. The old Model-schema path is retained
+Document composition consumes the server-assembled model; individual part retries
+cannot rewrite canonical facts. The old Model-schema path is retained
 for unconfigured embedded fixtures; researched application runs require the runner.
 
 prompts.go loads embedded files and records PromptVersion for reproducibility.

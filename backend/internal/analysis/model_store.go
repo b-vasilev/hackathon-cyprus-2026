@@ -19,12 +19,13 @@ import (
 // ModelStore publishes only accepted, durable edits. The persist callback must
 // not re-enter this store; mutations are serialized through durable publication.
 type ModelStore struct {
-	mu         sync.RWMutex
-	state      Checkpoint
-	collection source.Collection
-	lines      map[string]int
-	findings   map[string]bool
-	persist    Persist
+	mu            sync.RWMutex
+	state         Checkpoint
+	collection    source.Collection
+	lines         map[string]int
+	findings      map[string]bool
+	persist       Persist
+	areaRevisions map[string]int
 }
 
 // NewModelStore validates the pinned sources and restores the last accepted state.
@@ -488,7 +489,11 @@ func (store *ModelStore) validateTasks(tasks []Task) error {
 		}
 	}
 	if active > 1 {
-		return errors.New("only one analysis area may be active in this store")
+		if active != 2 || slices.ContainsFunc(tasks, func(task Task) bool {
+			return task.Status == TaskActive && task.ID != ArchitectureTaskID && task.ID != PassportTaskID
+		}) {
+			return errors.New("only architecture and passport synthesis may run together; reconciliation requires exclusive access")
+		}
 	}
 	return nil
 }
@@ -521,29 +526,34 @@ func (store *ModelStore) Issues() []Issue {
 }
 
 func (store *ModelStore) issuesLocked() []Issue {
+	return ValidationIssues(store.state)
+}
+
+// ValidationIssues reports the work still required to seal a saved model.
+func ValidationIssues(checkpoint Checkpoint) []Issue {
 	issues := make([]Issue, 0)
-	if store.state.Model.Title == "" || store.state.Model.Summary == "" {
+	if checkpoint.Model.Title == "" || checkpoint.Model.Summary == "" {
 		issues = append(issues, Issue{Code: "missing_metadata", EntityID: "model", Message: "Reconcile the product title and summary."})
 	}
-	if len(store.state.Model.Objects) == 0 || len(store.state.Model.Claims) == 0 {
+	if len(checkpoint.Model.Objects) == 0 || len(checkpoint.Model.Claims) == 0 {
 		issues = append(issues, Issue{Code: "empty_model", EntityID: "model", Message: "The canonical model needs objects and supporting claims."})
 	}
-	if len(store.state.Tasks) == 0 {
+	if len(checkpoint.Tasks) == 0 {
 		issues = append(issues, Issue{Code: "missing_plan", Message: "Discover and complete the material analysis areas."})
 	}
-	for _, task := range store.state.Tasks {
+	for _, task := range checkpoint.Tasks {
 		if task.Status != TaskDone {
 			issues = append(issues, Issue{Code: "unfinished_area", EntityID: task.ID, Message: "Analysis area is not done: " + task.Title})
 		}
 	}
 	evidence, claims, objects := make(map[string]bool), make(map[string]bool), make(map[string]bool)
-	for _, value := range store.state.Model.Evidence {
+	for _, value := range checkpoint.Model.Evidence {
 		evidence[value.ID] = true
 	}
-	for _, value := range store.state.Model.Claims {
+	for _, value := range checkpoint.Model.Claims {
 		claims[value.ID] = true
 	}
-	for _, value := range store.state.Model.Objects {
+	for _, value := range checkpoint.Model.Objects {
 		objects[value.ID] = true
 	}
 	refs := func(entity, kind string, ids []string, known map[string]bool) {
@@ -553,13 +563,13 @@ func (store *ModelStore) issuesLocked() []Issue {
 			}
 		}
 	}
-	for _, value := range store.state.Model.Claims {
+	for _, value := range checkpoint.Model.Claims {
 		if value.Basis == "source_backed" && len(value.EvidenceIDs) == 0 {
 			issues = append(issues, Issue{Code: "missing_evidence", EntityID: value.ID, Message: "Source-backed claim needs exact read source evidence: " + value.ID})
 		}
 		refs(value.ID, "evidence", value.EvidenceIDs, evidence)
 	}
-	for _, value := range store.state.Model.Objects {
+	for _, value := range checkpoint.Model.Objects {
 		if len(value.ClaimIDs) == 0 {
 			issues = append(issues, Issue{Code: "missing_claims", EntityID: value.ID, Message: "Object needs supporting claims: " + value.ID})
 		}
@@ -568,14 +578,14 @@ func (store *ModelStore) issuesLocked() []Issue {
 			refs(value.ID, "parent object", []string{value.ParentID}, objects)
 		}
 	}
-	for _, value := range store.state.Model.Relations {
+	for _, value := range checkpoint.Model.Relations {
 		if len(value.ClaimIDs) == 0 {
 			issues = append(issues, Issue{Code: "missing_claims", EntityID: value.ID, Message: "Relation needs supporting claims: " + value.ID})
 		}
 		refs(value.ID, "object", []string{value.From, value.To}, objects)
 		refs(value.ID, "claim", value.ClaimIDs, claims)
 	}
-	for _, scenario := range store.state.Model.Scenarios {
+	for _, scenario := range checkpoint.Model.Scenarios {
 		for _, step := range scenario.Steps {
 			refs(step.ID, "object", step.ObjectIDs, objects)
 			refs(step.ID, "claim", step.ClaimIDs, claims)
@@ -620,7 +630,20 @@ func (store *ModelStore) publish(ctx context.Context, next Checkpoint) error {
 		return fmt.Errorf("persist analysis checkpoint: %w", err)
 	}
 	store.state = cloneCheckpoint(next)
+	if next.LastChange != nil && next.LastChange.AreaID != "" {
+		if store.areaRevisions == nil {
+			store.areaRevisions = make(map[string]int)
+		}
+		store.areaRevisions[next.LastChange.AreaID]++
+	}
 	return nil
+}
+
+// AreaRevision ignores peer writes when detecting a stalled synthesis worker.
+func (store *ModelStore) AreaRevision(id string) int {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	return store.areaRevisions[id]
 }
 
 // Collection merges accepted analysis reads and citations into source coverage.

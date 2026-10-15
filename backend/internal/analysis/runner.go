@@ -2,19 +2,22 @@ package analysis
 
 import (
 	"context"
-	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	"charm.land/fantasy"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
+	ArchitectureTaskID    = "architecture-synthesis"
+	PassportTaskID        = "passport-synthesis"
 	SharedExecutionTaskID = "shared-execution-completion"
 	ReconciliationTaskID  = "final-reconciliation"
 	defaultWindowBytes    = 64 << 10
@@ -35,6 +38,23 @@ type Runner struct {
 }
 
 var errAnalysisWindowFull = errors.New("analysis history window is full; accepted work is checkpointed")
+
+type analysisCallBudget struct {
+	used atomic.Int64
+	max  int64
+}
+
+func (b *analysisCallBudget) take() bool {
+	for {
+		used := b.used.Load()
+		if used >= b.max {
+			return false
+		}
+		if b.used.CompareAndSwap(used, used+1) {
+			return true
+		}
+	}
+}
 
 func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID string, input Input, persist Persist, progress ProgressFunc) (result Result, err error) {
 	if persist == nil {
@@ -58,7 +78,6 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 	if err := store.prepareSynthesis(ctx, input.Tasks); err != nil {
 		return result, err
 	}
-	session := &analysisSession{store: store, input: input, progress: progress}
 	client, err := r.Policy.Client(config, r.Limiter)
 	if err != nil {
 		return result, fmt.Errorf("analysis connection: %w", err)
@@ -69,15 +88,49 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 	if err != nil {
 		return result, err
 	}
-	tools, err := session.tools()
-	if err != nil {
-		return result, err
+	maxCalls := r.MaxTurns
+	if maxCalls <= 0 {
+		maxCalls = 240
 	}
-	agent := fantasy.NewAgent(model, fantasy.WithSystemPrompt(analysisPrompt), fantasy.WithTools(tools...))
-	if err := session.runWindows(ctx, agent, config, modelID, r); err != nil {
+	budget := &analysisCallBudget{max: int64(maxCalls)}
+	var completedCalls atomic.Int64
+	report := func(update Progress) {
+		if update.Step > 0 {
+			update.Step = int(completedCalls.Add(1))
+		}
+		if progress != nil {
+			progress(update)
+		}
+	}
+	runTask := func(taskCtx context.Context, taskID string) error {
+		session := &analysisSession{store: store, input: input, progress: report, assignedTaskID: taskID, budget: budget}
+		tools, err := session.tools()
+		if err != nil {
+			return err
+		}
+		agent := fantasy.NewAgent(model, fantasy.WithSystemPrompt(analysisPrompt+"\n\n"+input.Instructions), fantasy.WithTools(tools...))
+		return session.runWindows(taskCtx, agent, config, modelID, r)
+	}
+	if err := runSynthesisPlan(ctx, store.Checkpoint().Tasks, runTask); err != nil {
 		return result, err
 	}
 	return result, nil
+}
+
+// The first two steps write independent parts. Reconciliation starts only after
+// both durable task completions, and retries skip already completed steps.
+func runSynthesisPlan(ctx context.Context, tasks []Task, runTask func(context.Context, string) error) error {
+	group, parallelCtx := errgroup.WithContext(ctx)
+	for _, task := range tasks {
+		if task.ID == ReconciliationTaskID || task.Status == TaskDone {
+			continue
+		}
+		group.Go(func() error { return runTask(parallelCtx, task.ID) })
+	}
+	if err := group.Wait(); err != nil {
+		return err
+	}
+	return runTask(ctx, ReconciliationTaskID)
 }
 
 func (s *analysisSession) tools() ([]fantasy.AgentTool, error) {
@@ -107,8 +160,8 @@ func prepareAnalysisInput(input Input) Input {
 // SynthesisTasks stays fixed regardless of repository, source or finding counts.
 func SynthesisTasks() []Task {
 	return []Task{
-		{ID: "architecture-synthesis", Title: "Architecture from research", Question: "From saved research, assemble product purpose, source repositories, major runtime units/components, external systems, technologies and principal contracts. Reuse saved IDs. Save useful model parts immediately. Do not inspect code, audit every area or add tasks. Missing research stays an explicit question.", Status: TaskPending},
-		{ID: "passport-synthesis", Title: "Passport flows and supporting facts", Question: "From the same saved research, assemble representative main scenarios, data/artifacts and supported deployment/development facts. Reuse architecture entities and exact research citations. Preserve material completion/failure differences already found. Do not investigate new variants or read code.", Status: TaskPending},
+		{ID: ArchitectureTaskID, Title: "Architecture from research", Question: "From saved research, assemble product purpose, source repositories, major runtime units/components, external systems, technologies and principal contracts. Reuse saved IDs. Save useful model parts immediately. Do not inspect code, audit every area or add tasks. Missing research stays an explicit question.", Status: TaskPending},
+		{ID: PassportTaskID, Title: "Passport flows and supporting facts", Question: "From the same saved research, assemble representative main scenarios, data/artifacts and supported deployment/development facts. Reuse architecture entities and exact research citations. Preserve material completion/failure differences already found. Do not investigate new variants or read code.", Status: TaskPending},
 		{ID: ReconciliationTaskID, Title: "Reconcile and finalize", Question: "Resolve saved model IDs, hierarchy and references, reconcile title/tagline/summary, preserve research gaps, then finalize. Fix consistency from saved research only. Use inspect_validation_issues and finalize_model; do not start research or add tasks.", Status: TaskPending},
 	}
 }
@@ -158,11 +211,24 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 			return nil
 		}
 		task, ok := nextAnalysisTask(checkpoint.Tasks)
+		if s.assignedTaskID != "" {
+			index := slices.IndexFunc(checkpoint.Tasks, func(task Task) bool { return task.ID == s.assignedTaskID })
+			if index < 0 {
+				return fmt.Errorf("analysis step %s is missing from the saved plan", s.assignedTaskID)
+			}
+			task, ok = checkpoint.Tasks[index], true
+			if task.Status == TaskDone && task.ID != ReconciliationTaskID {
+				return nil
+			}
+		}
 		if !ok {
 			return errors.New("analysis has no area to reconcile; saved model remains resumable")
 		}
 		if task.Status != TaskActive {
 			for _, old := range checkpoint.Tasks {
+				if s.assignedTaskID != "" {
+					break
+				}
 				if old.Status == TaskActive && old.ID != task.ID {
 					if err := s.store.SetTaskStatus(ctx, old.ID, TaskPending); err != nil {
 						return err
@@ -186,13 +252,13 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 		if err != nil {
 			return err
 		}
-		windowContext += "\nThis is a fresh bounded model window. Earlier accepted parts/read evidence remain in the durable store; inspect paged tools for details. Additional instructions are available through read_analysis_instructions. Save useful model parts before ending this window; do not print a final JSON document."
+		windowContext += "\nContinue the current synthesis step using the retained conversation. Application instructions are already in the system prompt. Do not reread instructions, research batches or model entities already present in the conversation. Save related objects, claims, evidence and relations together in a coherent part. Finish this step when its requested outputs are saved; do not expand its scope."
 		if s.lastToolFailure != "" {
 			failure, _ := json.Marshal(s.lastToolFailure)
 			windowContext += "\nLast rejected action (diagnostic data): " + string(failure) + "\nCorrect this specific field or reference. Save one small draft entity first; supporting claims and evidence can be attached in later parts. Do not repeat unrelated discovery or recreate the full model."
 		}
 		s.emit("Analyzing area: " + task.Title)
-		before := analysisProgressKey(checkpoint)
+		before := s.store.AreaRevision(task.ID)
 		recent, err = s.runWindow(ctx, agent, config, modelID, windowContext, recent, min(windowSteps, maxTurns-s.turns), windowBytes)
 		if err != nil {
 			return err
@@ -201,7 +267,10 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 		if current.Finalized {
 			return nil
 		}
-		if analysisProgressKey(current) == before {
+		if s.assignedTaskID != "" && s.current.ID != ReconciliationTaskID && slices.ContainsFunc(current.Tasks, func(task Task) bool { return task.ID == s.assignedTaskID && task.Status == TaskDone }) {
+			return nil
+		}
+		if s.store.AreaRevision(task.ID) == before {
 			stalled++
 		} else {
 			stalled = 0
@@ -258,12 +327,16 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 			return stepCtx, fantasy.PrepareStepResult{}, errAnalysisWindowFull
 		}
 		stepStarted = time.Now()
+		if s.budget != nil && !s.budget.take() {
+			prepareFailure = errors.New("analysis attempt budget ended; accepted model parts are saved for retry")
+			return stepCtx, fantasy.PrepareStepResult{}, prepareFailure
+		}
 		s.emit("Model request started for " + s.current.Title)
 		return stepCtx, fantasy.PrepareStepResult{}, nil
 	}})
 	if errors.Is(err, errAnalysisWindowFull) {
 		s.emit("Starting a fresh bounded analysis window; saved work is retained")
-		return recentAnalysisMessages(completed), nil
+		return recentAnalysisMessages(recent, completed), nil
 	}
 	if err != nil {
 		if prepareFailure != nil {
@@ -272,24 +345,28 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 		return nil, errors.New("analysis model request failed through the selected connection; accepted parts and source reads are saved for retry")
 	}
 	report(response.Steps)
-	return recentAnalysisMessages(response.Steps), nil
+	return recentAnalysisMessages(recent, response.Steps), nil
 }
 
-func recentAnalysisMessages(steps []fantasy.StepResult) []fantasy.Message {
+func recentAnalysisMessages(previous []fantasy.Message, steps []fantasy.StepResult) []fantasy.Message {
 	if len(steps) == 0 {
-		return nil
+		return previous
 	}
-	last := steps[len(steps)-1].Messages
-	data, err := json.Marshal(last)
-	if err == nil && len(data) <= recentHistoryBytes {
-		return slices.Clone(last)
+	// StepResult.Messages contains this step only. Carry complete turns from
+	// the whole window; retaining just the last one made the model repeatedly
+	// reread the same instructions, research batches and model indices.
+	steps = append([]fantasy.StepResult{{Messages: previous}}, steps...)
+	var recent []fantasy.Message
+	for i := len(steps) - 1; i >= 0; i-- {
+		candidate := append(slices.Clone(steps[i].Messages), recent...)
+		data, err := json.Marshal(candidate)
+		if err != nil || len(data) > recentHistoryBytes {
+			break
+		}
+		recent = candidate
+	}
+	if len(recent) > 0 {
+		return recent
 	}
 	return []fantasy.Message{fantasy.NewUserMessage("The previous complete tool turn exceeded the carry-history budget. Accepted mutations and exact source read ranges are durably saved. Inspect saved entities or page only the relevant original ranges; no source text was clipped.")}
-}
-
-func analysisProgressKey(checkpoint Checkpoint) [32]byte {
-	checkpoint.Revision = 0
-	checkpoint.LastChange = nil
-	data, _ := json.Marshal(checkpoint)
-	return sha256.Sum256(data)
 }

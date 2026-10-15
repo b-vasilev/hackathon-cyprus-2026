@@ -1348,6 +1348,32 @@ export interface components {
         objects: number;
         claims: number;
         relations: number;
+        scenarios: number;
+        validation_issues: number;
+        tasks?:
+          | null
+          | {
+              id: string;
+              title: string;
+              status: string;
+            }[];
+        last_saved_at?: string;
+      };
+      composition?: null | {
+        action: string;
+        parallelism: number;
+        tasks:
+          | null
+          | {
+              id: string;
+              chapter_id: string;
+              title: string;
+              kind: string;
+              status: string;
+              attempt: number;
+              started_at: string;
+              finished_at: string;
+            }[];
       };
     };
     Scenario: {

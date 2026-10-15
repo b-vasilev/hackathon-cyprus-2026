@@ -21,6 +21,7 @@ import (
 type Request struct {
 	Model, System, Input string
 	Schema               map[string]any
+	MaxOutputTokens      int // Optional per-task ceiling, bounded by the saved model configuration.
 }
 
 // Result preserves usage and provider diagnostics without credentials.
@@ -49,6 +50,9 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 	model, err := llmgateway.ModelByID(config, request.Model)
 	if err != nil {
 		return Result{}, fmt.Errorf("configure model request: %w", err)
+	}
+	if request.MaxOutputTokens > 0 {
+		model.MaxOutputTokens = min(model.MaxOutputTokens, request.MaxOutputTokens)
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(config.TimeoutSeconds)*time.Second)
 	defer cancel()

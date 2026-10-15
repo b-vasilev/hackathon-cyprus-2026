@@ -20,16 +20,27 @@ type Analyzer interface {
 	Run(context.Context, llmgateway.Config, string, analysis.Input, analysis.Persist, analysis.ProgressFunc) (analysis.Result, error)
 }
 
+// AnalysisTaskState is a step in the saved synthesis plan.
+type AnalysisTaskState struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+}
+
 // AnalysisState exposes real activity and counts from the last durable checkpoint.
 type AnalysisState struct {
-	AreaID             string `json:"area_id"`
-	AreaTitle          string `json:"area_title"`
-	Action             string `json:"action"`
-	Step               int    `json:"step"`
-	CheckpointRevision int    `json:"checkpoint_revision"`
-	Objects            int    `json:"objects"`
-	Claims             int    `json:"claims"`
-	Relations          int    `json:"relations"`
+	AreaID             string              `json:"area_id"`
+	AreaTitle          string              `json:"area_title"`
+	Action             string              `json:"action"`
+	Step               int                 `json:"step"`
+	CheckpointRevision int                 `json:"checkpoint_revision"`
+	Objects            int                 `json:"objects"`
+	Claims             int                 `json:"claims"`
+	Relations          int                 `json:"relations"`
+	Scenarios          int                 `json:"scenarios"`
+	ValidationIssues   int                 `json:"validation_issues"`
+	Tasks              []AnalysisTaskState `json:"tasks,omitempty"`
+	LastSavedAt        string              `json:"last_saved_at,omitempty"`
 }
 
 func checkpointAnalysisState(checkpoint analysis.Checkpoint, state AnalysisState) AnalysisState {
@@ -37,6 +48,21 @@ func checkpointAnalysisState(checkpoint analysis.Checkpoint, state AnalysisState
 	state.Objects = len(checkpoint.Model.Objects)
 	state.Claims = len(checkpoint.Model.Claims)
 	state.Relations = len(checkpoint.Model.Relations)
+	state.Scenarios = len(checkpoint.Model.Scenarios)
+	state.ValidationIssues = 0
+	for _, issue := range analysis.ValidationIssues(checkpoint) {
+		if issue.Code != "unfinished_area" {
+			state.ValidationIssues++
+		}
+	}
+	state.Tasks = make([]AnalysisTaskState, 0, len(checkpoint.Tasks))
+	for _, task := range checkpoint.Tasks {
+		status := task.Status
+		if task.ID == analysis.ReconciliationTaskID && !checkpoint.Finalized && status == analysis.TaskDone {
+			status = analysis.TaskActive
+		}
+		state.Tasks = append(state.Tasks, AnalysisTaskState{task.ID, task.Title, status})
+	}
 	for _, task := range checkpoint.Tasks {
 		if task.Status == analysis.TaskActive {
 			state.AreaID, state.AreaTitle = task.ID, task.Title
@@ -93,6 +119,7 @@ func (s *Service) analyzeIncrementally(ctx context.Context, run Run, researched 
 		defer mu.Unlock()
 		accepted := checkpointAnalysisState(next, state)
 		accepted.Action = "Saved analysis checkpoint."
+		accepted.LastSavedAt = time.Now().UTC().Format(time.RFC3339Nano)
 		if err := s.saveAnalysisCheckpoint(persistCtx, run.ID, next, accepted); err != nil {
 			return err
 		}
@@ -113,7 +140,10 @@ func (s *Service) analyzeIncrementally(ctx context.Context, run Run, researched 
 			cancel()
 			return
 		}
-		state.Action, state.Step = update.Message, update.Step
+		state.Action = update.Message
+		if update.Step > state.Step {
+			state.Step = update.Step
+		}
 		if update.AreaID != "" {
 			state.AreaID = update.AreaID
 			state.AreaTitle = areaTitles[update.AreaID]

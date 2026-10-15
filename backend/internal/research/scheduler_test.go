@@ -2,8 +2,10 @@ package research
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +13,35 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 )
+
+func TestFailedModelRequestCannotAcceptPartialResearch(t *testing.T) {
+	w, _, notes := budgetFixture(t)
+	agent := func(local *workspace) fantasy.Agent {
+		return scriptedResearchAgent{generate: func(_ context.Context, call fantasy.AgentCall) (*fantasy.AgentResult, error) {
+			if err := local.saveFinding(researchFinding{Name: "saved before request failure", Notes: notes}); err != nil {
+				return nil, err
+			}
+			provider := &fantasy.ProviderError{StatusCode: 503, Title: "endpoint unavailable", Message: "request could not complete"}
+			for attempt := range *call.MaxRetries {
+				call.OnRetry(provider, 5*time.Second*time.Duration(1<<attempt))
+			}
+			return nil, &fantasy.RetryError{Errors: []error{provider, provider, provider, provider}}
+		}}
+	}
+	var result Result
+	retryVisible := false
+	err := w.investigateParallel(t.Context(), 2, agent, llmgateway.Config{MaxConcurrent: 2}, "fixture", "", func(p Progress) error {
+		retryVisible = retryVisible || strings.Contains(p.Message, "retry 3/3 in 20s. Reason: HTTP 503")
+		return nil
+	}, &result)
+	provider, ok := errors.AsType[*fantasy.ProviderError](err)
+	if !ok || provider.StatusCode != 503 || !strings.Contains(err.Error(), "after 4 attempts") || !retryVisible {
+		t.Fatalf("model failure was hidden instead of returned: %v", err)
+	}
+	if w.checkedNotes != "" || len(w.ledger.Findings) == 0 {
+		t.Fatal("failed research was accepted as partial or lost saved findings")
+	}
+}
 
 func addSchedulerFiles(w *workspace, count int) {
 	for i := range count {

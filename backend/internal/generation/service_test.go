@@ -25,6 +25,7 @@ import (
 
 type fixtureGenerator struct{ fail atomic.Bool }
 
+//nolint:gocyclo // Shared fixture validates each distinct generation request contract.
 func (g *fixtureGenerator) Generate(_ context.Context, c llmgateway.Config, r llm.Request) (llm.Result, error) {
 	if g.fail.Load() {
 		return llm.Result{}, &llm.ProviderError{Code: "provider_error", Message: "Fixture provider is unavailable."}
@@ -54,20 +55,60 @@ func (g *fixtureGenerator) Generate(_ context.Context, c llmgateway.Config, r ll
 			return llm.Result{}, fmt.Errorf("decode fixture model: %w", checkErr)
 		}
 		result = m
-	case strings.HasPrefix(r.Input, "Create the standard"):
-		for _, id := range passport.SectionIDs() {
-			if !strings.Contains(r.Input, "# "+id+"\nGoal:") {
-				return llm.Result{}, fmt.Errorf("composition omitted the %s section recipe", id)
+	case strings.HasPrefix(r.Input, "Plan one product-passport"):
+		id, _, _ := strings.Cut(strings.Split(r.Input, "CHAPTER ID: ")[1], "\n")
+		if !strings.Contains(r.Input, "RECIPE:\n# "+id+"\nGoal:") {
+			return llm.Result{}, errors.New("chapter planning omitted its detailed recipe")
+		}
+		plan := chapterPlan{Title: id, Question: "What does " + id + " explain?", Parts: []compositionPart{}}
+		for _, chapter := range fixtureViews().Document.Chapters {
+			if chapter.ID != id {
+				continue
+			}
+			plan.Title, plan.Question = chapter.Title, chapter.Question
+			for i, block := range chapter.Blocks {
+				part := compositionPart{Title: fmt.Sprintf("Point %d", i+1), Instructions: fmt.Sprintf("Fixture block %d", i), Kind: block.Kind, ObjectIDs: []string{"api", "database"}, ClaimIDs: []string{"claim-purpose"}, ScenarioIDs: []string{}, TableStyle: block.TableStyle}
+				if block.Kind == "scenario_ref" {
+					part.ScenarioIDs = []string{block.ReferenceID}
+				}
+				plan.Parts = append(plan.Parts, part)
 			}
 		}
-		views := fixtureViews()
+		result = plan
+	case strings.HasPrefix(r.Input, "Generate ONLY the ASSIGNED PART"):
+		id, _, _ := strings.Cut(strings.Split(r.Input, "CHAPTER ID: ")[1], "\n")
+		if !strings.Contains(r.Input, "DETAILED CHAPTER REQUIREMENTS:\n# "+id+"\nGoal:") {
+			return llm.Result{}, errors.New("part generation omitted its detailed chapter recipe")
+		}
+		partJSON, _, _ := strings.Cut(strings.Split(r.Input, "ASSIGNED PART:\n")[1], "\nMODEL:\n")
+		var part compositionPart
+		if err := json.Unmarshal([]byte(partJSON), &part); err != nil {
+			return llm.Result{}, fmt.Errorf("decode fixture part: %w", err)
+		}
+		var index int
+		if _, err := fmt.Sscanf(part.Instructions, "Fixture block %d", &index); err != nil {
+			return llm.Result{}, fmt.Errorf("decode fixture block index: %w", err)
+		}
+		for _, chapter := range fixtureViews().Document.Chapters {
+			if chapter.ID != id {
+				continue
+			}
+			fragment := compositionFragment{Block: chapter.Blocks[index]}
+			if fragment.Block.Kind == "diagram_ref" {
+				diagram := fixtureViews().Diagrams[0]
+				fragment.Diagram = &diagram
+			}
+			result = fragment
+		}
+	case strings.HasPrefix(r.Input, "Choose only the product card theme"):
+		theme := compositionTheme{}
 		if strings.Contains(r.Input, "brand-accent-fixture") {
-			views.CardTheme = &passport.ProductCardTheme{AccentColor: "#123456", BackgroundColor: "#FDFCFD"}
+			theme.CardTheme = &passport.ProductCardTheme{AccentColor: "#123456", BackgroundColor: "#FDFCFD"}
 		}
 		if strings.Contains(r.Input, "auto-brand-fixture") {
-			views.CardTheme = &passport.ProductCardTheme{AccentColor: "#357ABC", BackgroundColor: "#FDFCFD"}
+			theme.CardTheme = &passport.ProductCardTheme{AccentColor: "#357ABC", BackgroundColor: "#FDFCFD"}
 		}
-		result = views
+		result = theme
 	default:
 		return llm.Result{}, errors.New("unexpected generation stage")
 	}
@@ -99,8 +140,8 @@ func fixtureViews() passport.Views {
 				{Kind: "diagram_ref", ReferenceID: "components"},
 				{Kind: "markdown", Markdown: "The next chapter follows the same components in execution order.", ClaimIDs: []string{"claim-purpose"}},
 			}},
-			{ID: "scenarios", Title: "End-to-end flows", Question: "How is a result produced?", Blocks: []passport.DocumentBlock{{Kind: "scenario_ref", ReferenceID: "create-request"}}},
-			{ID: "technologies", Title: "Technologies and tools", Question: "What implements these responsibilities?", Blocks: []passport.DocumentBlock{{Kind: "object_table", TableStyle: "objects", ObjectIDs: []string{"api", "database"}, ClaimIDs: []string{"claim-purpose"}}}},
+			{ID: "scenarios", Title: "End-to-end flows", Question: "How is a result produced?", Blocks: []passport.DocumentBlock{{Kind: "markdown", Markdown: "The API accepts requests and persists them.", ClaimIDs: []string{"claim-purpose"}}, {Kind: "scenario_ref", ReferenceID: "create-request"}}},
+			{ID: "technologies", Title: "Technologies and tools", Question: "What implements these responsibilities?", Blocks: []passport.DocumentBlock{{Kind: "markdown", Markdown: "An API and database implement request storage.", ClaimIDs: []string{"claim-purpose"}}, {Kind: "object_table", TableStyle: "objects", ObjectIDs: []string{"api", "database"}, ClaimIDs: []string{"claim-purpose"}}}},
 		}},
 	}
 }
@@ -214,7 +255,11 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		if _, err := service.Evidence(ctx, r.ID, "unknown"); err == nil {
 			t.Fatal("accepted unknown evidence")
 		}
-		if finished.InputTokens != 200 || finished.OutputTokens != 100 {
+		var calls int
+		if err := database.QueryRowContext(ctx, "SELECT COUNT(*) FROM llm_calls WHERE run_id=?", run.ID).Scan(&calls); err != nil {
+			t.Fatal(err)
+		}
+		if calls <= 2 || finished.InputTokens != int64(calls*100) || finished.OutputTokens != int64(calls*50) {
 			t.Fatal("call usage not recorded")
 		}
 	}
