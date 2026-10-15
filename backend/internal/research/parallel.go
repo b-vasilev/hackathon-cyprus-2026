@@ -16,7 +16,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 )
 
-const taskTurns = 8
+const taskTurns = 16
 
 type researchTask struct {
 	Key          string      `json:"key"`
@@ -25,6 +25,8 @@ type researchTask struct {
 	Candidates   []Candidate `json:"candidates,omitempty"`
 	base         planInput
 	priority     int
+	Question     string   `json:"question"`
+	Exclude      []string `json:"other_worker_scopes,omitempty"`
 	historyStart int
 }
 
@@ -58,6 +60,19 @@ func (w *workspace) validateTaskPatch(input planInput) error {
 		if slices.ContainsFunc(t.base.Boundaries, func(old researchBoundary) bool { return old.Name == b.Name }) && !slices.Contains(t.Boundaries, b.Name) {
 			return fmt.Errorf("responsibility %s belongs to another task; reference it without changing it", b.Name)
 		}
+		if !slices.Contains(t.Boundaries, b.Name) {
+			owned := false
+			for _, refs := range b.roles() {
+				for _, ref := range refs {
+					if t.ownsPath(ref.Path) {
+						owned = true
+					}
+				}
+			}
+			if !owned {
+				return fmt.Errorf("responsibility %s has no evidence in this assignment; other source areas belong to other workers", b.Name)
+			}
+		}
 	}
 	for _, d := range input.Candidates {
 		if !t.ownsCandidate(d.CandidateID) {
@@ -70,6 +85,21 @@ func (w *workspace) validateTaskPatch(input planInput) error {
 		}
 	}
 	return nil
+}
+
+func (t *researchTask) ownsPath(file string) bool {
+	for _, excluded := range t.Exclude {
+		if file == excluded || strings.HasPrefix(file, excluded+"/") {
+			return false
+		}
+	}
+	for _, c := range t.Candidates {
+		prefix := path.Clean(c.Path)
+		if file == prefix || ((c.Kind == "source_area" || c.Kind == "repository") && strings.HasPrefix(file, prefix+"/")) {
+			return true
+		}
+	}
+	return false
 }
 
 // Group proof roles for one responsibility together. Discovery candidates go
@@ -144,6 +174,19 @@ func (w *workspace) researchTasks() []researchTask {
 	}
 	result := make([]researchTask, 0, len(groups))
 	for _, task := range groups {
+		if len(task.Boundaries) > 0 {
+			task.Question = "Resolve the remaining implementation, caller, contract and validation questions for " + strings.Join(task.Boundaries, ", ")
+		} else if len(task.Handoffs) > 0 {
+			task.Question = "Verify producer, consumer and wiring for " + strings.Join(task.Handoffs, ", ")
+		} else {
+			task.Question = "Identify and explain the concrete behavior owned by " + w.taskLabel(*task) + "; save one source-backed answer before broadening the investigation"
+		}
+		for _, other := range groups {
+			if other.Key != task.Key && strings.HasPrefix(other.Key, task.Key+"/") {
+				task.Exclude = append(task.Exclude, strings.TrimPrefix(other.Key, "scope/"))
+			}
+		}
+		slices.Sort(task.Exclude)
 		result = append(result, *task)
 	}
 	slices.SortFunc(result, func(a, b researchTask) int {
@@ -165,11 +208,12 @@ func (w *workspace) taskLabel(task researchTask) string {
 	scope := strings.TrimPrefix(task.Key, "scope/")
 	for _, repo := range w.inventory.Repositories {
 		if scope == repo.ID || strings.HasPrefix(scope, repo.ID+"/") {
+			name := strings.TrimSuffix(path.Base(strings.TrimRight(repo.Locator, "/")), ".git")
 			area := strings.TrimPrefix(strings.TrimPrefix(scope, repo.ID), "/")
 			if area == "" {
-				area = "Repository overview"
+				return name + " · Repository overview"
 			}
-			return repo.Locator + " · " + area
+			return name + "/" + area
 		}
 	}
 	return scope
@@ -210,7 +254,13 @@ func (w *workspace) taskContext() string {
 			findings = append(findings, finding)
 		}
 	}
-	data, _ := json.Marshal(map[string]any{"assignment": w.task, "existing_responsibilities": boundaries, "existing_handoffs": handoffs, "retained_findings": findings})
+	readRanges := map[string]any{}
+	for file, doc := range w.documents {
+		if documents[doc.ID] && len(w.reads[doc.ID]) > 0 {
+			readRanges[file] = map[string]any{"document_id": doc.ID, "ranges": mergeRanges(w.reads[doc.ID])}
+		}
+	}
+	data, _ := json.Marshal(map[string]any{"assignment": w.task, "existing_responsibilities": boundaries, "existing_handoffs": handoffs, "retained_findings": findings, "already_read": readRanges})
 	return string(data)
 }
 
@@ -235,6 +285,7 @@ func (w *workspace) forkTask(task researchTask, turns int) (*workspace, error) {
 		ledger: ledger, plan: ledger.Plan.Boundaries, searches: slices.Clone(w.searches),
 		summaryNotes: w.summaryNotes, submittedNotes: w.submittedNotes,
 		turnBudget: turns, deadline: w.deadline, task: &task,
+		conversation: w.conversation,
 	}
 	for id, ranges := range w.reads {
 		local.reads[id] = slices.Clone(ranges)
@@ -295,6 +346,15 @@ func changedEntries[T any](base, updated, current []T, key func(T) string) ([]T,
 // Only the coordinator calls this method. Independent findings and source
 // reads survive even if a stale plan patch needs another pass.
 func (w *workspace) mergeTask(local *workspace) error {
+	if w.sessions == nil {
+		w.sessions = map[string]taskSession{}
+	}
+	w.sessions[local.task.Key] = local.conversation
+	for _, b := range local.plan {
+		if slices.Contains(local.task.Boundaries, b.Name) {
+			w.sessions["responsibility/"+b.Repository+"/"+b.Name] = local.conversation
+		}
+	}
 	for id, ranges := range local.reads {
 		w.reads[id] = mergeRanges(append(w.reads[id], ranges...))
 	}
@@ -389,6 +449,9 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	w.startParallelBudget(workers)
+	if w.sessions == nil {
+		w.sessions = map[string]taskSession{}
+	}
 	w.parallel = ParallelProgress{Limit: workers, Workers: []WorkerProgress{}}
 	updates := make(chan taskUpdate, workers*4)
 	// Respect the selected connection's request limit without overflowing its
@@ -431,13 +494,15 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			}
 			sequence++
 			local.stepGate = stepGate
+			local.conversation = w.sessions[task.Key]
+			local.ledger.Focus = Focus{Area: w.taskLabel(task), Question: task.Question, Reason: "Investigate this independently assigned product responsibility."}
 			id := fmt.Sprintf("research-%d", sequence)
 			active[task.Key] = task
 			reserved += allowance
 			attempt := attempts[task.Key]
 			attempt.count++
 			attempts[task.Key] = attempt
-			w.parallel.Workers = append(w.parallel.Workers, WorkerProgress{ID: id, Task: w.taskLabel(task)})
+			w.parallel.Workers = append(w.parallel.Workers, WorkerProgress{ID: id, Task: w.taskLabel(task), Question: task.Question, Focus: local.ledger.Focus, Status: "waiting"})
 			go func() {
 				before := local.workFingerprint()
 				send := func(p Progress) error {
@@ -457,13 +522,24 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 					}
 				}
 				local.event = func(message string) error { return local.publish(send, message) }
-				instructions := orientation + "\nPARALLEL ASSIGNMENT:\n" + local.taskContext() + "\nInvestigate ONLY this assignment. Other workers own the remaining areas. Read dependencies anywhere, but change only assigned candidates/responsibilities/handoffs. Existing responsibilities outside this task are read-only references. Group all four proof roles for one responsibility. Use batched reads. Save source-cited findings and incremental plan patches throughout this task, before its turn allowance ends. Do not try to complete the whole product or call a global coverage check. Return after saving the assigned results; unfinished work is requeued by the coordinator."
+				instructions := "PARALLEL ASSIGNMENT:\n" + local.taskContext() + "\nInvestigate ONLY this assigned question. Its candidate map and existing results are already supplied above; start with a focused source search or read, without reviewing inventory or selecting another question. Other workers exclusively own other_worker_scopes; read them only as dependencies, never independently investigate or change their responsibilities. Keep dependencies outside the assignment read-only. Use save_research_answer immediately after verifying EACH role; it saves the answer, exact citations and matching plan evidence together. Do not wait to finish all four roles. Continue with remaining roles after saving the first. Batch independent reads. With three turns left, prioritize saving known evidence. Return after saving; your conversation, read ranges and results are retained for continuation. Never return an unsaved prose-only answer or decide global completion."
 				var usage Result
 				err := local.modelPass(ctx, newAgent(local), config, modelID, instructions, send, &usage)
 				updates <- taskUpdate{id: id, key: task.Key, local: local, result: usage, err: err, allowance: allowance, progressed: before != local.workFingerprint()}
 			}()
 		}
-		w.parallel.Active, w.parallel.Queued = len(active), len(queued)
+		w.parallel.Active, w.parallel.Waiting, w.parallel.Requests = 0, 0, 0
+		for _, worker := range w.parallel.Workers {
+			if worker.Status == "waiting" {
+				w.parallel.Waiting++
+			} else {
+				w.parallel.Active++
+			}
+			if worker.Status == "requesting" {
+				w.parallel.Requests++
+			}
+		}
+		w.parallel.Queued = len(queued)
 		if len(active) == 0 {
 			if fatal != nil {
 				return fatal
@@ -512,6 +588,10 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 		for i := range w.parallel.Workers {
 			worker := &w.parallel.Workers[i]
 			if worker.ID == update.id && update.progress.State != nil {
+				worker.Status = update.progress.State.Execution
+				if update.progress.Step > 0 {
+					worker.Turns = update.progress.Step
+				}
 				worker.Focus = update.progress.State.Focus
 				worker.Activity = update.progress.State.Activity
 				w.ledger.Focus, w.activity = worker.Focus, worker.Activity
@@ -533,7 +613,7 @@ func (w *workspace) investigateParallel(ctx context.Context, workers int, newAge
 			}
 		}
 	}
-	w.parallel.Active, w.parallel.Queued = 0, len(w.researchTasks())
+	w.parallel.Active, w.parallel.Waiting, w.parallel.Requests, w.parallel.Queued = 0, 0, 0, len(w.researchTasks())
 	if !w.budget.stopped {
 		w.budget.stopped = true
 		w.budget.decisions = append(w.budget.decisions, BudgetDecision{Turn: w.turn, Limit: w.activeLimit(), Kind: "stopped", Reason: "Research time limit reached; remaining tasks are saved for continuation."})

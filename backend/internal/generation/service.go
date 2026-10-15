@@ -141,7 +141,7 @@ type Service struct {
 
 // New wires the durable queue and source/model dependencies.
 func New(database *sql.DB, connections *llmgateway.Store, generator Generator, collector Collector, logger zerolog.Logger, files *content.Store) *Service {
-	return &Service{DB: database, Connections: connections, LLM: generator, Collector: collector, Products: product.Store{DB: database}, Content: files, Logger: logger, queue: goqite.New(goqite.NewOpts{DB: database, Name: "passport", Timeout: 75 * time.Minute, MaxReceive: 10})}
+	return &Service{DB: database, Connections: connections, LLM: generator, Collector: collector, Products: product.Store{DB: database}, Content: files, Logger: logger, queue: goqite.New(goqite.NewOpts{DB: database, Name: "passport", Timeout: 105 * time.Minute, MaxReceive: 10})}
 }
 
 // Start persists a source manifest and queue message in one transaction.
@@ -312,7 +312,7 @@ func (s *Service) work(ctx context.Context) {
 }
 
 func (s *Service) processQueued(ctx context.Context, run Run) error {
-	jobCtx, cancel := context.WithTimeout(ctx, 70*time.Minute)
+	jobCtx, cancel := context.WithTimeout(ctx, 100*time.Minute)
 	defer cancel()
 	if _, loaded := s.active.LoadOrStore(run.ID, cancel); loaded {
 		return nil

@@ -24,6 +24,8 @@ var ErrInvalid = errors.New("invalid connection")
 // ErrInUse marks a connection used by a pending generation.
 var ErrInUse = errors.New("stop active generations before deleting this connection")
 
+const MaxConcurrentRequests = 30
+
 // Parameter is an additional HTTP header or query parameter.
 type Parameter struct {
 	Name   string `json:"name"`
@@ -150,7 +152,7 @@ func Validate(c *Config) error {
 			return fmt.Errorf("%w: invalid model output mode or token limit", ErrInvalid)
 		}
 	}
-	if c.TimeoutSeconds < 10 || c.TimeoutSeconds > 600 || c.MaxConcurrent < 1 || c.MaxConcurrent > 16 || len(c.QuotaGroup) > 64 || !safeValue(c.QuotaGroup) {
+	if c.TimeoutSeconds < 10 || c.TimeoutSeconds > 600 || c.MaxConcurrent < 1 || c.MaxConcurrent > MaxConcurrentRequests || len(c.QuotaGroup) > 64 || !safeValue(c.QuotaGroup) {
 		return fmt.Errorf("%w: invalid timeout, concurrency or quota group", ErrInvalid)
 	}
 	return nil

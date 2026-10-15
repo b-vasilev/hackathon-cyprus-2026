@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
+
+	"charm.land/fantasy"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
@@ -15,10 +18,15 @@ import (
 // Checkpoint reads the existing immutable findings JSON. Context is retained for
 // compatibility; source excerpts are rebuilt from verified original documents.
 type Checkpoint struct {
-	Context   string            `json:"context"`
-	Ledger    Ledger            `json:"ledger"`
-	Notes     string            `json:"notes"`
-	Snapshots []source.Snapshot `json:"snapshots"`
+	Context   string                 `json:"context"`
+	Ledger    Ledger                 `json:"ledger"`
+	Notes     string                 `json:"notes"`
+	Snapshots []source.Snapshot      `json:"snapshots"`
+	Sessions  map[string]taskSession `json:"sessions,omitempty"`
+}
+
+type taskSession struct {
+	Turns [][]fantasy.Message `json:"turns"`
 }
 
 // Run researches the collected pinned sources with a bounded model budget.
@@ -33,6 +41,7 @@ func (r *Runner) RunFromCheckpoint(ctx context.Context, config llmgateway.Config
 }
 
 func (w *workspace) restore(checkpoint Checkpoint) error {
+	w.sessions = maps.Clone(checkpoint.Sessions)
 	if !slices.Contains([]string{researchComplete, researchPartial, "in_progress"}, checkpoint.Ledger.Status) {
 		return errors.New("research checkpoint has an unsupported status")
 	}

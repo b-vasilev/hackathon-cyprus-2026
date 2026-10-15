@@ -1108,6 +1108,7 @@ export interface components {
         created_at: string;
       }[];
       research?: {
+        execution?: string;
         status: string;
         areas: {
           id: string;
@@ -1149,10 +1150,15 @@ export interface components {
           }[];
         };
         parallel?: {
+          waiting?: number;
+          requests?: number;
           limit: number;
           active: number;
           queued: number;
           workers: {
+            question?: string;
+            status?: string;
+            turns?: number;
             id: string;
             task: string;
             focus: {

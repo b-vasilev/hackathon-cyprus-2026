@@ -34,7 +34,7 @@ function defaultConfig(): ConnectionConfig {
       { id: '', output_mode: 'json_schema', max_output_tokens: 64_000, reasoning_effort: '' },
     ],
     timeout_seconds: 180,
-    max_concurrent: 2,
+    max_concurrent: 30,
     quota_group: '',
   };
 }
@@ -583,7 +583,7 @@ function ConnectionEditor({
               <input
                 type="number"
                 min={1}
-                max={16}
+                max={30}
                 value={config.max_concurrent}
                 onChange={(event) => set('max_concurrent', Number(event.target.value))}
               />

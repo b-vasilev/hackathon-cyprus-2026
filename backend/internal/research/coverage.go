@@ -152,9 +152,6 @@ func (w *workspace) validateRoles(name, repository string, roles map[string][]ro
 		}
 	}
 	for role, evidence := range roles {
-		if len(evidence) == 0 && !seen[role] {
-			return fmt.Errorf("%s: missing %s evidence or role-specific gap", name, role)
-		}
 		for _, ref := range evidence {
 			doc, ok := w.documents[ref.Path]
 			if !ok || (!allowOtherRepo && doc.SnapshotID != repository) || ref.StartLine < 1 || ref.EndLine < ref.StartLine || ref.EndLine > doc.LineCount || strings.TrimSpace(ref.Finding) == "" {
@@ -302,6 +299,10 @@ func clonePlan(input planInput) (planInput, error) {
 func (w *workspace) setPlan(input planInput) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	return w.setPlanLocked(input)
+}
+
+func (w *workspace) setPlanLocked(input planInput) error {
 	if err := w.validateTaskPatch(input); err != nil {
 		return err
 	}
@@ -371,6 +372,9 @@ func (w *workspace) unfinishedFrontier() []string {
 	}
 	check := func(name string, roles map[string][]roleEvidence, gaps []roleGap) {
 		for role, refs := range roles {
+			if len(refs) == 0 && !slices.ContainsFunc(gaps, func(g roleGap) bool { return g.Role == role }) {
+				frontier = append(frontier, name+"/"+role+": not researched yet")
+			}
 			for _, ref := range refs {
 				if !RangeCovered(w.reads[w.documents[ref.Path].ID], ref.StartLine, ref.EndLine) {
 					frontier = append(frontier, fmt.Sprintf("%s/%s: unread %s:L%d-L%d", name, role, ref.Path, ref.StartLine, ref.EndLine))
@@ -628,6 +632,7 @@ func (w *workspace) ledgerContext() (string, error) {
 
 func (w *workspace) coverageTools() []fantasy.AgentTool {
 	return []fantasy.AgentTool{
+		w.answerTool(),
 		w.inventoryTool(),
 		w.questionTool(),
 		w.focusTool(),
@@ -650,7 +655,7 @@ func (w *workspace) coverageTools() []fantasy.AgentTool {
 			}
 			return toolJSON(map[string]any{"retained": true, "finding_groups": len(w.ledger.Findings)})
 		}),
-		fantasy.NewAgentTool("set_research_plan", "Incrementally upsert responsibilities by name, candidates by candidate_id, and handoffs by ID. Send only additions/changes; no massive plan retransmission. replace=true explicitly replaces the full plan. History retains patches. Classes: product_code, contract, infrastructure, tests, docs, generated, vendor, fixtures, unknown. Each responsibility needs exact implementation/callers/contracts/validation ranges and findings, or one role-specific gap with reason and actual prior search_code scopes. Missing research is research_gap; absent role can be not_applicable after search. Pair cross-repository references with producer, consumer and wiring evidence. Unknown candidates stay visible.", func(_ context.Context, input planInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
+		fantasy.NewAgentTool("set_research_plan", "Incrementally upsert responsibilities by name, candidates by candidate_id, and handoffs by ID. Send only additions/changes; no massive plan retransmission. replace=true explicitly replaces the full plan. History retains patches. Classes: product_code, contract, infrastructure, tests, docs, generated, vendor, fixtures, unknown. Responsibility roles may be saved incrementally; omitted roles remain pending. Prefer save_research_answer for a verified role. Explicit gaps need a role-specific reason and actual prior search_code scopes. Missing research is research_gap; absent role can be not_applicable after search. Pair cross-repository references with producer, consumer and wiring evidence. Unknown candidates stay visible.", func(_ context.Context, input planInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if err := w.tick(fmt.Sprintf("Planning research coverage (%d responsibilities).", len(input.Boundaries))); err != nil {
 				return fantasy.ToolResponse{}, err
 			}
@@ -673,6 +678,9 @@ func (w *workspace) coverageTools() []fantasy.AgentTool {
 
 func (w *workspace) roleCoverage(name string, roles map[string][]roleEvidence, gaps []roleGap, citations map[string][]source.LineRange) (missing, frontier []string) {
 	for role, refs := range roles {
+		if len(refs) == 0 && !slices.ContainsFunc(gaps, func(g roleGap) bool { return g.Role == role }) {
+			frontier = append(frontier, name+"/"+role+": not researched yet")
+		}
 		for _, ref := range refs {
 			doc := w.documents[ref.Path]
 			if !RangeCovered(w.reads[doc.ID], ref.StartLine, ref.EndLine) {

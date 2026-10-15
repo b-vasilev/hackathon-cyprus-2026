@@ -19,7 +19,7 @@ func (w *workspace) workFingerprint() [32]byte {
 	for id, spans := range w.reads {
 		reads[id] = mergeRanges(spans)
 	}
-	data, _ := json.Marshal(map[string]any{"reads": reads, "plan": w.ledger.Plan, "findings": w.ledger.Findings, "searches": w.ledger.Searches})
+	data, _ := json.Marshal(map[string]any{"reads": reads, "responsibilities": w.ledger.Plan.Boundaries, "handoffs": w.ledger.Plan.Handoffs, "findings": w.ledger.Findings})
 	return sha256.Sum256(data)
 }
 
@@ -120,6 +120,10 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 	report := func(steps []fantasy.StepResult) error {
 		for reported < len(steps) {
 			release()
+			w.execution = "working"
+			if w.task != nil {
+				w.rememberTurn(steps[reported].Messages)
+			}
 			usage := steps[reported].Usage
 			step := base + reported + 1
 			state := w.state()
@@ -138,11 +142,15 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 	stop := func(steps []fantasy.StepResult) bool {
 		return base+len(steps) >= w.activeLimit() || w.checkedNotes != "" || (!w.deadline.IsZero() && time.Until(w.deadline) <= 30*time.Second)
 	}
-	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: callPrompt, MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{stop}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
+	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: callPrompt, Messages: w.conversation.messages(), MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{stop}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
 		if usageErr := report(options.Steps); usageErr != nil {
 			return stepCtx, fantasy.PrepareStepResult{}, usageErr
 		}
 		if w.stepGate != nil {
+			w.execution = "waiting"
+			if err := w.event("Waiting for a model request slot."); err != nil {
+				return stepCtx, fantasy.PrepareStepResult{}, err
+			}
 			select {
 			case w.stepGate <- struct{}{}:
 				gateHeld = true
@@ -150,6 +158,7 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 				return stepCtx, fantasy.PrepareStepResult{}, stepCtx.Err()
 			}
 		}
+		w.execution = "requesting"
 		w.turn = base + options.StepNumber + 1
 		stepStarted = time.Now()
 		hint := fmt.Sprintf("Attempt budget: turn %d; current allowance %d; hard limit %d. The runner alone extends the allowance in blocks of 10 for new read-and-cited planned evidence and reachable questions. The current allowance is a review point, not permission to finalize partial research. Save findings and plan evidence incrementally. Update set_research_focus before changing areas or questions. Continue independent useful work; do not repeat classifications or findings to earn turns.", w.turn, w.activeLimit(), w.turnBudget)
@@ -157,7 +166,7 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 			hint = fmt.Sprintf("Attempt turn %d; current allowance %d. No fixed turn cap. The runner extends the allowance for new verified evidence while reachable questions and time remain. Save findings and plan evidence incrementally.", w.turn, w.activeLimit())
 		}
 		if w.task != nil {
-			hint = fmt.Sprintf("Assigned task turn %d/%d. Stay within this task. Save read-and-cited findings AND matching plan evidence incrementally. With three turns left, prioritize saving and validating the evidence already read. The coordinator merges your results and requeues unfinished work; you do not decide global completion.", w.turn, w.turnBudget)
+			hint = fmt.Sprintf("Assigned task turn %d/%d. Use save_research_answer as soon as one role is verified. Do not wait for all four roles. With three turns left, save the evidence already read before more discovery. Your conversation and accepted answers survive the next task window. Do not review the inventory or other tasks.", w.turn, w.turnBudget)
 		}
 		if w.budget != nil && len(w.budget.decisions) > 0 {
 			hint += "\nBudget decision: " + w.budget.decisions[len(w.budget.decisions)-1].Reason

@@ -3215,6 +3215,9 @@
           "research": {
             "type": "object",
             "properties": {
+              "execution": {
+                "type": "string"
+              },
               "status": {
                 "type": "string"
               },
@@ -3396,6 +3399,12 @@
               "parallel": {
                 "type": "object",
                 "properties": {
+                  "waiting": {
+                    "type": "integer"
+                  },
+                  "requests": {
+                    "type": "integer"
+                  },
                   "limit": {
                     "type": "integer"
                   },
@@ -3410,6 +3419,15 @@
                     "items": {
                       "type": "object",
                       "properties": {
+                        "question": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "turns": {
+                          "type": "integer"
+                        },
                         "id": {
                           "type": "string"
                         },

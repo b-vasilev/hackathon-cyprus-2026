@@ -3,6 +3,32 @@ import type { Run } from './api';
 export type ResearchProgress = NonNullable<Run['research']>;
 export type ResearchArea = ResearchProgress['areas'][number];
 
+// Keep source IDs for lookups; replace them only in user-visible text,
+// including progress saved before readable task labels were introduced.
+export function researchTextFormatter(progress: ResearchProgress): (text: string) => string {
+  const repositories = new Map<string, string>();
+  for (const area of progress.areas) {
+    if (!area.id.startsWith('scope/') && !area.id.startsWith('responsibility/')) continue;
+    const id = area.id.split('/')[1];
+    if (id === undefined || repositories.has(id)) continue;
+    let name = area.repository;
+    try {
+      const url = new URL(name);
+      name = url.pathname.split('/').filter(Boolean).at(-1) ?? url.hostname;
+    } catch {
+      // Context sources may have a readable label instead of a URL.
+    }
+    repositories.set(id, name.replace(/\.git$/, ''));
+  }
+  return (text) => {
+    let result = text;
+    for (const [id, name] of repositories) {
+      result = result === id ? name : result.replaceAll(`${id}/`, `${name}/`);
+    }
+    return result;
+  };
+}
+
 export const researchStatusLabels = {
   not_started: 'To explore',
   investigating: 'Investigating',

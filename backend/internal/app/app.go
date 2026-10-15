@@ -54,7 +54,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 			return fmt.Errorf("initialize LLM connections: %w", err)
 		}
 	}
-	client := &llm.Client{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8)}
+	client := &llm.Client{Policy: policy, Limiter: llmgateway.NewLimiter(llmgateway.MaxConcurrentRequests, 60, llmgateway.MaxConcurrentRequests, 60)}
 	collector := &source.Collector{WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin, GitHubToken: cfg.GitHubToken, MaxBytes: 128 << 20, MaxFiles: 20000, CacheScope: generation.PromptVersion}
 	factory := generation.New(database, connections, client, collector, logger, files)
 	factory.Research = &research.Runner{Policy: policy, Limiter: client.Limiter, WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin}

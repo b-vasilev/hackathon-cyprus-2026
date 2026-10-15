@@ -52,6 +52,7 @@ func (w *workspace) tick(message string) error {
 	w.mu.Lock()
 	w.toolCalls++
 	w.activity = message
+	w.execution = "working"
 	w.mu.Unlock()
 	return w.event(message)
 }

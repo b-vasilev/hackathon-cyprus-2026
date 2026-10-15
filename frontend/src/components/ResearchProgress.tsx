@@ -5,17 +5,28 @@ import {
   researchCounts,
   researchFocusLabel,
   researchStatusLabels,
+  researchTextFormatter,
 } from '../lib/researchProgress';
 import type { ResearchArea, ResearchProgress as ResearchState } from '../lib/researchProgress';
 
-function ResearchAreaRow({ area, running }: Readonly<{ area: ResearchArea; running: boolean }>) {
+const workerStatusLabels: Record<string, string> = {
+  waiting: 'Waiting for a request slot',
+  requesting: 'Model request in progress',
+  working: 'Reading and saving evidence',
+};
+
+function ResearchAreaRow({
+  area,
+  running,
+  displayText,
+}: Readonly<{ area: ResearchArea; running: boolean; displayText: (text: string) => string }>) {
   return (
     <details className="research-area">
       <summary>
         <span className={`research-area-marker ${area.status}`} aria-hidden="true">
           {area.status === 'checked' ? <Check size={12} /> : <CircleHelp size={12} />}
         </span>
-        <span className="research-area-name">{area.name}</span>
+        <span className="research-area-name">{displayText(area.name)}</span>
         <span className="research-area-status">
           {!running && area.status === 'investigating'
             ? 'Partly checked'
@@ -27,16 +38,16 @@ function ResearchAreaRow({ area, running }: Readonly<{ area: ResearchArea; runni
         <ol className="research-questions">
           {area.questions.map((question) => (
             <li key={question.id}>
-              <strong>{question.question}</strong>
+              <strong>{displayText(question.question)}</strong>
               <span className="research-question-status">
                 {questionStatusLabels[question.status]}
               </span>
-              {question.result !== '' && <p>{question.result}</p>}
+              {question.result !== '' && <p>{displayText(question.result)}</p>}
               {question.evidence.length > 0 && (
                 <ul className="research-evidence" aria-label="Source evidence">
                   {question.evidence.map((evidence) => (
                     <li key={`${evidence.document_id}/${evidence.start_line}/${evidence.end_line}`}>
-                      {evidence.path}:L{evidence.start_line}–L{evidence.end_line}
+                      {displayText(evidence.path)}:L{evidence.start_line}–L{evidence.end_line}
                     </li>
                   ))}
                 </ul>
@@ -112,6 +123,7 @@ export function ResearchProgress({
     excluded: 'excluded',
   };
   const active = running && progress.status === 'in_progress';
+  const displayText = researchTextFormatter(progress);
   return (
     <section className="research-progress" aria-label="Research plan">
       <div className="research-heading">
@@ -134,7 +146,13 @@ export function ResearchProgress({
       {progress.parallel !== undefined && progress.parallel.limit > 0 && (
         <div className="research-scope-summary" aria-label="Research agents">
           <span>
-            <strong>{active ? progress.parallel.active : 0}</strong> agents active
+            <strong>{active ? progress.parallel.active : 0}</strong> agents working
+          </span>
+          <span>
+            <strong>{active ? (progress.parallel.waiting ?? 0) : 0}</strong> waiting for a slot
+          </span>
+          <span>
+            <strong>{active ? (progress.parallel.requests ?? 0) : 0}</strong> requests in flight
           </span>
           <span>
             <strong>{progress.parallel.queued}</strong> tasks queued
@@ -144,13 +162,18 @@ export function ResearchProgress({
       )}
       {active && progress.parallel !== undefined && progress.parallel.workers.length > 0 && (
         <details className="research-plan-details">
-          <summary>View active agents ({progress.parallel.workers.length})</summary>
+          <summary>View assigned agents ({progress.parallel.workers.length})</summary>
           <ol className="research-questions">
             {progress.parallel.workers.map((worker) => (
               <li key={worker.id}>
-                <strong>{worker.task}</strong>
-                {worker.focus.question !== '' && <p>{worker.focus.question}</p>}
-                {worker.activity !== '' && <span className="meta">{worker.activity}</span>}
+                <strong>{displayText(worker.task)}</strong>
+                <p>{displayText(worker.focus.question || worker.question || '')}</p>
+                <span className="meta">
+                  {workerStatusLabels[worker.status ?? 'working']} · {worker.turns ?? 0} turns
+                </span>
+                {worker.activity !== '' && (
+                  <span className="meta">{displayText(worker.activity)}</span>
+                )}
               </li>
             ))}
           </ol>
@@ -159,20 +182,28 @@ export function ResearchProgress({
       {active && (
         <div className="research-focus" role="status">
           <span className="research-label">
-            {progress.focus.area === '' ? 'Getting oriented' : researchFocusLabel(progress)}
+            {progress.focus.area === ''
+              ? 'Getting oriented'
+              : displayText(researchFocusLabel(progress))}
           </span>
           <p>
             {progress.focus.question === ''
               ? 'Mapping the supplied source areas and choosing the first question.'
-              : progress.focus.question}
+              : displayText(progress.focus.question)}
           </p>
-          {progress.focus.reason !== '' && <span className="meta">{progress.focus.reason}</span>}
+          {progress.focus.reason !== '' && (
+            <span className="meta">{displayText(progress.focus.reason)}</span>
+          )}
         </div>
       )}
       {progress.last_result !== '' && (
         <div className="research-last-result">
           <span className="research-label">Latest saved result</span>
-          <p>{progress.last_result.replaceAll(/\[[A-Z0-9]{20,}:L\d+-L\d+\]/g, '').trim()}</p>
+          <p>
+            {displayText(
+              progress.last_result.replaceAll(/\[[A-Z0-9]{20,}:L\d+-L\d+\]/g, '').trim()
+            )}
+          </p>
         </div>
       )}
       <details className="research-plan-details">
@@ -184,7 +215,12 @@ export function ResearchProgress({
           </p>
           <div className="research-area-list" role="region" aria-label="Research areas">
             {orderedResearchAreas(progress).map((area) => (
-              <ResearchAreaRow area={area} running={active} key={area.id} />
+              <ResearchAreaRow
+                area={area}
+                running={active}
+                displayText={displayText}
+                key={area.id}
+              />
             ))}
             {progress.areas.length === 0 && <p className="meta">No source areas indexed yet.</p>}
           </div>
