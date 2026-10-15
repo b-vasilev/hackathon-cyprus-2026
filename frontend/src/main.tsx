@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { Brand } from './components/ui';
 import { Connections } from './pages/Connections';
+import { FoundationModulePage, Foundations } from './pages/Foundations';
 import { PassportPage } from './pages/Passport';
 import { NewProduct, Products } from './pages/Products';
 import '@fontsource/geist/400.css';
@@ -32,6 +33,7 @@ createRoot(root).render(
               <NavLink to="/" end>
                 Product spaces
               </NavLink>
+              <NavLink to="/foundations">Foundations</NavLink>
               <NavLink to="/connections">LLM connections</NavLink>
             </nav>
             <span className="header-caption">Know the product. Find your way.</span>
@@ -42,6 +44,8 @@ createRoot(root).render(
             <Route path="/" element={<Products />} />
             <Route path="/products/new" element={<NewProduct />} />
             <Route path="/products/:id" element={<PassportPage />} />
+            <Route path="/foundations" element={<Foundations />} />
+            <Route path="/foundations/:id" element={<FoundationModulePage />} />
             <Route path="/connections" element={<Connections />} />
             <Route path="*" element={<Products />} />
           </Routes>
