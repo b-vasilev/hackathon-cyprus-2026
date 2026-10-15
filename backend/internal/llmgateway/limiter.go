@@ -156,6 +156,15 @@ type Limiter struct {
 	waiters       []*waiter
 }
 
+type queueWaitKey struct{}
+
+// WithQueueWait makes bounded background workers wait for queue space instead
+// of treating local admission pressure as a failed provider request. The normal
+// admission deadline and context cancellation still apply.
+func WithQueueWait(ctx context.Context) context.Context {
+	return context.WithValue(ctx, queueWaitKey{}, true)
+}
+
 func NewLimiter(globalMax, globalQueue, apiMax, apiQueue int) *Limiter {
 	return &Limiter{changed: make(chan struct{}), globalMax: globalMax,
 		globalQueue: globalQueue, globalWait: time.Minute, apiMax: apiMax, apiQueue: apiQueue,
@@ -219,6 +228,7 @@ func (l *Limiter) Acquire(ctx context.Context, targetID string, api bool) (func(
 }
 
 func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy PoolPolicy) (func(int, http.Header), error) { //nolint:gocyclo // Admission keeps capacity, queue, timeout, and cancellation transitions together.
+	waitForQueue, _ := ctx.Value(queueWaitKey{}).(bool)
 	if meta.StartedAt.IsZero() {
 		meta.StartedAt = time.Now()
 	}
@@ -245,8 +255,15 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 	}
 	deadline := time.Now().Add(waitLimit)
 	var w *waiter
+	waited := false
 	for {
 		now := time.Now()
+		if waited && !now.Before(deadline) {
+			l.removeWaiter(w)
+			l.signal()
+			l.mu.Unlock()
+			return nil, ErrQueueTimeout
+		}
 		if target != nil && target.policy.TokensPerMinute > 0 && meta.EstimatedTokens > target.policy.TokensPerMinute {
 			if w != nil {
 				l.removeWaiter(w)
@@ -278,15 +295,18 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 			return func(status int, headers http.Header) { l.complete(meta, status, headers, azureReserved) }, nil
 		}
 		if w == nil {
-			if l.globalWaiting+l.lookupWaiting >= l.globalQueue || (target != nil && target.waiting >= target.policy.MaxQueue) {
+			full := l.globalWaiting+l.lookupWaiting >= l.globalQueue || (target != nil && target.waiting >= target.policy.MaxQueue)
+			if full && !waitForQueue {
 				l.mu.Unlock()
 				return nil, ErrQueueFull
 			}
-			w = &waiter{target: target, meta: meta}
-			l.waiters = append(l.waiters, w)
-			l.globalWaiting++
-			if target != nil {
-				target.waiting++
+			if !full {
+				w = &waiter{target: target, meta: meta}
+				l.waiters = append(l.waiters, w)
+				l.globalWaiting++
+				if target != nil {
+					target.waiting++
+				}
 			}
 		}
 		if !now.Before(deadline) {
@@ -300,6 +320,7 @@ func (l *Limiter) AcquireRequest(ctx context.Context, meta RequestMeta, policy P
 			wake = next
 		}
 		changed := l.changed
+		waited = true
 		l.mu.Unlock()
 		timer := time.NewTimer(time.Until(wake))
 		select {

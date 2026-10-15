@@ -57,6 +57,7 @@ func (b *analysisCallBudget) take() bool {
 }
 
 func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID string, input Input, persist Persist, progress ProgressFunc) (result Result, err error) {
+	ctx = llmgateway.WithQueueWait(ctx)
 	if persist == nil {
 		return result, errors.New("incremental analysis requires durable checkpoint storage")
 	}

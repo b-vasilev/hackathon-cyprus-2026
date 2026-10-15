@@ -47,6 +47,7 @@ func (e *ProviderError) Error() string { return e.Message }
 //
 //nolint:goconst,gocyclo // Keep the three provider wire contracts in one dispatch.
 func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request Request) (Result, error) {
+	ctx = llmgateway.WithQueueWait(ctx)
 	model, err := llmgateway.ModelByID(config, request.Model)
 	if err != nil {
 		return Result{}, fmt.Errorf("configure model request: %w", err)

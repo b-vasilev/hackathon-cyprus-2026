@@ -94,6 +94,7 @@ type workspace struct {
 //
 //nolint:gocyclo // Keep workspace, checkpoint and adaptive research lifecycle cleanup together.
 func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, checkpoint *Checkpoint, progress func(Progress) error) (result Result, err error) {
+	ctx = llmgateway.WithQueueWait(ctx)
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, attemptTimeout)
 	defer cancel()
@@ -213,9 +214,8 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 		workers = defaultParallelism
 	}
 	workers = min(workers, defaultParallelism)
-	// Research concurrency follows the selected worker count, including runs
-	// resumed from older connection revisions with a lower request limit.
-	config.MaxConcurrent = workers
+	// Workers can inspect sources in parallel; model requests still obey the
+	// saved connection limit and the shared gateway's admission policy.
 	client, err := r.Policy.Client(config, r.Limiter)
 	if err != nil {
 		return result, fmt.Errorf("research gateway: %w", err)
