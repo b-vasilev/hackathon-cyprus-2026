@@ -1,8 +1,9 @@
 # runtime
-Goal: explain how the product starts, runs and connects to its environment.
-Use: build files, startup wiring, container/service definitions, deployment docs and configuration parsers.
-Prepare: processes and environments; startup dependencies; configuration names and purpose without secret values; request/background execution; deployment topology and lifecycle where evidenced.
-Select: environment, component, external-system and store objects.
-Visual: deployment and component views only for observed or explicitly documented runtime structure. Label planned topology clearly.
-Missing evidence: do not infer production hosting, scale, regions or availability from a local development file.
-Distinguish a library dependency from a separate process, container or external service. A C4 runtime unit is not necessarily a Docker container. Verify runtime and tool versions from selected manifests/configuration. Mark in-development, experimental and planned deployment behavior separately from implementation and from evidence confidence.
+Goal: explain execution forms and supported environment requirements.
+Question: What runs where, how does it start, and which modes/configuration does it require?
+Inputs: canonical runtime units/environments, entrypoints, build/container/service/deployment definitions, configuration parsers, persistent-state and shutdown evidence.
+Investigation: trace each important unit through startup/configuration/resources/state/shutdown. Distinguish browser app, library, process, short-lived tool, infrastructure container and external service. Verify materially different modes and both sides of external connections where available.
+Output: environment/mode summary -> supported placement view or table -> startup/configuration requirements -> persistent state and shutdown -> precise gaps. Deployment diagrams need evidenced environment, placement and unit identity; separate environment views unless explicitly comparing.
+Evidence/gaps: classify statements as documented/configured/observed independently of feature status. Names/purposes of configuration are useful; secret values are not. Local definitions never prove production hosting, scaling, readiness or resilience.
+Exclusions: no duplicate business flow, logical architecture or setup tutorial. Architectural parent_id is not an invented environment-instance ontology; express placement with existing objects/relations only when supported.
+Acceptance: each important runnable part has supported placement/mode or a scoped gap; libraries do not become services; startup order does not imply readiness; ephemeral and persistent state remain distinct.

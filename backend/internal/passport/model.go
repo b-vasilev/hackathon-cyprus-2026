@@ -11,9 +11,16 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-// SectionIDs is the stable reading order for every product.
+const repositoriesCategory = "repositories"
+
+// SectionIDs is the allowed reading order; secondary sections require useful evidence.
 func SectionIDs() []string {
-	return []string{"overview", "users", "capabilities", "domain", "scenarios", "architecture", "data", "runtime", "operations", "development", "decisions", "ownership"}
+	return []string{"overview", repositoriesCategory, "architecture", "technologies", "scenarios", "data", "runtime", "development", "operations", "decisions", "ownership", "capabilities", "users", "domain"}
+}
+
+// RequiredSectionIDs contains the core questions every passport must answer.
+func RequiredSectionIDs() []string {
+	return []string{"overview", repositoriesCategory, "architecture", "technologies", "scenarios"}
 }
 
 // Evidence anchors an assertion to exact lines of a collected document.
@@ -34,26 +41,30 @@ type Claim struct {
 
 // Object is a shared actor, capability, domain entity, component or environment.
 type Object struct {
-	ID         string   `json:"id"`
-	Kind       string   `json:"kind" jsonschema:"One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."`
-	Name       string   `json:"name"`
-	Summary    string   `json:"summary"`
-	Technology string   `json:"technology"`
-	Status     string   `json:"status" jsonschema:"One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."`
-	Inputs     []string `json:"inputs"`
-	Outputs    []string `json:"outputs"`
-	Contracts  []string `json:"contracts"`
-	ClaimIDs   []string `json:"claim_ids"`
+	ID               string   `json:"id"`
+	Kind             string   `json:"kind" jsonschema:"One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."`
+	Name             string   `json:"name"`
+	Summary          string   `json:"summary"`
+	Technology       string   `json:"technology"`
+	Status           string   `json:"status" jsonschema:"One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."`
+	Inputs           []string `json:"inputs"`
+	Outputs          []string `json:"outputs"`
+	Contracts        []string `json:"contracts"`
+	ClaimIDs         []string `json:"claim_ids"`
+	ArchitectureRole string   `json:"architecture_role,omitempty" jsonschema:"Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."`
+	ParentID         string   `json:"parent_id,omitempty" jsonschema:"Optional architectural parent object ID. Never a repository provenance link."`
 }
 
 // Relation describes a directed connection between shared objects.
 type Relation struct {
-	ID       string   `json:"id"`
-	From     string   `json:"from"`
-	To       string   `json:"to"`
-	Label    string   `json:"label"`
-	Kind     string   `json:"kind" jsonschema:"One of call, data, dependency, ownership, association, transition."`
-	ClaimIDs []string `json:"claim_ids"`
+	ID          string   `json:"id"`
+	From        string   `json:"from"`
+	To          string   `json:"to"`
+	Label       string   `json:"label"`
+	Kind        string   `json:"kind" jsonschema:"One of call, data, dependency, ownership, association, transition."`
+	ClaimIDs    []string `json:"claim_ids"`
+	Interaction string   `json:"interaction,omitempty" jsonschema:"Optional in_process, sync, async, artifact, build or unknown."`
+	Contract    string   `json:"contract,omitempty" jsonschema:"Optional specific protocol, payload or artifact contract."`
 }
 
 // Step is one part of a product scenario.
@@ -91,12 +102,14 @@ type Model struct {
 
 // Diagram selects objects and relations from the canonical model, without generated code.
 type Diagram struct {
-	ID          string   `json:"id"`
-	Title       string   `json:"title"`
-	Kind        string   `json:"kind" jsonschema:"One of context, components, domain, data, deployment, states."`
-	Summary     string   `json:"summary"`
-	NodeIDs     []string `json:"node_ids"`
-	RelationIDs []string `json:"relation_ids"`
+	ID            string   `json:"id"`
+	Title         string   `json:"title"`
+	Kind          string   `json:"kind" jsonschema:"One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects."`
+	Summary       string   `json:"summary"`
+	NodeIDs       []string `json:"node_ids"`
+	RelationIDs   []string `json:"relation_ids"`
+	ScopeObjectID string   `json:"scope_object_id,omitempty" jsonschema:"Optional object ID whose immediate architectural children this view explains."`
+	Question      string   `json:"question,omitempty"`
 }
 
 // Section is one standardized part of the passport.
@@ -117,12 +130,51 @@ type Views struct {
 	Sections  []Section         `json:"sections"`
 	Diagrams  []Diagram         `json:"diagrams"`
 	CardTheme *ProductCardTheme `json:"card_theme"`
+	Document  *Document         `json:"document,omitempty"`
 }
 
-// ProductCardTheme permits only local product colours, never generated CSS or portal styles.
+// Document is an authored reading path through the canonical facts and views.
+type Document struct {
+	Version  int       `json:"version" jsonschema:"Must be 2."`
+	Chapters []Chapter `json:"chapters"`
+}
+
+// Chapter answers one standard category question using ordered typed blocks.
+type Chapter struct {
+	ID       string          `json:"id"`
+	Title    string          `json:"title"`
+	Question string          `json:"question"`
+	Blocks   []DocumentBlock `json:"blocks"`
+}
+
+// DocumentBlock has exactly one payload, selected by Kind. Claims support prose
+// and tables; diagrams and scenarios carry their own canonical references.
+type DocumentBlock struct {
+	Kind        string   `json:"kind" jsonschema:"One of markdown, diagram_ref, scenario_ref, object_table."`
+	Markdown    string   `json:"markdown,omitempty" jsonschema:"Plain Markdown only, without raw HTML or executable JS/MDX."`
+	ReferenceID string   `json:"reference_id,omitempty"`
+	ObjectIDs   []string `json:"object_ids,omitempty"`
+	ClaimIDs    []string `json:"claim_ids,omitempty"`
+	TableStyle  string   `json:"table_style,omitempty" jsonschema:"For object_table only: objects, repositories or technologies."`
+}
+
+// ChapterIDs is the default reading order; legacy section ordering is unchanged.
+func ChapterIDs() []string {
+	return []string{"overview", repositoriesCategory, "architecture", "scenarios", "technologies", "data", "runtime", "development", "operations", "decisions", "ownership", "capabilities", "users", "domain"}
+}
+
+// ProductCardTheme scopes product colors and original logos to product content.
 type ProductCardTheme struct {
-	AccentColor     string `json:"accent_color" jsonschema:"Brand accent as a six-digit hex colour, for example #6550B9."`
-	BackgroundColor string `json:"background_color" jsonschema:"Product card background as a six-digit hex colour."`
+	AccentColor     string        `json:"accent_color" jsonschema:"Brand accent as a six-digit hex color, for example #6550B9."`
+	BackgroundColor string        `json:"background_color" jsonschema:"Product card background as a six-digit hex color."`
+	LogoURL         string        `json:"logo_url" jsonschema:"Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL."`
+	Sources         []BrandSource `json:"sources" jsonschema:"Brand provenance populated by the server; leave empty."`
+}
+
+// BrandSource records the actual material used for a product's visual identity.
+type BrandSource struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
 }
 
 var themeColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -197,102 +249,35 @@ func CheckJSON[T any](data []byte) (T, error) {
 //
 //nolint:gocyclo // Validate all cross references together against one immutable model.
 func Validate(p Passport, documents map[string]int) error {
+	v2 := p.Views.Document != nil
 	if p.Views.CardTheme != nil && (!themeColor.MatchString(p.Views.CardTheme.AccentColor) || !themeColor.MatchString(p.Views.CardTheme.BackgroundColor)) {
-		return errors.New("product theme colours must be six-digit hex colours")
+		return errors.New("product theme colors must be six-digit hex colors")
 	}
-	ids := make(map[string]bool)
-	register := func(id string) error {
-		if id == "" || ids[id] {
-			return fmt.Errorf("duplicate or empty object ID: %q", id)
-		}
-		ids[id] = true
-		return nil
+	index, err := validateModel(p.Model, documents, false)
+	if err != nil {
+		return err
 	}
-	evidence := make(map[string]bool)
-	claims := make(map[string]bool)
-	objects := make(map[string]bool)
-	relations := make(map[string]Relation)
-	scenarios := make(map[string]bool)
+	register := index.register
+	claims, objects, relations, scenarios := index.claims, index.objects, index.relations, index.scenarios
 	diagrams := make(map[string]bool)
-	for _, e := range p.Model.Evidence {
-		if err := register(e.ID); err != nil {
-			return err
-		}
-		evidence[e.ID] = true
-		lines, ok := documents[e.DocumentID]
-		if !ok || e.StartLine < 1 || e.EndLine < e.StartLine || e.EndLine > lines {
-			return fmt.Errorf("invalid evidence anchor: %s", e.ID)
-		}
-	}
-	for _, c := range p.Model.Claims {
-		if err := register(c.ID); err != nil {
-			return err
-		}
-		claims[c.ID] = true
-		if c.Text == "" || !slices.Contains([]string{"source_backed", "inferred", "unknown"}, c.Basis) {
-			return fmt.Errorf("invalid claim: %s", c.ID)
-		}
-		if c.Basis == "source_backed" && len(c.EvidenceIDs) == 0 {
-			return fmt.Errorf("source-backed claim lacks evidence: %s", c.ID)
-		}
-		if err := checkRefs(c.EvidenceIDs, evidence); err != nil {
-			return err
-		}
-	}
-	for _, o := range p.Model.Objects {
-		if err := register(o.ID); err != nil {
-			return err
-		}
-		objects[o.ID] = true
-		if o.Name == "" || !slices.Contains([]string{"actor", "capability", "entity", "component", "store", "external_system", "interface", "environment", "decision", "owner"}, o.Kind) || !slices.Contains([]string{"implemented", "in_development", "experimental", "planned", "unknown"}, o.Status) {
-			return fmt.Errorf("invalid model object: %s", o.ID)
-		}
-		if len(o.ClaimIDs) == 0 {
-			return fmt.Errorf("object lacks supporting claims: %s", o.ID)
-		}
-		if err := checkRefs(o.ClaimIDs, claims); err != nil {
-			return err
-		}
-	}
-	for _, r := range p.Model.Relations {
-		if err := register(r.ID); err != nil {
-			return err
-		}
-		relations[r.ID] = r
-		if !objects[r.From] || !objects[r.To] || len(r.ClaimIDs) == 0 || !slices.Contains([]string{"call", "data", "dependency", "ownership", "association", "transition"}, r.Kind) {
-			return fmt.Errorf("invalid relation: %s", r.ID)
-		}
-		if err := checkRefs(r.ClaimIDs, claims); err != nil {
-			return err
-		}
-	}
-	for _, s := range p.Model.Scenarios {
-		if err := register(s.ID); err != nil {
-			return err
-		}
-		scenarios[s.ID] = true
-		for _, step := range s.Steps {
-			if err := register(step.ID); err != nil {
-				return err
-			}
-			if err := checkRefs(step.ObjectIDs, objects); err != nil {
-				return err
-			}
-			if err := checkRefs(step.ClaimIDs, claims); err != nil {
-				return err
-			}
-		}
+	if err := validateArchitecture(p.Model.Objects, p.Views.Diagrams, v2); err != nil {
+		return err
 	}
 	for _, d := range p.Views.Diagrams {
 		if err := register(d.ID); err != nil {
 			return err
 		}
 		diagrams[d.ID] = true
-		if !slices.Contains([]string{"context", "components", "domain", "data", "deployment", "states"}, d.Kind) {
+		if !slices.Contains([]string{repositoriesCategory, "context", "containers", "components", "domain", "data", "deployment", "states"}, d.Kind) {
 			return fmt.Errorf("invalid diagram kind: %s", d.ID)
 		}
 		if err := checkRefs(d.NodeIDs, objects); err != nil {
 			return err
+		}
+		for _, object := range p.Model.Objects {
+			if v2 && slices.Contains(d.NodeIDs, object.ID) && (object.Kind == "repository") != (d.Kind == repositoriesCategory) {
+				return fmt.Errorf("diagram mixes repository provenance and logical structure: %s", d.ID)
+			}
 		}
 		for _, id := range d.RelationIDs {
 			r, ok := relations[id]
@@ -307,6 +292,9 @@ func Validate(p Passport, documents map[string]int) error {
 			return fmt.Errorf("invalid section: %s", s.ID)
 		}
 		sections[s.ID] = true
+		if v2 && s.ID != "scenarios" && len(s.ScenarioIDs) > 0 {
+			return fmt.Errorf("execution scenarios belong only in the scenarios section: %s", s.ID)
+		}
 		if s.Title == "" || s.Summary == "" || !slices.Contains([]string{"available", "insufficient_evidence", "not_applicable"}, s.Status) {
 			return fmt.Errorf("invalid section content: %s", s.ID)
 		}
@@ -319,8 +307,16 @@ func Validate(p Passport, documents map[string]int) error {
 			}
 		}
 	}
-	if len(sections) != len(SectionIDs()) || p.Model.Title == "" || p.Model.Summary == "" {
-		return errors.New("passport must contain a product title, summary and all 12 sections")
+	if v2 {
+		if err := validateDocument(*p.Views.Document, claims, objects, diagrams, scenarios, p.Model.Objects, p.Views.Diagrams); err != nil {
+			return err
+		}
+	} else {
+		for _, id := range RequiredSectionIDs() {
+			if !sections[id] {
+				return fmt.Errorf("passport lacks required section: %s", id)
+			}
+		}
 	}
 	return nil
 }

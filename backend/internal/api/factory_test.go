@@ -72,9 +72,20 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 		t.Fatal(decodeErr)
 	}
 	runInput := `{"connection_id":"` + connection.ID + `","model":"custom-model"}`
-	request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
+	started := request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
 	request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusConflict)
 	request(http.MethodGet, "/api/products/"+product.ID+"/passport", "", http.StatusNotFound)
+	var run generation.Run
+	if err := json.Unmarshal(started.Body.Bytes(), &run); err != nil {
+		t.Fatal(err)
+	}
+	cancelled := request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
+	if err := json.Unmarshal(cancelled.Body.Bytes(), &run); err != nil || run.ErrorCode != "cancelled" {
+		t.Fatalf("cancel generation: %s, %v", cancelled.Body.String(), err)
+	}
+	request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
+	request(http.MethodPost, "/api/generations/missing/cancel", "", http.StatusNotFound)
+	request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
 }
 
 func TestFrontendRoutesDoNotMaskAPIOrMissingAssets(t *testing.T) {

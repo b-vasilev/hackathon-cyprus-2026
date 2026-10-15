@@ -9,13 +9,16 @@ import (
 )
 
 // PromptVersion is persisted with each model call for reproducibility.
-const PromptVersion = "passport-v6-brandkit"
+const PromptVersion = "passport-v10-incremental-analysis"
 
 //go:embed prompts/system.md
 var systemPrompt string
 
 //go:embed prompts/analyze.md
 var analysisPrompt string
+
+//go:embed prompts/incremental-analysis.md
+var incrementalAnalysisPrompt string
 
 //go:embed prompts/research-architecture.md
 var architectureResearchPrompt string
@@ -29,19 +32,27 @@ var compositionPrompt string
 //go:embed prompts/repair.md
 var repairPrompt string
 
+//go:embed prompts/repair-views.md
+var viewsRepairPrompt string
+
 //go:embed prompts/select-files.md
 var selectionPrompt string
 
 //go:embed prompts/repair-schema.md
 var schemaRepairPrompt string
 
+//go:embed prompts/information-architecture.md
+var informationArchitecturePrompt string
+
 //go:embed prompts/sections/*.md
 var sectionPrompts embed.FS
 
-// sectionRequirements loads recipes in the same order as the public passport contract.
+// sectionRequirements loads v2 reading order, followed by legacy optional recipes.
+// Legacy section order remains a separate compatibility contract.
 func sectionRequirements() (string, error) {
 	var result strings.Builder
-	for _, id := range passport.SectionIDs() {
+	result.WriteString(informationArchitecturePrompt + "\n")
+	for _, id := range passport.ChapterIDs() {
 		content, err := sectionPrompts.ReadFile("prompts/sections/" + id + ".md")
 		if err != nil {
 			return "", fmt.Errorf("read %s section prompt: %w", id, err)

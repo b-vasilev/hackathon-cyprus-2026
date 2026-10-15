@@ -3,6 +3,7 @@ import { Controls, MarkerType, ReactFlow, useReactFlow, useStore } from '@xyflow
 import { Maximize2, MousePointer2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { layoutArchitecture } from '../lib/diagramLayout';
+import { diagramScope } from '../lib/passportDocument';
 import { DiagramEdge, type ArchitectureEdge } from './DiagramEdge';
 import { DiagramNode, type ArchitectureNode } from './DiagramNode';
 import { Dialog, ErrorNotice, Loading } from './ui';
@@ -83,7 +84,7 @@ export function ArchitectureDiagram({
         type: MarkerType.ArrowClosed,
         width: 16,
         height: 16,
-        color: active ? 'var(--of-brand)' : 'var(--of-muted)',
+        color: active ? 'var(--product-content-accent, var(--of-brand))' : 'var(--of-muted)',
       },
       data: { route, kind: relation?.kind ?? '', focused: active },
     };
@@ -145,8 +146,11 @@ export function ArchitectureDiagram({
     <figure className="architecture-diagram" id={`diagram-${diagram.id}`}>
       <div className="architecture-toolbar">
         <div>
-          <span className="eyebrow">System context</span>
+          <span className="eyebrow">{diagramScope(diagram, model)}</span>
           <h3>{diagram.title}</h3>
+          {diagram.question !== undefined && diagram.question !== '' && (
+            <p className="diagram-question">{diagram.question}</p>
+          )}
         </div>
         <button type="button" className="button quiet" onClick={() => setExpanded(true)}>
           <Maximize2 size={15} />
@@ -154,7 +158,7 @@ export function ArchitectureDiagram({
         </button>
       </div>
       <div className="architecture-frame">
-        <div className="architecture-frame-label">People, product and external systems</div>
+        <div className="architecture-frame-label">{diagramScope(diagram, model)}</div>
         {graph()}
       </div>
       <figcaption>

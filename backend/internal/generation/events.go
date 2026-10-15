@@ -8,7 +8,8 @@ import (
 )
 
 // Event is a durable, user-facing fact about a generation run.
-// Messages contain no prompts, model output or source contents.
+// Structured research records are decoded into Run.Research by GetRun; clients
+// receive short activity messages alongside that separate progress state.
 type Event struct {
 	ID        int64  `json:"id"`
 	Type      string `json:"type"`
@@ -39,9 +40,12 @@ func (s *Service) stage(ctx context.Context, id, stage string) error {
 		return fmt.Errorf("begin generation stage: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	var previous string
-	if err := tx.QueryRowContext(ctx, "SELECT stage FROM generation_runs WHERE id=?", id).Scan(&previous); err != nil {
+	var previous, status string
+	if err := tx.QueryRowContext(ctx, "SELECT stage,status FROM generation_runs WHERE id=?", id).Scan(&previous, &status); err != nil {
 		return fmt.Errorf("read generation stage: %w", err)
+	}
+	if status != "queued" && status != "running" {
+		return context.Canceled
 	}
 	if previous == stage {
 		return nil
@@ -84,7 +88,11 @@ func (s *Service) failRun(ctx context.Context, id, code, message string) error {
 	if _, err := tx.ExecContext(ctx, "UPDATE generation_runs SET status='failed',error_code=?,error_message=?,finished_at=? WHERE id=?", code, message, time.Now().UTC().Format(time.RFC3339Nano), id); err != nil {
 		return fmt.Errorf("save generation failure: %w", err)
 	}
-	if err := recordEvent(ctx, tx, id, "run_failed", stage, "Generation stopped. See the error above for details."); err != nil {
+	kind, eventMessage := "run_failed", "Generation stopped. See the error above for details."
+	if code == "cancelled" {
+		kind, eventMessage = "run_cancelled", "Generation cancelled."
+	}
+	if err := recordEvent(ctx, tx, id, kind, stage, eventMessage); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

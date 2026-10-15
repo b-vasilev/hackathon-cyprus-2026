@@ -44,7 +44,7 @@ func (e *ProviderError) Error() string { return e.Message }
 
 // Generate invokes exactly the configured protocol, model and destination.
 //
-//nolint:goconst // Repeated keys and values are literal provider wire contracts.
+//nolint:goconst,gocyclo // Keep the three provider wire contracts in one dispatch.
 func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request Request) (Result, error) {
 	model, err := llmgateway.ModelByID(config, request.Model)
 	if err != nil {
@@ -62,6 +62,14 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 		schema, _ := json.Marshal(request.Schema)
 		input += "\nReturn only JSON matching this schema, without Markdown fences:\n" + string(schema)
 	}
+	wireSchema := request.Schema
+	strictOpenAI := (config.Protocol == "openai_responses" || config.Protocol == "openai_chat_completions") && (model.OutputMode == "json_schema" || model.OutputMode == "tool_call")
+	if strictOpenAI {
+		wireSchema, err = openAIStrictSchema(request.Schema)
+		if err != nil {
+			return Result{}, fmt.Errorf("configure strict output schema: %w", err)
+		}
+	}
 	var response any
 	switch config.Protocol {
 	case "openai_responses":
@@ -72,10 +80,10 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 			opts = append(opts, ooption.WithJSONSet("reasoning.effort", model.ReasoningEffort))
 		}
 		if model.OutputMode == "json_schema" {
-			opts = append(opts, ooption.WithJSONSet("text.format", map[string]any{"type": "json_schema", "name": "passport_result", "strict": true, "schema": request.Schema}))
+			opts = append(opts, ooption.WithJSONSet("text.format", map[string]any{"type": "json_schema", "name": "passport_result", "strict": true, "schema": wireSchema}))
 		}
 		if model.OutputMode == "tool_call" {
-			opts = append(opts, ooption.WithJSONSet("tools", []any{map[string]any{"type": "function", "name": "emit_result", "description": "Return the completed task as structured data.", "strict": true, "parameters": request.Schema}}), ooption.WithJSONSet("tool_choice", map[string]any{"type": "function", "name": "emit_result"}))
+			opts = append(opts, ooption.WithJSONSet("tools", []any{map[string]any{"type": "function", "name": "emit_result", "description": "Return the completed task as structured data.", "strict": true, "parameters": wireSchema}}), ooption.WithJSONSet("tool_choice", map[string]any{"type": "function", "name": "emit_result"}))
 		}
 		response, err = client.Responses.New(ctx, params, opts...)
 	case "openai_chat_completions":
@@ -86,10 +94,10 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 			opts = append(opts, ooption.WithJSONSet("reasoning_effort", model.ReasoningEffort))
 		}
 		if model.OutputMode == "json_schema" {
-			opts = append(opts, ooption.WithJSONSet("response_format", map[string]any{"type": "json_schema", "json_schema": map[string]any{"name": "passport_result", "strict": true, "schema": request.Schema}}))
+			opts = append(opts, ooption.WithJSONSet("response_format", map[string]any{"type": "json_schema", "json_schema": map[string]any{"name": "passport_result", "strict": true, "schema": wireSchema}}))
 		}
 		if model.OutputMode == "tool_call" {
-			opts = append(opts, ooption.WithJSONSet("tools", []any{map[string]any{"type": "function", "function": map[string]any{"name": "emit_result", "description": "Return the completed task as structured data.", "strict": true, "parameters": request.Schema}}}), ooption.WithJSONSet("tool_choice", map[string]any{"type": "function", "function": map[string]any{"name": "emit_result"}}))
+			opts = append(opts, ooption.WithJSONSet("tools", []any{map[string]any{"type": "function", "function": map[string]any{"name": "emit_result", "description": "Return the completed task as structured data.", "strict": true, "parameters": wireSchema}}}), ooption.WithJSONSet("tool_choice", map[string]any{"type": "function", "function": map[string]any{"name": "emit_result"}}))
 		}
 		response, err = client.Chat.Completions.New(ctx, params, opts...)
 	case "anthropic_messages":
@@ -120,7 +128,11 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 		return Result{}, classify(err, ctx)
 	}
 	if raw, ok := response.(interface{ RawJSON() string }); ok {
-		return parseResponse([]byte(raw.RawJSON()))
+		result, err := parseResponse([]byte(raw.RawJSON()))
+		if err == nil && strictOpenAI {
+			result.JSON, err = restoreOptionalFields(result.JSON, request.Schema)
+		}
+		return result, err
 	}
 	return Result{}, errors.New("SDK response does not expose the original JSON payload")
 }

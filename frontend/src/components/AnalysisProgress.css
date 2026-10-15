@@ -1,0 +1,69 @@
+.analysis-progress {
+  margin: 16px 0;
+  padding: 16px 20px;
+  border: 1px solid var(--of-border);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  min-width: 0;
+}
+.analysis-heading,
+.analysis-heading h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.analysis-heading {
+  justify-content: space-between;
+}
+.analysis-heading h3 {
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.analysis-heading h3 svg {
+  color: var(--of-brand);
+}
+.analysis-focus {
+  display: grid;
+  gap: 4px;
+  border-left: 2px solid var(--of-brand);
+  padding-left: 12px;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.analysis-focus strong {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.analysis-focus p {
+  margin: 0;
+}
+.analysis-label,
+.analysis-note {
+  font-size: 12px;
+  color: var(--of-muted);
+}
+.analysis-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+}
+.analysis-counts > div {
+  display: flex;
+  gap: 8px;
+}
+.analysis-counts dt {
+  color: var(--of-muted);
+}
+.analysis-counts dd {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.analysis-note {
+  margin: 12px 0 0;
+}

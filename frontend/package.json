@@ -24,7 +24,9 @@
     "lucide-react": "^1.57.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
+    "remark-gfm": "^4.0.1",
     "repomix": "1.18.0"
   },
   "devDependencies": {

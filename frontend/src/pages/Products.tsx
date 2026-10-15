@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, BookOpen, FileCode2, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ProductIdentity } from '../components/ProductIdentity';
 import { Badge, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import { api, date, type Product, type ProductInput } from '../lib/api';
 import { productCardTheme } from '../lib/productCardTheme';
@@ -56,7 +57,7 @@ export function Products() {
             key={product.id}
           >
             <div className="card-top">
-              <span className="product-initial">{product.name.slice(0, 1).toUpperCase()}</span>
+              <ProductIdentity name={product.name} theme={product.card_theme} />
               <Badge>
                 {product.latest_revision_id === '' ? 'Sources connected' : 'Draft available'}
               </Badge>
@@ -98,7 +99,7 @@ export function NewProduct() {
           throw new Error('Choose a TXT, Markdown, JSON, CSS or HTML file.');
         }
         if (cardBrandkitFile.size > 100_000) {
-          throw new Error('Product card brand kit files must be 100 KB or smaller.');
+          throw new Error('Product brand kit files must be 100 KB or smaller.');
         }
         const text = new TextDecoder('utf-8', { fatal: true }).decode(
           await cardBrandkitFile.arrayBuffer()
@@ -196,12 +197,13 @@ export function NewProduct() {
           open questions.
         </p>
         <fieldset className="product-card-brandkit-fields" disabled={create.isPending}>
-          <legend>Product card brand kit (optional)</legend>
+          <legend>Product brand kit (optional)</legend>
           <p className="product-card-brandkit-description">
-            Add brand guidelines so the LLM can style your product card with your brand colours.
+            Branding is discovered from product sources. Add guidelines here to override the colours
+            and logo used on the product card and inside its passport.
           </p>
           <label>
-            Product card brand kit source
+            Product brand kit source
             <select
               value={cardBrandkitMode}
               onChange={(event) => {
@@ -215,7 +217,7 @@ export function NewProduct() {
           </label>
           {cardBrandkitMode === 'url' ? (
             <label>
-              Product card brand kit URL
+              Product brand kit URL
               <input
                 type="url"
                 maxLength={2048}
@@ -227,7 +229,7 @@ export function NewProduct() {
             </label>
           ) : (
             <label>
-              Product card brand kit file
+              Product brand kit file
               <input
                 type="file"
                 accept=".txt,.md,.json,.css,.html"

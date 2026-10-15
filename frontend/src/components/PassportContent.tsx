@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   api,
   type Claim,
-  type Diagram,
   type EvidenceView,
   type ProductModel,
   type ProductObject,
@@ -12,6 +11,8 @@ import {
   type Scenario,
   type Section,
 } from '../lib/api';
+import { objectTypeLabel } from '../lib/passportDocument';
+import { sectionTitles } from '../lib/passportSections';
 import { DiagramViewer } from './DiagramViewer';
 import { Badge, Dialog, ErrorNotice, ExternalLink, Loading } from './ui';
 
@@ -68,7 +69,7 @@ export function ObjectDetail({
   return (
     <Dialog title={object.name} onClose={onClose}>
       <div className="detail-meta">
-        <Badge>{object.kind.replaceAll('_', ' ')}</Badge>
+        <Badge>{objectTypeLabel(object)}</Badge>
         <Badge>{object.status.replaceAll('_', ' ')}</Badge>
         {object.technology !== '' && <code>{object.technology}</code>}
       </div>
@@ -170,29 +171,43 @@ export function SectionContent({
   const diagrams = (revision.content.views.diagrams ?? []).filter((diagram) =>
     section.diagram_ids?.includes(diagram.id)
   );
-  const scenarios = (model.scenarios ?? []).filter((scenario) =>
-    section.scenario_ids?.includes(scenario.id)
-  );
-  const scenarioDiagrams = new Set(
-    scenarios.map(
-      (scenario) => diagramForScenario(scenario, revision.content.views.diagrams ?? [])?.id
-    )
-  );
+  const scenarios =
+    section.id === 'scenarios'
+      ? (model.scenarios ?? []).filter((scenario) => section.scenario_ids?.includes(scenario.id))
+      : [];
+  const title = sectionTitles[section.id] ?? section.title;
+  const tableSection = section.id === 'technologies' || section.id === 'repositories';
   return (
-    <section className="passport-section" aria-label={section.title}>
+    <section className="passport-section" aria-label={title}>
       <div className="section-title">
         <p className="eyebrow">Product passport</p>
-        <h2>{section.title}</h2>
+        <h2>{title}</h2>
         {section.status !== 'available' && (
           <Badge tone="warning">{section.status.replaceAll('_', ' ')}</Badge>
         )}
       </div>
       <p className="section-summary">{section.summary}</p>
-      {diagrams
-        .filter((diagram) => !scenarioDiagrams.has(diagram.id))
-        .map((diagram) => (
-          <DiagramViewer key={diagram.id} diagram={diagram} model={model} onSelect={onObject} />
-        ))}
+      {section.id === 'overview' &&
+        objects.some((item) => item.kind === 'capability' || item.kind === 'actor') && (
+          <div className="overview-outcomes">
+            <h3>Users and outcomes</h3>
+            <ul>
+              {objects
+                .filter((item) => item.kind === 'capability' || item.kind === 'actor')
+                .map((item) => (
+                  <li key={item.id}>
+                    <button type="button" className="source-link" onClick={() => onObject(item)}>
+                      {item.name}
+                    </button>
+                    <p>{item.summary}</p>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+      {diagrams.map((diagram) => (
+        <DiagramViewer key={diagram.id} diagram={diagram} model={model} onSelect={onObject} />
+      ))}
       {scenarios.length > 0 && (
         <Scenarios
           scenarios={scenarios}
@@ -201,7 +216,10 @@ export function SectionContent({
           onEvidence={onEvidence}
         />
       )}
-      {objects.length > 0 && (
+      {tableSection && (
+        <ObjectTable sectionId={section.id} objects={objects} model={model} onObject={onObject} />
+      )}
+      {objects.length > 0 && !tableSection && section.id !== 'overview' && (
         <div className="object-grid">
           {objects.map((object) => (
             <button
@@ -210,7 +228,7 @@ export function SectionContent({
               onClick={() => onObject(object)}
               key={object.id}
             >
-              <span className="eyebrow">{object.kind.replaceAll('_', ' ')}</span>
+              <span className="eyebrow">{objectTypeLabel(object)}</span>
               <h3>{object.name}</h3>
               <p>{object.summary}</p>
               <div className="object-card-footer">
@@ -221,7 +239,12 @@ export function SectionContent({
           ))}
         </div>
       )}
-      <ClaimList claims={claims} onEvidence={onEvidence} />
+      {claims.length > 0 && (
+        <details className="section-evidence">
+          <summary>Supporting evidence ({claims.length})</summary>
+          <ClaimList claims={claims} onEvidence={onEvidence} />
+        </details>
+      )}
       {(section.checklist?.length ?? 0) > 0 && (
         <div className="checklist">
           <h3>Practical checkpoints</h3>
@@ -249,18 +272,113 @@ export function SectionContent({
   );
 }
 
-function diagramForScenario(scenario: Scenario, diagrams: Diagram[]): Diagram | undefined {
-  const ids = new Set(scenario.steps?.flatMap((step) => step.object_ids ?? []));
-  if (ids.size === 0) {
-    return undefined;
+export function ObjectTable({
+  sectionId,
+  objects,
+  model,
+  onObject,
+}: Readonly<{
+  sectionId: string;
+  objects: ProductObject[];
+  model: ProductModel;
+  onObject: (object: ProductObject) => void;
+}>) {
+  const repositories = sectionId === 'repositories';
+  const technologies = sectionId === 'technologies';
+  const rows = repositories ? objects.filter((object) => object.kind === 'repository') : objects;
+  const column = technologies ? 'Technology' : 'Type';
+  let caption = 'Objects and their responsibilities';
+  let nameColumn = 'Object';
+  if (repositories) {
+    caption = 'Code ownership and repository responsibilities';
+    nameColumn = 'Repository';
+  } else if (technologies) {
+    caption = 'Technologies and their responsibilities';
+    nameColumn = 'Component or tool';
   }
-  return diagrams
-    .filter((diagram) => [...ids].every((id) => diagram.node_ids?.includes(id)))
-    .toSorted((a, b) => (a.node_ids?.length ?? 0) - (b.node_ids?.length ?? 0))
-    .at(0);
+  return (
+    <div className="passport-table-scroll">
+      <table className="passport-table">
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{nameColumn}</th>
+            <th scope="col">{repositories ? 'Owned components' : column}</th>
+            <th scope="col">Responsibility</th>
+            {repositories && <th scope="col">Repository connections</th>}
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((object) => {
+            const owned = (model.relations ?? [])
+              .filter((relation) => relation.kind === 'ownership' && relation.from === object.id)
+              .flatMap((relation) =>
+                (model.objects ?? []).filter((item) => item.id === relation.to)
+              );
+            const connections = (model.relations ?? []).filter(
+              (relation) => relation.from === object.id && relation.kind !== 'ownership'
+            );
+            const technology = object.technology === '' ? 'Not specified' : object.technology;
+            return (
+              <tr key={object.id}>
+                <th scope="row">
+                  <button type="button" className="source-link" onClick={() => onObject(object)}>
+                    {object.name}
+                  </button>
+                </th>
+                <td>
+                  {!repositories && (technologies ? technology : objectTypeLabel(object))}
+                  {repositories && owned.length === 0 && 'Ownership not established'}
+                  {repositories &&
+                    owned.map((item) => (
+                      <button
+                        type="button"
+                        className="source-link"
+                        onClick={() => onObject(item)}
+                        key={item.id}
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                </td>
+                <td>{object.summary}</td>
+                {repositories && (
+                  <td>
+                    {connections.flatMap((relation) => {
+                      const target = model.objects?.find(
+                        (item) => item.id === relation.to && item.kind === 'repository'
+                      );
+                      return target === undefined
+                        ? []
+                        : [
+                            <div key={relation.id}>
+                              <button
+                                type="button"
+                                className="source-link"
+                                onClick={() => onObject(target)}
+                              >
+                                {target.name}
+                              </button>
+                              <span>{relation.label}</span>
+                            </div>,
+                          ];
+                    })}
+                  </td>
+                )}
+                <td>
+                  <Badge>{object.status.replaceAll('_', ' ')}</Badge>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-function Scenarios({
+export function Scenarios({
   scenarios,
   revision,
   onObject,
@@ -281,7 +399,9 @@ function Scenarios({
   const claims = (revision.content.model.claims ?? []).filter((claim) =>
     step?.claim_ids?.includes(claim.id)
   );
-  const diagram = diagramForScenario(scenario, revision.content.views.diagrams ?? []);
+  const participants = (revision.content.model.objects ?? []).filter((object) =>
+    step?.object_ids?.includes(object.id)
+  );
   return (
     <div className="scenario-view">
       <div className="scenario-tabs">
@@ -316,13 +436,20 @@ function Scenarios({
           </button>
         ))}
       </div>
-      {diagram !== undefined && (
-        <DiagramViewer
-          diagram={diagram}
-          model={revision.content.model}
-          onSelect={onObject}
-          highlighted={step?.object_ids ?? []}
-        />
+      {participants.length > 0 && (
+        <div className="scenario-participants">
+          <h3>Components in this step</h3>
+          {participants.map((object) => (
+            <button
+              type="button"
+              className="source-link"
+              key={object.id}
+              onClick={() => onObject(object)}
+            >
+              {object.name}
+            </button>
+          ))}
+        </div>
       )}
       <div className="scenario-contract">
         {[

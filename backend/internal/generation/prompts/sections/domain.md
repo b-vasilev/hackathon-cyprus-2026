@@ -1,7 +1,9 @@
 # domain
-Goal: teach the product's vocabulary and business rules.
-Use: domain types, persistence models, validation code, business services and domain docs.
-Prepare: core concepts, their meaning, identifiers, relationships, important invariants and supported lifecycle transitions. Explain business meaning before storage details. Distinguish domain entities from technical components.
-Select: entity objects, domain-rule claims and lifecycle scenarios.
-Visual: a domain relationship graph; a states view only when modeled objects and transition relations support it.
-Missing evidence: mark inferred terminology and undocumented rules explicitly. Do not invent entities to complete a familiar industry model.
+Goal: teach substantial domain rules separately only when Data cannot explain them clearly.
+Question: What do the core concepts mean, and which rules govern them?
+Inputs: shared entity objects, domain types/validation/services, domain documentation, identifiers/invariants and exact supporting claims.
+Investigation: distinguish business meaning from storage fields and technical components; verify relationships, identities, invariants and lifecycle transitions. Reconcile aliases without importing a familiar industry's unstated model.
+Output: normally integrate vocabulary/rules into Data and artifacts. For a substantial distinct chapter, use cited Markdown and a focused domain diagram; states only for explicitly modeled transition relations. Reuse canonical identities.
+Evidence/gaps: mark inferred terminology and unknown rules. Logical associations do not prove physical foreign keys, cardinalities or delivery guarantees.
+Exclusions: no schema dump, copied data inventory, repeated full scenarios, invented domain/lifecycle ontology or rules from names alone.
+Acceptance: key terms have clear sourced meanings, rules/transitions are evidenced, and the chapter adds independent domain understanding rather than repeating data/storage detail.
