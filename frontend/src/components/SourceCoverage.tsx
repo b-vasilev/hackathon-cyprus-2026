@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ExternalLink } from './ui';
+import { DisclosureHint, ExternalLink } from './ui';
 import type { Revision } from '../lib/api';
 import './SourceCoverage.css';
 
@@ -20,10 +20,6 @@ export function SourceCoverage({ snapshot }: Readonly<{ snapshot: Snapshot }>) {
   const [state, setState] = useState('all');
   const [page, setPage] = useState(0);
   const files = snapshot.coverage.files ?? [];
-  const summary =
-    files.length === 0
-      ? `Source files · ${snapshot.coverage.file_count} selected in this earlier version`
-      : `Source files · ${snapshot.coverage.file_count} indexed · ${snapshot.coverage.read_files} read · ${snapshot.coverage.cited_files} cited`;
   const matching = files.filter(
     (file) =>
       file.path.toLowerCase().includes(query.toLowerCase()) &&
@@ -35,7 +31,28 @@ export function SourceCoverage({ snapshot }: Readonly<{ snapshot: Snapshot }>) {
   const start = Math.min(page * pageSize, Math.max(matching.length - 1, 0));
   return (
     <details className="source-coverage">
-      <summary>{summary}</summary>
+      <summary>
+        <span className="source-coverage-counts">
+          <span>
+            <strong>{snapshot.coverage.file_count.toLocaleString()}</strong> indexed
+          </span>
+          {files.length > 0 && (
+            <>
+              <span>
+                <strong>{snapshot.coverage.read_files.toLocaleString()}</strong> read
+              </span>
+              <span>
+                <strong>{snapshot.coverage.cited_files.toLocaleString()}</strong> cited
+              </span>
+            </>
+          )}
+        </span>
+        <DisclosureHint show="Browse files" hide="Hide files" />
+      </summary>
+      {snapshot.coverage.note && <p className="field-help">{snapshot.coverage.note}</p>}
+      {snapshot.coverage.selection && (
+        <p className="field-help">Selection: {snapshot.coverage.selection}</p>
+      )}
       {files.length === 0 ? (
         <p className="field-help">This earlier version has no file-level reading history.</p>
       ) : (

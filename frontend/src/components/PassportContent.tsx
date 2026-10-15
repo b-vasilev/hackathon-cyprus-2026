@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, FileCode2, Quote } from 'lucide-react';
+import { ArrowRight, FileCode2, PanelRightOpen, Quote } from 'lucide-react';
 import { useState } from 'react';
 import {
   api,
@@ -42,9 +42,14 @@ export function ClaimList({
           <p>{claim.text}</p>
           <div className="evidence-links">
             {claim.evidence_ids?.map((id, index) => (
-              <button type="button" className="source-link" key={id} onClick={() => onEvidence(id)}>
-                <FileCode2 size={13} />
-                Source {index + 1}
+              <button
+                type="button"
+                className="source-link source-action"
+                key={id}
+                onClick={() => onEvidence(id)}
+              >
+                <FileCode2 size={16} aria-hidden="true" />
+                View source {index + 1}
               </button>
             ))}
           </div>
@@ -442,11 +447,12 @@ export function Scenarios({
           {participants.map((object) => (
             <button
               type="button"
-              className="source-link"
+              className="source-link source-action"
               key={object.id}
               onClick={() => onObject(object)}
             >
               {object.name}
+              <PanelRightOpen size={16} aria-hidden="true" />
             </button>
           ))}
         </div>
