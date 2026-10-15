@@ -3751,6 +3751,9 @@
                     "attempt": {
                       "type": "integer"
                     },
+                    "max_attempts": {
+                      "type": "integer"
+                    },
                     "started_at": {
                       "type": "string"
                     },

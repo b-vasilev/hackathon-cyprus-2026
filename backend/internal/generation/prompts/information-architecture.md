@@ -2,6 +2,8 @@
 
 Write one connected explanation for an engineer new to the product. Research and reconcile the detailed model first; synthesize overview last and place it first. Recipes guide investigation during analysis and selection during composition. Composition cannot perform missing research or create model facts.
 
+Depth and selection: the canonical model preserves detailed research; the passport selects what a reader needs to understand purpose, architecture, principal behavior and important constraints. Architecture is the center: show the whole system, its real runtime boundaries and contracts, then explain the core complex subsystems at the next level. Keep enough detail to avoid opaque central boxes. Add depth for consequential complexity, not for every package, adapter or available fact. Related variants can share a view or table when their boundaries and contracts remain clear. Repository and technology inventories are compact references. Supporting chapters are short explanations of essential facts, not complete setup guides, operational manuals or a separate paragraph for every unknown. Keep each material gap beside the affected fact, once. Optional chapters need distinct essential content; researched detail alone does not justify including them.
+
 Required v2 chapters, in this order:
 1. overview / Product overview: purpose, actors, outcomes, input/output and product boundary. Optional small context view; no internal inventory or full scenario.
 2. repositories / Repositories and connections: actual source owners, repository responsibilities and verified package/image/API/artifact contracts. Source structure is not runtime structure.

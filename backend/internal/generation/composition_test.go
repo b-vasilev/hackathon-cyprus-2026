@@ -157,4 +157,9 @@ func TestCompositionParallelPartsRetryIndependentlyAndKeepReadingOrder(t *testin
 			t.Errorf("fragment %s called %d times, want %d", key, calls, want)
 		}
 	}
+	for _, task := range c.state.Tasks {
+		if task.MaxAttempts != maxGenerationAttempts {
+			t.Errorf("task %s has attempt limit %d, want %d", task.ID, task.MaxAttempts, maxGenerationAttempts)
+		}
+	}
 }

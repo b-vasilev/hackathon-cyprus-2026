@@ -15,14 +15,15 @@ import (
 
 // CompositionTask is a durable unit of work, including queued and retried parts.
 type CompositionTask struct {
-	ID         string `json:"id"`
-	ChapterID  string `json:"chapter_id"`
-	Title      string `json:"title"`
-	Kind       string `json:"kind"`
-	Status     string `json:"status"`
-	Attempt    int    `json:"attempt"`
-	StartedAt  string `json:"started_at"`
-	FinishedAt string `json:"finished_at"`
+	ID          string `json:"id"`
+	ChapterID   string `json:"chapter_id"`
+	Title       string `json:"title"`
+	Kind        string `json:"kind"`
+	Status      string `json:"status"`
+	Attempt     int    `json:"attempt"`
+	MaxAttempts int    `json:"max_attempts,omitempty"`
+	StartedAt   string `json:"started_at"`
+	FinishedAt  string `json:"finished_at"`
 }
 
 type CompositionState struct {
@@ -370,6 +371,7 @@ func (c *composer) work(ctx context.Context, jobs []compositionJob) error {
 	for _, job := range jobs {
 		task := job.Task
 		task.Status = compositionTaskQueued
+		task.MaxAttempts = maxGenerationAttempts
 		c.state.Tasks = append(c.state.Tasks, task)
 	}
 	c.state.Action = fmt.Sprintf("Queued %d passport tasks; up to %d requests at once.", len(jobs), c.state.Parallelism)
@@ -397,7 +399,7 @@ func (c *composer) work(ctx context.Context, jobs []compositionJob) error {
 					}
 				}
 				options := generationCall{Label: job.Task.Title, MaxOutputTokens: 8192, RetryProvider: true, OnAttempt: func(attempt int) error {
-					return c.update(ctx, offset+i, attempt, "running", fmt.Sprintf("%s: waiting for the model (attempt %d of 2).", job.Task.Title, attempt))
+					return c.update(ctx, offset+i, attempt, "running", fmt.Sprintf("%s: waiting for the model (attempt %d of %d).", job.Task.Title, attempt, maxGenerationAttempts))
 				}}
 				err := job.Work(ctx, options)
 				status, action := "completed", job.Task.Title+": completed."

@@ -469,7 +469,7 @@ func (s *Service) process(ctx context.Context, run Run) error {
 }
 
 func generate[T any](ctx context.Context, s *Service, run Run, stage, input string) (T, error) {
-	return generateWith[T](ctx, s, run, stage, input, generationCall{}, nil)
+	return generateWith[T](ctx, s, run, stage, input, generationCall{RetryProvider: true}, nil)
 }
 
 type generationCall struct {
@@ -477,6 +477,20 @@ type generationCall struct {
 	MaxOutputTokens int
 	RetryProvider   bool
 	OnAttempt       func(int) error
+}
+
+const (
+	maxProviderAttempts   = 6
+	maxValidationAttempts = 6
+	// Each failure spends only its own budget; the last request exhausts one.
+	maxGenerationAttempts = maxProviderAttempts + maxValidationAttempts - 1
+)
+
+func (o generationCall) maxAttempts() int {
+	if o.RetryProvider {
+		return maxGenerationAttempts
+	}
+	return maxValidationAttempts
 }
 
 //nolint:gocyclo // Keep per-attempt usage, provider retries and response checks at one request boundary.
@@ -494,7 +508,9 @@ func generateWith[T any](ctx context.Context, s *Service, run Run, stage, input 
 	if checkErr := json.Unmarshal(encoded, &format); checkErr != nil {
 		return empty, fmt.Errorf("decode output schema: %w", checkErr)
 	}
-	for attempt := 1; attempt <= 2; attempt++ {
+	originalInput := input
+	providerFailures, validationFailures := 0, 0
+	for attempt := 1; attempt <= options.maxAttempts(); attempt++ {
 		if err := ctx.Err(); err != nil {
 			return empty, fmt.Errorf("model task interrupted: %w", err)
 		}
@@ -515,7 +531,7 @@ func generateWith[T any](ctx context.Context, s *Service, run Run, stage, input 
 		if options.Label != "" {
 			label = options.Label
 		}
-		if err := s.event(ctx, run.ID, "model_call_started", stage, fmt.Sprintf("%s started (attempt %d of 2). Waiting for the response.", label, attempt)); err != nil {
+		if err := s.event(ctx, run.ID, "model_call_started", stage, fmt.Sprintf("%s started (attempt %d of %d). Waiting for the response.", label, attempt, options.maxAttempts())); err != nil {
 			return empty, err
 		}
 		result, callErr := s.LLM.Generate(ctx, config, llm.Request{Model: run.Model, System: systemPrompt, Input: input, Schema: format, MaxOutputTokens: options.MaxOutputTokens})
@@ -547,31 +563,40 @@ func generateWith[T any](ctx context.Context, s *Service, run Run, stage, input 
 			if err := s.event(ctx, run.ID, "model_call_failed", stage, "The model request failed."); err != nil {
 				return empty, err
 			}
-			if options.RetryProvider && attempt < 2 && ctx.Err() == nil && (code == "timeout" || code == "provider_error") {
-				if err := s.event(ctx, run.ID, "retry_started", stage, label+" did not complete. Retrying only this task."); err != nil {
+		}
+		if callErr != nil && code != "invalid_json" {
+			providerFailures++
+			if options.RetryProvider && providerFailures < maxProviderAttempts && ctx.Err() == nil && (code == "timeout" || code == "provider_error" || code == "rate_limited") {
+				if err := s.event(ctx, run.ID, "retry_started", stage, fmt.Sprintf("%s did not complete (API failure %d of %d). Retrying only this task.", label, providerFailures, maxProviderAttempts)); err != nil {
 					return empty, err
 				}
 				continue
 			}
 			return empty, fmt.Errorf("generate %s (%s): %w", stage, label, callErr)
 		}
-		if err := s.event(ctx, run.ID, "model_call_completed", stage, fmt.Sprintf("%s response received. Recorded usage: %d input tokens and %d output tokens.", label, result.InputTokens, result.OutputTokens)); err != nil {
-			return empty, err
+		if callErr == nil {
+			if err := s.event(ctx, run.ID, "model_call_completed", stage, fmt.Sprintf("%s response received. Recorded usage: %d input tokens and %d output tokens.", label, result.InputTokens, result.OutputTokens)); err != nil {
+				return empty, err
+			}
 		}
-		value, validationErr := passport.CheckJSON[T](result.JSON)
+		value, validationErr := empty, callErr
+		if validationErr == nil {
+			value, validationErr = passport.CheckJSON[T](result.JSON)
+		}
 		if validationErr == nil && check != nil {
 			validationErr = check(value)
 		}
 		if validationErr == nil {
 			return value, nil
 		}
-		if attempt == 2 {
+		validationFailures++
+		if validationFailures == maxValidationAttempts {
 			return empty, fmt.Errorf("%s response failed validation: %w", label, validationErr)
 		}
-		if err := s.event(ctx, run.ID, "retry_started", stage, label+" did not pass validation. Retrying only this task."); err != nil {
+		if err := s.event(ctx, run.ID, "retry_started", stage, fmt.Sprintf("%s did not pass validation (invalid response %d of %d). Retrying only this task.", label, validationFailures, maxValidationAttempts)); err != nil {
 			return empty, err
 		}
-		input += "\n" + schemaRepairPrompt + "\nERROR:\n" + validationErr.Error() + "\nPREVIOUS RESPONSE:\n" + string(result.JSON)
+		input = originalInput + "\n" + schemaRepairPrompt + "\nERROR:\n" + validationErr.Error() + "\nPREVIOUS RESPONSE:\n" + string(result.JSON)
 	}
 	return empty, errors.New("model generation did not produce a result")
 }

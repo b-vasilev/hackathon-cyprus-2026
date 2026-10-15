@@ -91,7 +91,8 @@ export function CompositionProgress({
                     <strong>{task.title}</strong>
                     <span>
                       {taskStatus(task, running)}
-                      {task.attempt > 0 && ` · attempt ${task.attempt}/2`}
+                      {task.attempt > 0 && ` · attempt ${task.attempt}`}
+                      {task.attempt > 0 && (task.max_attempts ?? 0) > 0 && `/${task.max_attempts}`}
                       {task.started_at !== '' &&
                         ` · ${duration(task.started_at, task.finished_at === '' ? now : Date.parse(task.finished_at))}`}
                     </span>

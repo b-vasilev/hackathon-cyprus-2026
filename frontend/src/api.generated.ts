@@ -1371,6 +1371,7 @@ export interface components {
               kind: string;
               status: string;
               attempt: number;
+              max_attempts?: number;
               started_at: string;
               finished_at: string;
             }[];

@@ -21,6 +21,13 @@ binary; the integrating chat owns rebuild/restart and end-to-end verification.
 | repair-views.md | Legacy whole-Views repair reference, unused by chunked composition |
 | ../../research/prompts/ | Source investigation owned separately from generation |
 
+The passport is a concise architectural explanation over a detailed canonical
+model. Composition uses soft starting sizes, groups related prose/table content,
+and keeps supporting chapters short or absent. Architecture retains a whole-system
+view and focused views of consequential complex subsystems; suggested sizes must
+never flatten architectural levels or hide material boundaries. Complete repository
+and technology coverage and canonical scenario accounting remain intact.
+
 The recipe loader uses passport.ChapterIDs(): overview -> repositories ->
 architecture -> scenarios -> technologies, then useful data/runtime/development/
 operations and conditional decisions/ownership. Legacy users/capabilities normally
