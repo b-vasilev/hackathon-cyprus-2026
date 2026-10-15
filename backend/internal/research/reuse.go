@@ -110,7 +110,7 @@ func checkpointWorkspace(collection source.Collection) (*workspace, error) {
 }
 
 func validatePinnedDocument(doc source.Document) error {
-	if doc.LineCount != len(strings.Split(doc.Content, "\n")) {
+	if doc.LineCount != strings.Count(doc.Content, "\n")+1 {
 		return fmt.Errorf("pinned source line count changed: %s", doc.Path)
 	}
 	if doc.ContentHash != "" {

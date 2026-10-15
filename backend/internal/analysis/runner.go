@@ -208,6 +208,7 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 		if previousArea != task.ID {
 			recent = nil
 			stalled = 0
+			s.lastToolFailure = ""
 		}
 		previousArea = task.ID
 		checkpoint = s.store.Checkpoint()
@@ -216,6 +217,10 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 			return err
 		}
 		windowContext += "\nThis is a fresh bounded model window. Earlier accepted parts/read evidence remain in the durable store; inspect paged tools for details. Additional instructions are available through read_analysis_instructions. Save useful model parts before ending this window; do not print a final JSON document."
+		if s.lastToolFailure != "" {
+			failure, _ := json.Marshal(s.lastToolFailure)
+			windowContext += "\nLast rejected action (diagnostic data): " + string(failure) + "\nCorrect this specific field or reference. Save one small draft entity first; supporting claims and evidence can be attached in later parts. Do not repeat unrelated discovery or recreate the full model."
+		}
 		s.emit("Analyzing area: " + task.Title)
 		before := analysisProgressKey(checkpoint)
 		recent, err = s.runWindow(ctx, agent, config, modelID, windowContext, recent, min(windowSteps, maxTurns-s.turns), windowBytes)
@@ -232,6 +237,9 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 			stalled = 0
 		}
 		if stalled >= 3 {
+			if s.lastToolFailure != "" {
+				return fmt.Errorf("analysis repeatedly failed to save progress; last rejected action: %s; accepted parts and source reads are preserved for retry", s.lastToolFailure)
+			}
 			return errors.New("analysis repeatedly returned without saving progress; accepted parts and source reads are preserved for retry")
 		}
 		if err := ctx.Err(); err != nil {

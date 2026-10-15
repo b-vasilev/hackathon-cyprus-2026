@@ -37,7 +37,7 @@ func TestOpenAndMigrate(t *testing.T) {
 		if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 			t.Fatal(err)
 		}
-		if version != 8 || dirty != 0 {
+		if version != 9 || dirty != 0 {
 			t.Fatalf("migration state = %d/%d", version, dirty)
 		}
 		if err := database.Close(); err != nil {

@@ -209,7 +209,7 @@ func (s *Service) loadSavedSources(ctx context.Context, runID string) (source.Co
 				return collection, fmt.Errorf("saved source %s checksum mismatch", document.ID)
 			}
 		}
-		if len(strings.Split(document.Content, "\n")) != document.LineCount {
+		if strings.Count(document.Content, "\n")+1 != document.LineCount {
 			return collection, fmt.Errorf("saved source %s line count mismatch", document.ID)
 		}
 	}

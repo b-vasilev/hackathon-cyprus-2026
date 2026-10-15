@@ -48,7 +48,7 @@ var discoveryPatterns = []struct {
 }
 
 func buildInventory(collection source.Collection) Inventory {
-	inv := Inventory{Note: "Candidates from indexed files only. Name/content heuristics can miss dynamic wiring and unsupported formats; classification and range checks do not prove semantic completeness."}
+	inv := Inventory{Note: "Research major runtime source areas and repository responsibilities. Individual manifests, entrypoints, registries, configurations, text references and support areas are optional navigation hints, not separate coverage obligations. Read representative flows; promote a hint only for a concrete architectural question. Name/content heuristics and range checks do not prove semantic completeness."}
 	counts := map[string]int{}
 	identities := map[string][]string{}
 	for _, doc := range collection.Documents {
@@ -76,16 +76,8 @@ func buildInventory(collection source.Collection) Inventory {
 		file := doc.SnapshotID + "/" + doc.Path
 		area := sourceArea(doc.Path)
 		add(doc.SnapshotID, doc.SnapshotID+"/"+area, "source_area", "Indexed directory group; inspect and classify its responsibility or exclusion.", 0, "")
-		// Also expose internal module/variant directory candidates. A project root
-		// alone must not hide a central engine's immediate responsibilities.
-		dirParts, areaParts := strings.Split(path.Dir(doc.Path), "/"), strings.Split(area, "/")
-		if area != "." && len(dirParts) > len(areaParts) {
-			end := len(areaParts) + 1
-			add(doc.SnapshotID, doc.SnapshotID+"/"+strings.Join(dirParts[:end], "/"), "source_area", "Immediate source-area child; verify its responsibility, not just the project root.", 0, "")
-			if end < len(dirParts) && slices.Contains([]string{"adapters", "providers", "plugins", "targets", "sources", "modules", "components", "features", "handlers"}, strings.ToLower(dirParts[end-1])) {
-				add(doc.SnapshotID, doc.SnapshotID+"/"+strings.Join(dirParts[:end+1], "/"), "source_area", "Directory below a possible variant/module group; determine whether its behavior materially differs.", 0, "")
-			}
-		}
+		// Nested helpers and variants remain searchable without each creating
+		// a separate discovery obligation.
 		base := strings.ToLower(path.Base(doc.Path))
 		if isManifest(base) {
 			add(doc.SnapshotID, file, "manifest", "Build/package manifest filename.", 1, "")
@@ -93,10 +85,12 @@ func buildInventory(collection source.Collection) Inventory {
 		if isConfig(base, doc.Path) {
 			add(doc.SnapshotID, file, "configuration", "Build, deployment, CI or application configuration filename.", 1, "")
 		}
-		for index, line := range strings.Split(doc.Content, "\n") {
+		lineNumber := 0
+		for line := range strings.SplitSeq(doc.Content, "\n") {
+			lineNumber++
 			for _, pattern := range discoveryPatterns {
 				if pattern.re.MatchString(line) {
-					add(doc.SnapshotID, file, pattern.kind, "Static source pattern; verify behavior and variants by reading.", index+1, "")
+					add(doc.SnapshotID, file, pattern.kind, "Static source pattern; verify behavior and variants by reading.", lineNumber, "")
 				}
 			}
 			for target, names := range identities {
@@ -105,7 +99,7 @@ func buildInventory(collection source.Collection) Inventory {
 				}
 				for _, name := range names {
 					if strings.Contains(line, name) {
-						add(doc.SnapshotID, file, "repository_reference", "Text mentions another supplied repository's manifest identity; verify both endpoints or explain the false lead.", index+1, target)
+						add(doc.SnapshotID, file, "repository_reference", "Text mentions another supplied repository's manifest identity; verify both endpoints or explain the false lead.", lineNumber, target)
 					}
 				}
 			}
@@ -139,7 +133,7 @@ func isConfig(base, file string) bool {
 }
 
 func (w *workspace) inventoryTool() fantasy.AgentTool {
-	return fantasy.NewAgentTool("list_research_inventory", "Page through the independent candidate map BEFORE planning. These are hints, not verified architecture or a completeness guarantee. Every candidate needs an explicit disposition in set_research_plan. offset=0, limit=60; use exact candidate IDs.", func(_ context.Context, input listInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
+	return fantasy.NewAgentTool("list_research_inventory", "Inspect architecture source areas and optional file hints. Only major runtime source areas and repositories need coverage by default; do not classify or read every hinted file. Promote a file hint with an explicit deferred disposition only when a concrete product flow or external contract requires it. offset=0, limit=60; use exact candidate IDs.", func(_ context.Context, input listInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
 		if err := w.tick("Reviewing independent repository candidates."); err != nil {
 			return fantasy.ToolResponse{}, err
 		}

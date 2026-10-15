@@ -7,7 +7,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 )
 
-func TestResearchQueuePrioritizesProductOverAgentGuidanceAndCI(t *testing.T) {
+func TestResearchQueueKeepsGuidanceAndCIOutOfIndependentDiscovery(t *testing.T) {
 	w, _, _ := coverageFixture()
 	for _, file := range []string{".agents/skills/review.md", ".claude/commands/test.md", ".codex/config.toml", "AGENTS.md", "CLAUDE.md", ".github/workflows/build.yml"} {
 		p := "repo/" + file
@@ -24,8 +24,8 @@ func TestResearchQueuePrioritizesProductOverAgentGuidanceAndCI(t *testing.T) {
 		}
 	}
 	tasks := w.researchTasks()
-	if len(tasks) < 2 || tasks[len(tasks)-1].Key != "scope/repo/.github/workflows/build.yml" {
-		t.Fatalf("CI was scheduled before product work: %+v", tasks)
+	if slices.ContainsFunc(tasks, func(task researchTask) bool { return task.Key == "scope/repo/.github/workflows/build.yml" }) {
+		t.Fatal("support workflow became an independent architecture responsibility")
 	}
 	// Explicit evidence can bring an instruction area into product scope.
 	if err := w.setPlan(planInput{Candidates: []candidateDisposition{{CandidateID: "repo/AGENTS.md", Class: "docs", Disposition: "deferred", Reason: "Runtime code reads this file; inspect its product role"}}}); err != nil {
@@ -92,5 +92,27 @@ func TestWorkerPublishesAnswersBeforeFinishingAndCanCorrectThem(t *testing.T) {
 	}
 	if w.toolCalls != 7 || w.mcpReads != 2 || w.plan[0].Implementation[0].Finding != "Corrected implementation finding" {
 		t.Fatal("final merge lost corrections or counted tool usage incorrectly")
+	}
+}
+
+func TestRefinementWorkerCannotCreateMoreResponsibilities(t *testing.T) {
+	w, plan, _ := coverageFixture()
+	if err := w.setPlan(plan); err != nil {
+		t.Fatal(err)
+	}
+	local, err := w.forkTask(researchTask{Key: "responsibility/repo/execution", Boundaries: []string{"execution"}, Candidates: slices.Clone(w.inventory.Candidates)}, taskTurns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := answerInput{Responsibility: "execution", Repository: "repo", Role: "implementation", Evidence: plan.Boundaries[0].Implementation}
+	if err := local.saveAnswer(answer); err != nil {
+		t.Fatalf("could not finish assigned responsibility: %v", err)
+	}
+	answer.Responsibility = "execution helper"
+	if err := local.saveAnswer(answer); err == nil {
+		t.Fatal("refinement created another four questions for an internal helper")
+	}
+	if len(local.plan) != 1 || len(local.ledger.Findings) != 1 {
+		t.Fatal("rejected expansion changed the plan or findings")
 	}
 }

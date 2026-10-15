@@ -26,9 +26,15 @@ type researchQuestion struct {
 
 func (w *workspace) availablePath(scope string) bool {
 	prefix := path.Clean(scope)
-	for _, file := range w.paths {
-		if file != prefix && !strings.HasPrefix(file, prefix+"/") {
-			continue
+	paths := w.sourceIndex().paths
+	if _, exists := w.documents[prefix]; exists && w.readFailures[prefix] == "" {
+		return true
+	}
+	prefix += "/"
+	start, _ := slices.BinarySearch(paths, prefix)
+	for _, file := range paths[start:] {
+		if !strings.HasPrefix(file, prefix) {
+			break
 		}
 		if w.readFailures[file] == "" {
 			return true
@@ -81,6 +87,9 @@ func (w *workspace) pendingQuestions() []researchQuestion {
 	}
 	for _, c := range w.inventory.Candidates {
 		d, ok := dispositions[c.ID]
+		if !isResearchCandidate(c, d) {
+			continue
+		}
 		if ok && d.Disposition != "deferred" {
 			continue
 		}
@@ -164,7 +173,7 @@ func (w *workspace) continuationPrompt(orientation string, remaining int) string
 		turnsRemaining = remaining
 	}
 	state, _ := json.Marshal(map[string]any{"remaining_model_turns": turnsRemaining, "responsibilities": w.plan, "handoffs": w.ledger.Plan.Handoffs, "frontier": w.frontierSummary()})
-	return orientation + "\nContinue useful source investigation across the full supplied scope. Previous model text or a deferred classification is not a stopping reason. Resolve known role/handoff gaps, then independent source areas and material variants; prioritize product behavior over inventory bookkeeping. Do not repeat completed reads or findings. Retain new findings incrementally and update only changed plan entries. Review next_research_questions for the remaining branches.\nRESUME STATE (verified original document IDs/read ranges remain available; findings below are retained verbatim):\n" + string(state) + "\nRETAINED FINDINGS:\n" + w.submittedNotes
+	return orientation + "\nClose existing subsystem and handoff questions before expanding discovery. Keep helpers, branches and related variants under their existing responsibility. Investigate a new responsibility only when it changes the product architecture or a main end-to-end scenario. New evidence earns more turns only when the open question count also falls. Do not repeat completed reads or findings. Retain new findings incrementally and update only changed plan entries. Review next_research_questions for the remaining branches.\nRESUME STATE (verified original document IDs/read ranges remain available; findings below are retained verbatim):\n" + string(state) + "\nRETAINED FINDINGS:\n" + w.submittedNotes
 }
 
 func (w *workspace) questionTool() fantasy.AgentTool {

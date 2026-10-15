@@ -71,7 +71,7 @@ func (w *workspace) restore(checkpoint Checkpoint) error {
 	w.summaryNotes = strings.TrimPrefix(checkpoint.Notes, prefix)
 	w.submittedNotes = w.findingsText(w.summaryNotes)
 	if strings.TrimSpace(w.submittedNotes) != "" {
-		if _, err := w.evidenceContext(w.submittedNotes); err != nil {
+		if _, err := w.evidenceRanges(w.submittedNotes); err != nil {
 			return fmt.Errorf("restore research findings: %w", err)
 		}
 	} else if checkpoint.Ledger.Status == researchComplete {

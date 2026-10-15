@@ -29,7 +29,7 @@ type Task struct {
 	Title      string   `json:"title"`
 	Question   string   `json:"question"`
 	FindingIDs []string `json:"finding_ids"`
-	Status     string   `json:"status" jsonschema:"One of pending, active, done."`
+	Status     string   `json:"status" enum:"pending,active,done" jsonschema:"One of pending, active, done."`
 }
 
 // Input contains pinned sources, bounded research records and optional saved state.
@@ -81,7 +81,7 @@ type ModelPart struct {
 
 // EntityRemoval explicitly removes a mistaken entity, leaving references visible.
 type EntityRemoval struct {
-	Kind string `json:"kind" jsonschema:"One of object, relation, scenario, claim, evidence."`
+	Kind string `json:"kind" enum:"object,relation,scenario,claim,evidence" jsonschema:"One of object, relation, scenario, claim, evidence."`
 	ID   string `json:"id"`
 }
 

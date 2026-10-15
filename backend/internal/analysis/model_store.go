@@ -369,11 +369,12 @@ func (store *ModelStore) RecordRead(ctx context.Context, documentID string, span
 	if err := store.validateRange(documentID, span); err != nil {
 		return err
 	}
-	next := cloneCheckpoint(store.state)
-	next.ReadRanges[documentID] = mergeRanges(append(next.ReadRanges[documentID], span))
-	if reflect.DeepEqual(next.ReadRanges, store.state.ReadRanges) {
+	ranges := mergeRanges(append(slices.Clone(store.state.ReadRanges[documentID]), span))
+	if slices.Equal(ranges, store.state.ReadRanges[documentID]) {
 		return nil
 	}
+	next := cloneCheckpoint(store.state)
+	next.ReadRanges[documentID] = ranges
 	next.LastChange = &Change{Kind: "source_read", EntityIDs: []string{documentID}}
 	return store.publish(ctx, next)
 }
@@ -520,15 +521,24 @@ func (store *ModelStore) issuesLocked() []Issue {
 		}
 	}
 	for _, value := range store.state.Model.Claims {
+		if value.Basis == "source_backed" && len(value.EvidenceIDs) == 0 {
+			issues = append(issues, Issue{Code: "missing_evidence", EntityID: value.ID, Message: "Source-backed claim needs exact read source evidence: " + value.ID})
+		}
 		refs(value.ID, "evidence", value.EvidenceIDs, evidence)
 	}
 	for _, value := range store.state.Model.Objects {
+		if len(value.ClaimIDs) == 0 {
+			issues = append(issues, Issue{Code: "missing_claims", EntityID: value.ID, Message: "Object needs supporting claims: " + value.ID})
+		}
 		refs(value.ID, "claim", value.ClaimIDs, claims)
 		if value.ParentID != "" {
 			refs(value.ID, "parent object", []string{value.ParentID}, objects)
 		}
 	}
 	for _, value := range store.state.Model.Relations {
+		if len(value.ClaimIDs) == 0 {
+			issues = append(issues, Issue{Code: "missing_claims", EntityID: value.ID, Message: "Relation needs supporting claims: " + value.ID})
+		}
 		refs(value.ID, "object", []string{value.From, value.To}, objects)
 		refs(value.ID, "claim", value.ClaimIDs, claims)
 	}

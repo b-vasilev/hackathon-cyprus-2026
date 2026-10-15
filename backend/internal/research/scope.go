@@ -1,9 +1,34 @@
 package research
 
 import (
+	"path"
 	"slices"
 	"strings"
 )
+
+// File patterns are navigation hints, not a checklist for an architecture
+// passport. Read support areas only when a concrete product flow needs them.
+func isArchitectureScope(c Candidate) bool {
+	if c.Kind == "repository" {
+		return true
+	}
+	if c.Kind != "source_area" {
+		return false
+	}
+	file := strings.TrimPrefix(path.Clean(c.Path), c.Repository+"/")
+	for _, part := range strings.Split(strings.ToLower(file), "/") {
+		if slices.Contains([]string{".github", ".agents", ".claude", ".codex", "docs", "doc", "tests", "test", "tools", "scripts", "examples", "fixtures", "benchmarks", "vendor", "generated"}, part) {
+			return false
+		}
+	}
+	return true
+}
+
+func isResearchCandidate(c Candidate, d candidateDisposition) bool {
+	// An explicit classification can promote a hint when source investigation
+	// establishes that it matters to a product scenario or external contract.
+	return isArchitectureScope(c) || d.Disposition != ""
+}
 
 // These conventional instruction locations are available as evidence, but do
 // not need independent research unless product code actually uses them.

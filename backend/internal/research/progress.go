@@ -218,6 +218,9 @@ func (w *workspace) state() State {
 	groups := map[string]*AreaProgress{}
 	for _, c := range w.inventory.Candidates {
 		d := dispositions[c.ID]
+		if !isResearchCandidate(c, d) {
+			continue
+		}
 		if d.Disposition == "included" {
 			continue
 		}

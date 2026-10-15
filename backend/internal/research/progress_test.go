@@ -124,7 +124,7 @@ func TestBudgetDoesNotCreditRestoredEvidenceAndHonorsHardLimits(t *testing.T) {
 	}
 }
 
-func TestDynamicResearchContinuesPastSixtyTurns(t *testing.T) {
+func TestNewEvidenceWithoutFewerQuestionsStopsWithPartialPlan(t *testing.T) {
 	w, plan, notes := budgetFixture(t)
 	turns := 0
 	agent := scriptedResearchAgent{generate: func(ctx context.Context, call fantasy.AgentCall) (response *fantasy.AgentResult, resultErr error) {
@@ -157,15 +157,6 @@ func TestDynamicResearchContinuesPastSixtyTurns(t *testing.T) {
 					return nil, err
 				}
 			}
-			if turns == 65 {
-				plan.Candidates[0].Disposition = "included"
-				if err := w.setPlan(plan); err != nil {
-					return nil, err
-				}
-				if err := w.checkCoverage(coverageInput{Status: "complete"}); err != nil {
-					return nil, err
-				}
-			}
 			steps = append(steps, scriptedStep(2, 1).Steps[0])
 			if call.StopWhen[0](steps) {
 				return &fantasy.AgentResult{Steps: steps}, nil
@@ -181,8 +172,48 @@ func TestDynamicResearchContinuesPastSixtyTurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Steps != 65 || result.InputTokens != 130 || last == nil || last.Status != "complete" || last.Budget.Limit != 70 {
-		t.Fatalf("dynamic continuation lost budget, usage or final progress: %+v state=%+v", result, last)
+	if result.Steps != 50 || result.InputTokens != 100 || last == nil || last.Status != researchPartial || last.Budget.Limit != 50 {
+		t.Fatalf("new lines kept flat-frontier research running: %+v state=%+v", result, last)
+	}
+	if reachableQuestions(*last) != 1 || len(w.ledger.Frontier) == 0 || !strings.Contains(w.ledger.StopReason, "converge") {
+		t.Fatal("stopping lost the open question or convergence reason")
+	}
+}
+
+func TestGrowingFrontierCannotEarnExtensions(t *testing.T) {
+	w, plan, notes := budgetFixture(t)
+	if err := w.saveFinding(researchFinding{Name: "initial", Notes: notes}); err != nil {
+		t.Fatal(err)
+	}
+	w.startBudget() // One existing question; source evidence already credited.
+	helper := plan.Boundaries[0]
+	helper.Name = "helper"
+	helper.Implementation, helper.Callers, helper.Contracts, helper.Validation = nil, nil, nil, nil
+	if err := w.setPlan(planInput{Boundaries: []researchBoundary{helper}}); err != nil {
+		t.Fatal(err)
+	}
+	w.turn = 30
+	if !w.reviewBudget() || w.budget.decisions[1].Kind != "recovery" || w.budget.pending != 1 {
+		t.Fatal("growing the frontier earned an extension or raised its baseline")
+	}
+	// Answer a new question with fresh source lines. The frontier is smaller
+	// than at recovery, but still larger than before expansion.
+	if err := w.saveAnswer(answerInput{Responsibility: "helper", Repository: "repo", Role: "implementation", Evidence: []roleEvidence{{Path: "repo/internal/engine/run.go", StartLine: 1, EndLine: 6, Finding: "Helper implementation"}}}); err != nil {
+		t.Fatal(err)
+	}
+	w.turn = 40
+	if w.reviewBudget() || !w.budget.stopped || w.activeLimit() != 40 {
+		t.Fatal("new evidence on newly created questions extended a growing frontier")
+	}
+}
+
+func TestParallelRecoveryIsShort(t *testing.T) {
+	w, _, _ := budgetFixture(t)
+	w.turnBudget = 0
+	w.startParallelBudget(defaultParallelism)
+	w.turn = w.activeLimit()
+	if !w.reviewBudget() || w.activeLimit()-w.turn != 30 || w.budget.decisions[1].Kind != "recovery" {
+		t.Fatal("recovery allocated another full worker-pool allowance")
 	}
 }
 

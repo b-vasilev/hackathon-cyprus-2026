@@ -190,6 +190,11 @@ func (w *workspace) validateHandoffs(items []repositoryHandoff, boundaries map[s
 		if err := w.validateRoles(h.ID, "", h.roles(), h.Gaps, true); err != nil {
 			return nil, err
 		}
+		for role, refs := range h.roles() {
+			if len(refs) == 0 && !slices.ContainsFunc(h.Gaps, func(g roleGap) bool { return g.Role == role }) {
+				return nil, fmt.Errorf("handoff %s: missing %s evidence needs an explicit research_gap", h.ID, role)
+			}
+		}
 		for role, repo := range map[string]string{"producer": from.Repository, "consumer": to.Repository} {
 			for _, ref := range h.roles()[role] {
 				if w.documents[ref.Path].SnapshotID != repo {
@@ -364,6 +369,9 @@ func (w *workspace) unfinishedFrontier() []string {
 	}
 	for _, c := range w.inventory.Candidates {
 		d, ok := dispositions[c.ID]
+		if !isResearchCandidate(c, d) {
+			continue
+		}
 		if !ok {
 			frontier = append(frontier, "unclassified "+c.Kind+": "+c.Path)
 		} else if d.Disposition == "deferred" {
@@ -551,6 +559,9 @@ func (w *workspace) checkCoverage(input coverageInput) error {
 	}
 	for _, c := range w.inventory.Candidates {
 		d, ok := dispositions[c.ID]
+		if !isResearchCandidate(c, d) {
+			continue
+		}
 		if !ok {
 			frontier = append(frontier, "unclassified "+c.Kind+": "+c.Path)
 		} else if d.Disposition == "deferred" {
@@ -579,7 +590,7 @@ func (w *workspace) checkCoverage(input coverageInput) error {
 		}
 		w.ledger.StopReason = reason
 	}
-	if _, err := w.evidenceContext(input.Notes); err != nil {
+	if _, err := w.evidenceRanges(input.Notes); err != nil {
 		return err
 	}
 	w.checkedNotes = input.Notes
@@ -602,7 +613,7 @@ func (w *workspace) saveFinding(input researchFinding) error {
 	if strings.TrimSpace(input.Name) == "" {
 		return errors.New("a finding needs a responsibility or route name")
 	}
-	if _, err := w.evidenceContext(input.Notes); err != nil {
+	if _, err := w.evidenceRanges(input.Notes); err != nil {
 		return err
 	}
 	if slices.Contains(w.ledger.Findings, input) {
