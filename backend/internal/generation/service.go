@@ -148,7 +148,7 @@ func New(database *sql.DB, connections *llmgateway.Store, generator Generator, c
 // Start persists a source manifest and queue message in one transaction.
 func (s *Service) Start(ctx context.Context, productID string, input Input) (Run, error) {
 	if s.Connections == nil {
-		return Run{}, errors.New("configure LLM_MASTER_KEY before creating model connections")
+		return Run{}, errors.New("configure CONNECTION_MASTER_KEY before creating model connections")
 	}
 	p, err := s.Products.Get(ctx, productID)
 	if err != nil {
@@ -282,7 +282,7 @@ func (s *Service) Work(ctx context.Context) {
 //nolint:gocyclo // Keep the ordered generation stages and their failure boundaries visible together.
 func (s *Service) process(ctx context.Context, run Run) error {
 	if s.Connections == nil {
-		return errors.New("connection storage is unavailable; configure LLM_MASTER_KEY and start a new run")
+		return errors.New("connection storage is unavailable; configure CONNECTION_MASTER_KEY and start a new run")
 	}
 	if checkErr := s.stage(ctx, run.ID, "collecting"); checkErr != nil {
 		return checkErr
@@ -323,6 +323,9 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	if err != nil {
 		return fmt.Errorf("collect generation sources: %w", err)
 	}
+	if checkErr := s.saveSources(ctx, run.ID, collection); checkErr != nil {
+		return checkErr
+	}
 	var contextText string
 	if s.Research != nil {
 		collection, contextText, err = s.researchSources(ctx, run, collection)
@@ -331,9 +334,6 @@ func (s *Service) process(ctx context.Context, run Run) error {
 		}
 	} else {
 		contextText = source.Context(collection)
-	}
-	if checkErr := s.saveSources(ctx, run.ID, collection); checkErr != nil {
-		return checkErr
 	}
 	if !selected {
 		if checkErr := s.event(ctx, run.ID, "stage_skipped", "selecting_sources", "Source selection was not needed for these inputs."); checkErr != nil {

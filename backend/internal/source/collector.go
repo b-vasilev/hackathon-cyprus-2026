@@ -316,7 +316,9 @@ func (c *Collector) packRepository(ctx context.Context, dir string, repository *
 			return nil, fmt.Errorf("write source evidence: %w", checkErr)
 		}
 	}
-	config := map[string]any{"output": map[string]any{"filePath": output, "style": "json", "removeComments": false, "removeEmptyLines": false, "showLineNumbers": false, "compress": false, "fileSummary": false}, "security": map[string]any{"enableSecurityCheck": true}, "ignore": map[string]any{"useGitignore": true, "useDefaultPatterns": true, "customPatterns": []string{"**/.env*", "**/*.pem", "**/*.key", "**/credentials*", "**/package-lock.json", "**/go.sum", "**/pnpm-lock.yaml", "**/yarn.lock", "**/*.min.js", "**/*.svg", "**/*.lock"}}}
+	// Files were selected from the pinned Git tree. The host repository's ignore
+	// rules must not hide this staging directory (for example, backend/data).
+	config := map[string]any{"output": map[string]any{"filePath": output, "style": "json", "removeComments": false, "removeEmptyLines": false, "showLineNumbers": false, "compress": false, "fileSummary": false}, "security": map[string]any{"enableSecurityCheck": true}, "ignore": map[string]any{"useGitignore": false, "useDefaultPatterns": true, "customPatterns": []string{"**/.env*", "**/*.pem", "**/*.key", "**/credentials*", "**/package-lock.json", "**/go.sum", "**/pnpm-lock.yaml", "**/yarn.lock", "**/*.min.js", "**/*.svg", "**/*.lock"}}}
 	patterns := make([]string, 0, len(selected))
 	escape := strings.NewReplacer("\\", "\\\\", "*", "\\*", "?", "\\?", "[", "\\[", "]", "\\]", "{", "\\{", "}", "\\}", "!", "\\!")
 	for _, path := range selected {
@@ -360,6 +362,9 @@ func (c *Collector) packRepository(ctx context.Context, dir string, repository *
 			safe[path] = content
 		}
 	}
+	if len(safe) == 0 {
+		return nil, errors.New("repomix did not retain any selected source files after filtering")
+	}
 	return safe, nil
 }
 
@@ -367,7 +372,7 @@ func (c *Collector) commandEnv(dir string) []string {
 	env := make([]string, 0)
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
-		if strings.HasPrefix(name, "GIT_") || slices.Contains([]string{"TMPDIR", "LLM_MASTER_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN", "GITHUB_OAUTH_CLIENT_SECRET"}, name) {
+		if strings.HasPrefix(name, "GIT_") || slices.Contains([]string{"TMPDIR", "CONNECTION_MASTER_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN", "GITHUB_OAUTH_CLIENT_SECRET"}, name) {
 			continue
 		}
 		env = append(env, entry)

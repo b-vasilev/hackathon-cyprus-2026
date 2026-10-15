@@ -36,6 +36,14 @@ type Result struct {
 	DurationMS                 int64
 }
 
+// Progress reports activity and the usage of each completed model turn.
+type Progress struct {
+	Message                   string
+	Step                      int
+	InputTokens, OutputTokens int64
+	DurationMS                int64
+}
+
 type workspace struct {
 	documents           map[string]source.Document
 	paths               []string
@@ -46,11 +54,14 @@ type workspace struct {
 }
 
 // Run gives the model access to the full safe source package, with bounded paged tool results.
-func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, event func(string) error) (Result, error) {
+//
+//nolint:gocyclo // Keep workspace setup, model turns and coverage checks in one lifecycle.
+func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, progress func(Progress) error) (Result, error) {
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, 12*time.Minute)
 	defer cancel()
 	result := Result{}
+	event := func(message string) error { return progress(Progress{Message: message}) }
 	if err := os.MkdirAll(r.WorkDir, 0o700); err != nil {
 		return result, fmt.Errorf("create research workspace: %w", err)
 	}
@@ -98,11 +109,37 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 		fmt.Fprintf(&orientation, "Repository %s at %s; workspace prefix %s/; %d available files\n", snapshot.Locator, snapshot.Revision, snapshot.ID, snapshot.Coverage.FileCount)
 	}
 	maxOutput := int64(6000)
+	reportedSteps := 0
+	var stepStarted time.Time
+	reportUsage := func(steps []fantasy.StepResult) error {
+		for reportedSteps < len(steps) {
+			usage := steps[reportedSteps].Usage
+			step := reportedSteps + 1
+			if checkErr := progress(Progress{
+				Message:      fmt.Sprintf("Research model turn %d completed. Recorded usage: %d input tokens and %d output tokens.", step, usage.InputTokens, usage.OutputTokens),
+				Step:         step,
+				InputTokens:  usage.InputTokens,
+				OutputTokens: usage.OutputTokens,
+				DurationMS:   time.Since(stepStarted).Milliseconds(),
+			}); checkErr != nil {
+				return fmt.Errorf("report research usage: %w", checkErr)
+			}
+			reportedSteps++
+		}
+		return nil
+	}
 	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: orientation.String() + "Investigate this complete product scope and prepare source-backed findings.", MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{fantasy.StepCountIs(24)}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
+		if checkErr := reportUsage(options.Steps); checkErr != nil {
+			return stepCtx, fantasy.PrepareStepResult{}, checkErr
+		}
+		stepStarted = time.Now()
 		return stepCtx, fantasy.PrepareStepResult{}, event(fmt.Sprintf("Research model turn %d started.", options.StepNumber+1))
 	}})
 	if err != nil {
 		return result, errors.New("repository research failed through the selected connection; check protocol support, endpoint availability and timeout")
+	}
+	if checkErr := reportUsage(response.Steps); checkErr != nil {
+		return result, checkErr
 	}
 	notes := response.Response.Content.Text()
 	if !strings.Contains(notes, "RESEARCH_COMPLETE") || strings.Contains(notes, "RESEARCH_INCOMPLETE") {

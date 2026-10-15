@@ -1,4 +1,5 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set dotenv-load := true
 
 mod backend
 mod frontend
@@ -10,7 +11,7 @@ default:
 # Install the dependencies used by the API, UI and source packager.
 setup: backend::deps frontend::deps
 
-# Start both services and stop them together on exit or failure.
+# Start the backend, wait for readiness, then start the frontend.
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -31,6 +32,14 @@ dev:
     trap 'exit 143' TERM
     just backend::run &
     backend_pid=$!
+    echo 'Waiting for the backend to be ready...'
+    until curl --fail --silent --output /dev/null --max-time 1 http://127.0.0.1:8080/readyz; do
+        if ! kill -0 "$backend_pid" 2>/dev/null; then
+            wait "$backend_pid"
+            exit 1
+        fi
+        sleep 0.2
+    done
     just frontend::dev &
     frontend_pid=$!
     while kill -0 "$backend_pid" 2>/dev/null && kill -0 "$frontend_pid" 2>/dev/null; do

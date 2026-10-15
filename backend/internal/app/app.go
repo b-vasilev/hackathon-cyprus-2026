@@ -47,8 +47,8 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 		return fmt.Errorf("configure LLM network access: %w", err)
 	}
 	var connections *llmgateway.Store
-	if cfg.LLMMasterKey != "" {
-		connections, err = llmgateway.NewStore(database, cfg.LLMMasterKey)
+	if cfg.ConnectionMasterKey != "" {
+		connections, err = llmgateway.NewStore(database, cfg.ConnectionMasterKey)
 		if err != nil {
 			return fmt.Errorf("initialize LLM connections: %w", err)
 		}
@@ -58,8 +58,8 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	factory := generation.New(database, connections, client, collector, logger, files)
 	factory.Research = &research.Runner{Policy: policy, Limiter: client.Limiter, WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin}
 	var githubStore *githubconnection.Store
-	if cfg.LLMMasterKey != "" {
-		githubStore, err = githubconnection.NewStore(database, cfg.LLMMasterKey)
+	if cfg.ConnectionMasterKey != "" {
+		githubStore, err = githubconnection.NewStore(database, cfg.ConnectionMasterKey)
 		if err != nil {
 			return fmt.Errorf("initialize GitHub connection: %w", err)
 		}

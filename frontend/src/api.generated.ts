@@ -101,6 +101,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/llm-connections/models': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['listConnectionModels'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/llm-connections/{id}': {
     parameters: {
       query?: never;
@@ -300,6 +316,9 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AvailableModel: {
+      id: string;
+    };
     Claim: {
       id: string;
       text: string;
@@ -480,6 +499,45 @@ export interface components {
       output_mode: string;
       max_output_tokens: number;
       reasoning_effort: string;
+    };
+    ModelDiscoveryInput: {
+      connection_id: string;
+      config: {
+        name: string;
+        enabled: boolean;
+        protocol: string;
+        endpoint_url: string;
+        endpoint_mode: string;
+        auth_mode: string;
+        auth_header: string;
+        auth_prefix: string;
+        secret: string;
+        headers:
+          | null
+          | {
+              name: string;
+              value: string;
+              secret: boolean;
+            }[];
+        query_params:
+          | null
+          | {
+              name: string;
+              value: string;
+              secret: boolean;
+            }[];
+        models:
+          | null
+          | {
+              id: string;
+              output_mode: string;
+              max_output_tokens: number;
+              reasoning_effort: string;
+            }[];
+        timeout_seconds: number;
+        max_concurrent: number;
+        quota_group: string;
+      };
     };
     OAuthURL: {
       url: string;
@@ -1225,6 +1283,39 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Connection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listConnectionModels: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ModelDiscoveryInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AvailableModel'][];
         };
       };
       /** @description Request failed */

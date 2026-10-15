@@ -1,6 +1,18 @@
 {
   "components": {
     "schemas": {
+      "AvailableModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
       "Claim": {
         "type": "object",
         "properties": {
@@ -709,6 +721,160 @@
           "output_mode",
           "max_output_tokens",
           "reasoning_effort"
+        ],
+        "additionalProperties": false
+      },
+      "ModelDiscoveryInput": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "protocol": {
+                "type": "string"
+              },
+              "endpoint_url": {
+                "type": "string"
+              },
+              "endpoint_mode": {
+                "type": "string"
+              },
+              "auth_mode": {
+                "type": "string"
+              },
+              "auth_header": {
+                "type": "string"
+              },
+              "auth_prefix": {
+                "type": "string"
+              },
+              "secret": {
+                "type": "string"
+              },
+              "headers": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "secret": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "query_params": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "secret": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "models": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "output_mode": {
+                      "type": "string"
+                    },
+                    "max_output_tokens": {
+                      "type": "integer"
+                    },
+                    "reasoning_effort": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "output_mode",
+                    "max_output_tokens",
+                    "reasoning_effort"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "timeout_seconds": {
+                "type": "integer"
+              },
+              "max_concurrent": {
+                "type": "integer"
+              },
+              "quota_group": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "enabled",
+              "protocol",
+              "endpoint_url",
+              "endpoint_mode",
+              "auth_mode",
+              "auth_header",
+              "auth_prefix",
+              "secret",
+              "headers",
+              "query_params",
+              "models",
+              "timeout_seconds",
+              "max_concurrent",
+              "quota_group"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "connection_id",
+          "config"
         ],
         "additionalProperties": false
       },
@@ -3193,6 +3359,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/llm-connections/models": {
+      "post": {
+        "operationId": "listConnectionModels",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelDiscoveryInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AvailableModel"
+                  },
+                  "type": "array"
                 }
               }
             },

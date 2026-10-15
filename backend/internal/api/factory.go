@@ -62,6 +62,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("GET /api/llm-connections", f.connections)
 	mux.HandleFunc("POST /api/llm-connections", f.createConnection)
+	mux.HandleFunc("POST /api/llm-connections/models", f.listConnectionModels)
 	mux.HandleFunc("GET /api/llm-connections/{id}", f.connection)
 	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.updateConnection)
 	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.testConnection)
@@ -109,7 +110,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 
 func (f *Factory) requireConnections(w http.ResponseWriter) bool {
 	if f.Service.Connections == nil {
-		problem(w, http.StatusServiceUnavailable, "setup_required", "Set LLM_MASTER_KEY to a stable secret of at least 32 characters, then restart the API.")
+		problem(w, http.StatusServiceUnavailable, "setup_required", "Set CONNECTION_MASTER_KEY to a stable secret of at least 32 characters, then restart the API.")
 		return false
 	}
 	return true

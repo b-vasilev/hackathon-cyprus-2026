@@ -15,22 +15,22 @@ import (
 
 // Config contains process settings. Secrets and provider settings belong to their future modules.
 type Config struct {
-	HTTPAddr           string
-	DatabasePath       string
-	ContentDir         string
-	LogLevel           string
-	LogFormat          string
-	ShutdownTimeout    time.Duration
-	CORSOrigins        []string
-	LLMMasterKey       string
-	LLMPrivateOrigins  string
-	FactoryWorkDir     string
-	RepomixBin         string
-	GitHubToken        string
-	GitHubClientID     string
-	GitHubClientSecret string
-	GitHubRedirectURL  string
-	FrontendDir        string
+	HTTPAddr            string
+	DatabasePath        string
+	ContentDir          string
+	LogLevel            string
+	LogFormat           string
+	ShutdownTimeout     time.Duration
+	CORSOrigins         []string
+	ConnectionMasterKey string
+	LLMPrivateOrigins   string
+	FactoryWorkDir      string
+	RepomixBin          string
+	GitHubToken         string
+	GitHubClientID      string
+	GitHubClientSecret  string
+	GitHubRedirectURL   string
+	FrontendDir         string
 }
 
 // Load reads environment variables and fails on invalid settings.
@@ -46,18 +46,18 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return fallback
 	}
 	cfg := Config{
-		HTTPAddr:           get("HTTP_ADDR", "127.0.0.1:8080"),
-		DatabasePath:       get("DATABASE_PATH", "./data/onboarding.db"),
-		LogLevel:           get("LOG_LEVEL", "info"),
-		LogFormat:          get("LOG_FORMAT", "console"),
-		LLMMasterKey:       get("LLM_MASTER_KEY", ""),
-		LLMPrivateOrigins:  get("LLM_ALLOWED_PRIVATE_ORIGINS", ""),
-		RepomixBin:         get("REPOMIX_BIN", "repomix"),
-		GitHubToken:        get("GITHUB_TOKEN", ""),
-		GitHubClientID:     get("GITHUB_OAUTH_CLIENT_ID", ""),
-		GitHubClientSecret: get("GITHUB_OAUTH_CLIENT_SECRET", ""),
-		GitHubRedirectURL:  get("GITHUB_OAUTH_REDIRECT_URL", ""),
-		FrontendDir:        get("FRONTEND_DIR", ""),
+		HTTPAddr:            get("HTTP_ADDR", "127.0.0.1:8080"),
+		DatabasePath:        get("DATABASE_PATH", "./data/onboarding.db"),
+		LogLevel:            get("LOG_LEVEL", "info"),
+		LogFormat:           get("LOG_FORMAT", "console"),
+		ConnectionMasterKey: get("CONNECTION_MASTER_KEY", ""),
+		LLMPrivateOrigins:   get("LLM_ALLOWED_PRIVATE_ORIGINS", ""),
+		RepomixBin:          get("REPOMIX_BIN", "repomix"),
+		GitHubToken:         get("GITHUB_TOKEN", ""),
+		GitHubClientID:      get("GITHUB_OAUTH_CLIENT_ID", ""),
+		GitHubClientSecret:  get("GITHUB_OAUTH_CLIENT_SECRET", ""),
+		GitHubRedirectURL:   get("GITHUB_OAUTH_REDIRECT_URL", ""),
+		FrontendDir:         get("FRONTEND_DIR", ""),
 	}
 	cfg.ContentDir = get("PASSPORT_CONTENT_DIR", filepath.Join(filepath.Dir(cfg.DatabasePath), "content"))
 	if cfg.ContentDir == "" {
@@ -81,8 +81,8 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return Config{}, err
 	}
 	cfg.CORSOrigins = origins
-	if cfg.LLMMasterKey != "" && len(cfg.LLMMasterKey) < 32 {
-		return Config{}, errors.New("LLM_MASTER_KEY must contain at least 32 characters")
+	if cfg.ConnectionMasterKey != "" && len(cfg.ConnectionMasterKey) < 32 {
+		return Config{}, errors.New("CONNECTION_MASTER_KEY must contain at least 32 characters")
 	}
 	if err := validateGitHubOAuth(cfg); err != nil {
 		return Config{}, err
@@ -152,7 +152,7 @@ func validateGitHubOAuth(cfg Config) error {
 		return nil
 	}
 	message := "GitHub OAuth requires a master key, client ID, client secret and HTTPS callback URL ending in /api/git-connection/oauth/callback (HTTP is allowed on localhost)"
-	if cfg.GitHubClientID == "" || cfg.GitHubClientSecret == "" || cfg.LLMMasterKey == "" {
+	if cfg.GitHubClientID == "" || cfg.GitHubClientSecret == "" || cfg.ConnectionMasterKey == "" {
 		return errors.New(message)
 	}
 	callback, err := url.Parse(cfg.GitHubRedirectURL)

@@ -12,6 +12,16 @@ import (
 	"testing"
 )
 
+func TestCommandEnvStripsConnectionMasterKey(t *testing.T) {
+	t.Setenv("CONNECTION_MASTER_KEY", "test-master-key-must-not-reach-packager")
+	collector := &Collector{}
+	for _, entry := range collector.commandEnv("/work") {
+		if strings.HasPrefix(entry, "CONNECTION_MASTER_KEY=") {
+			t.Fatal("connection master key passed to source packager")
+		}
+	}
+}
+
 func TestCollectionPreservesOriginalGitBytes(t *testing.T) {
 	binary, resolveErr := filepath.Abs("../../../frontend/node_modules/.bin/repomix")
 	if resolveErr != nil {
@@ -21,6 +31,13 @@ func TestCollectionPreservesOriginalGitBytes(t *testing.T) {
 		t.Skip("install frontend dependencies to verify the Repomix integration")
 	}
 	dir := t.TempDir()
+	// Production workspaces live under backend/data, which the host repository ignores.
+	if _, err := git.PlainInit(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("selected/\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	node, err := exec.LookPath("node")
 	if err != nil {
 		t.Fatal(err)

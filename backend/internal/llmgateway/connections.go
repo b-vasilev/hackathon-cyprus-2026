@@ -185,11 +185,7 @@ func (s *Store) Save(ctx context.Context, id string, config Config) (Connection,
 		if err != nil {
 			return Connection{}, err
 		}
-		if config.AuthMode == "header" && config.Secret == "" {
-			config.Secret = old.Secret
-		}
-		preserveParameters(config.Headers, old.Headers)
-		preserveParameters(config.QueryParams, old.QueryParams)
+		preserveSecrets(&config, old)
 		revision = current.Revision + 1
 	} else {
 		id = rand.Text()
@@ -236,6 +232,33 @@ func (s *Store) Save(ctx context.Context, id string, config Config) (Connection,
 		return Connection{}, fmt.Errorf("commit connection: %w", err)
 	}
 	return s.Get(ctx, id)
+}
+
+// Prepare restores masked credentials and validates an unsaved connection draft.
+func (s *Store) Prepare(ctx context.Context, id string, config Config) (Config, error) {
+	if id != "" {
+		current, err := s.Get(ctx, id)
+		if err != nil {
+			return Config{}, err
+		}
+		old, err := s.Load(ctx, id, current.Revision)
+		if err != nil {
+			return Config{}, err
+		}
+		preserveSecrets(&config, old)
+	}
+	if err := Validate(&config); err != nil {
+		return Config{}, err
+	}
+	return config, nil
+}
+
+func preserveSecrets(next *Config, previous Config) {
+	if next.AuthMode == "header" && next.Secret == "" {
+		next.Secret = previous.Secret
+	}
+	preserveParameters(next.Headers, previous.Headers)
+	preserveParameters(next.QueryParams, previous.QueryParams)
 }
 
 func preserveParameters(next, previous []Parameter) {

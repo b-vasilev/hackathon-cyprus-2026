@@ -62,7 +62,7 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 		t.Fatal("patch lost the saved credential", err)
 	}
 	request(http.MethodPatch, "/api/llm-connections/"+connection.ID, `{"unexpected":true}`, http.StatusBadRequest)
-	request(http.MethodPatch, "/api/llm-connections/"+connection.ID, `{"endpoint_url":"http://127.0.0.1:80"}`, http.StatusBadRequest)
+	request(http.MethodPatch, "/api/llm-connections/"+connection.ID, `{"endpoint_url":"http://169.254.169.254:80"}`, http.StatusBadRequest)
 	request(http.MethodPost, "/api/products", `{"name":"Example","sources":[{"kind":"text","text":"Product purpose"}],"unknown":true}`, http.StatusBadRequest)
 	created := request(http.MethodPost, "/api/products", `{"name":"Example","sources":[{"kind":"text","text":"Product purpose"}]}`, http.StatusCreated)
 	var product struct {

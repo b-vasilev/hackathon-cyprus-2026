@@ -29,8 +29,9 @@ Install [mise](https://mise.jdx.dev/), then:
 mise trust
 mise install
 mise exec -- just setup
-# Generate once; keep this key stable across restarts.
-export LLM_MASTER_KEY="$(openssl rand -hex 32)"
+cp -n .env.example .env
+# Generate once and save the value as CONNECTION_MASTER_KEY in .env.
+openssl rand -hex 32
 mise exec -- just dev
 ```
 
@@ -38,7 +39,7 @@ Both services run together; Ctrl+C stops both.
 
 Open [the portal](http://127.0.0.1:5173). Add a connection, check its model,
 register a product with GitHub URLs or context, then generate its passport.
-Environment files are not loaded by `just`; export overrides in the shell.
+`just` automatically loads the project-root `.env`; exported shell variables take precedence.
 See `.env.example` for settings. Keep the master key outside version control and
 back it up separately: losing it makes saved credentials unreadable.
 
@@ -87,10 +88,15 @@ masked values; blank secret fields retain the saved value when editing. A job
 freezes its connection revision, model and source configuration when queued.
 Disabling a connection prevents new provider calls, including queued jobs.
 
-Public HTTPS is the default. HTTP or private endpoints require an exact trusted
-origin in `LLM_ALLOWED_PRIVATE_ORIGINS`; redirects and environment proxies are
-not followed. Public destinations are DNS-checked and pinned for each connection.
+Public HTTPS and local endpoints (localhost, loopback, and private networks) are
+allowed by default. Other HTTP or special-network endpoints require an exact
+trusted origin in `LLM_ALLOWED_PRIVATE_ORIGINS`. Redirects and environment proxies
+are not followed. Destinations are DNS-checked and pinned for each connection.
 Only allow destinations you control.
+
+In the connection editor, use **Fetch models** to request the provider’s `/models`
+list with the current URL, credentials, headers, and query parameters. You can
+choose a returned ID or type one manually, then configure its output settings.
 
 ### Optional LLM sidecar
 
@@ -118,7 +124,7 @@ for exact hashes and line citations.
 
 In **Connections**, connect GitHub with a personal access token. The account is
 shared across this portal and used for private source
-repositories. Tokens are checked against GitHub, encrypted using `LLM_MASTER_KEY`,
+repositories. Tokens are checked against GitHub, encrypted using `CONNECTION_MASTER_KEY`,
 and never returned by the API. A fine-grained token needs Contents read access to
 the selected repositories; organization approval may also be required.
 
@@ -126,8 +132,8 @@ Browser sign-in is implemented on the server; its UI button is temporarily hidde
 It requires a GitHub OAuth app. Set `GITHUB_OAUTH_CLIENT_ID`,
 `GITHUB_OAUTH_CLIENT_SECRET`, and `GITHUB_OAUTH_REDIRECT_URL`. Register the exact
 callback URL, ending in `/api/git-connection/oauth/callback`, in the OAuth app.
-Compose reads these settings from `.env`; local runs require exported environment
-variables. Use the portal's browser origin for the callback; HTTP is allowed only on localhost
+Compose and `just` read these settings from the project-root `.env`.
+Use the portal's browser origin for the callback; HTTP is allowed only on localhost
 or 127.0.0.1. OAuth requests the `repo` scope for private repository access and uses
 state and PKCE. If an OAuth access token expires, reconnect in Connections.
 Disconnect removes the saved credential; revoke provider access on GitHub if needed.
@@ -225,7 +231,7 @@ OpenAPI types are generated with openapi-typescript, not maintained by hand.
 CI configuration remains disabled; these commands run locally.
 
 ```sh
-# Compose reads .env; set a stable LLM_MASTER_KEY there first.
+# Compose reads .env; set a stable CONNECTION_MASTER_KEY there first.
 docker compose up --build api
 ```
 

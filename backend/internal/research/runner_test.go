@@ -28,6 +28,8 @@ func TestResearchProtocolsKeepGatewayAndSourceAnchors(t *testing.T) {
 	for _, protocol := range []string{"openai_responses", "openai_chat_completions", "anthropic_messages"} {
 		t.Run(protocol, func(t *testing.T) {
 			var calls atomic.Int64
+			var reportedTurns atomic.Int64
+			var inputTokens, outputTokens int64
 			args := map[string]any{"reads": []map[string]any{{"path": "repo1/main.go", "start_line": 1, "end_line": 2}, {"path": "repo2/runner.cs", "start_line": 1, "end_line": 2}}}
 			argsJSON, _ := json.Marshal(args)
 			notes := "Go invokes the converter. [AAAAAAAAAAAAAAAAAAAAAAAAAA:L1-L2]\nC# runs the stage. [BBBBBBBBBBBBBBBBBBBBBBBBBB:L1-L2]\nRESEARCH_COMPLETE"
@@ -46,6 +48,9 @@ func TestResearchProtocolsKeepGatewayAndSourceAnchors(t *testing.T) {
 					t.Errorf("model changed: %v", body["model"])
 				}
 				first := calls.Add(1) == 1
+				if !first && reportedTurns.Load() != 1 {
+					t.Error("the previous turn's usage was not reported before the next model call")
+				}
 				w.Header().Set("Content-Type", "application/json")
 				var value any
 				switch protocol {
@@ -84,7 +89,16 @@ func TestResearchProtocolsKeepGatewayAndSourceAnchors(t *testing.T) {
 			config := llmgateway.Config{Protocol: protocol, EndpointURL: server.URL + "/tenant/v1", EndpointMode: "base", AuthMode: "header", AuthHeader: "Authorization", AuthPrefix: "Bearer ", Secret: "fixture-secret", TimeoutSeconds: 20, MaxConcurrent: 1, Models: []llmgateway.Model{{ID: "test-model", OutputMode: "json_schema", MaxOutputTokens: 6000}}}
 			collection := source.Collection{Snapshots: []source.Snapshot{{ID: "repo1", Locator: "fixture-one", Coverage: source.Coverage{FileCount: 2}}, {ID: "repo2", Locator: "fixture-two", Coverage: source.Coverage{FileCount: 1}}}, Documents: []source.Document{{ID: "AAAAAAAAAAAAAAAAAAAAAAAAAA", SnapshotID: "repo1", Path: "main.go", Content: "package main\n// invokes converter", LineCount: 2}, {ID: "BBBBBBBBBBBBBBBBBBBBBBBBBB", SnapshotID: "repo2", Path: "runner.cs", Content: "// stage runner\nclass Runner {}", LineCount: 2}, {ID: "CCCCCCCCCCCCCCCCCCCCCCCCCC", SnapshotID: "repo1", Path: "unused.go", Content: "package unused", LineCount: 1}}}
 			runner := Runner{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8), WorkDir: t.TempDir(), RepomixBin: binary}
-			result, err := runner.Run(t.Context(), config, "test-model", collection, func(string) error { return nil })
+			result, err := runner.Run(t.Context(), config, "test-model", collection, func(progress Progress) error {
+				if progress.Step > 0 {
+					if got := reportedTurns.Add(1); got != int64(progress.Step) {
+						t.Errorf("usage was reported out of order or more than once: step %d", progress.Step)
+					}
+					inputTokens += progress.InputTokens
+					outputTokens += progress.OutputTokens
+				}
+				return nil
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,6 +107,9 @@ func TestResearchProtocolsKeepGatewayAndSourceAnchors(t *testing.T) {
 			}
 			if !strings.Contains(result.Context, "1: package main") || !strings.Contains(result.Context, "1: // stage runner") {
 				t.Fatal("original source evidence is missing")
+			}
+			if reportedTurns.Load() != 2 || inputTokens != 200 || outputTokens != 100 || inputTokens != result.InputTokens || outputTokens != result.OutputTokens {
+				t.Fatalf("incorrect live usage: turns=%d input=%d output=%d", reportedTurns.Load(), inputTokens, outputTokens)
 			}
 		})
 	}

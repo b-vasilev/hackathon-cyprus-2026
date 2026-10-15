@@ -7,6 +7,7 @@ import {
   api,
   message,
   protocolLabels,
+  type AvailableModel,
   type Connection,
   type ConnectionConfig,
   type FactoryStatus,
@@ -29,7 +30,7 @@ function defaultConfig(): ConnectionConfig {
     headers: [],
     query_params: [],
     models: [
-      { id: '', output_mode: 'json_schema', max_output_tokens: 12_000, reasoning_effort: '' },
+      { id: '', output_mode: 'json_schema', max_output_tokens: 64_000, reasoning_effort: '' },
     ],
     timeout_seconds: 180,
     max_concurrent: 2,
@@ -101,8 +102,8 @@ export function Connections() {
             <div>
               <strong>Connection storage needs a master key.</strong>
               <p>
-                Set LLM_MASTER_KEY to a stable secret of at least 32 characters and restart the API.
-                Keep it safe: it decrypts your saved connections.
+                Set CONNECTION_MASTER_KEY to a stable secret of at least 32 characters and restart
+                the API. Keep it safe: it decrypts your saved connections.
               </p>
             </div>
           </div>
@@ -226,7 +227,34 @@ function ConnectionEditor({
       ),
     onSuccess: onSaved,
   });
+  const availableModels = useMutation({
+    mutationFn: (input: ConnectionConfig) =>
+      api<AvailableModel[]>('/llm-connections/models', {
+        method: 'POST',
+        body: JSON.stringify({ connection_id: connection?.id ?? '', config: input }),
+      }),
+  });
+  function formConfig(): ConnectionConfig {
+    const parsedHeaders = JSON.parse(headers) as Parameter[];
+    const parsedQuery = JSON.parse(query) as Parameter[];
+    if (!Array.isArray(parsedHeaders) || !Array.isArray(parsedQuery)) {
+      throw new TypeError('Headers and query parameters must be JSON arrays.');
+    }
+    return { ...config, headers: parsedHeaders, query_params: parsedQuery };
+  }
+  function fetchModels() {
+    try {
+      const input = formConfig();
+      setFormError(null);
+      availableModels.mutate(input);
+    } catch {
+      setFormError('Check the JSON arrays in the additional HTTP settings.');
+    }
+  }
   function set<K extends keyof ConnectionConfig>(key: K, value: ConnectionConfig[K]) {
+    if (key !== 'models') {
+      availableModels.reset();
+    }
     setConfig((old) => ({ ...old, [key]: value }));
   }
   function model(index: number, update: Partial<ModelConfig>) {
@@ -238,7 +266,7 @@ function ConnectionEditor({
   function addModel() {
     set('models', [
       ...(config.models ?? []),
-      { id: '', output_mode: 'json_schema', max_output_tokens: 12_000, reasoning_effort: '' },
+      { id: '', output_mode: 'json_schema', max_output_tokens: 64_000, reasoning_effort: '' },
     ]);
     setModelKeys((keys) => [...keys, crypto.randomUUID()]);
   }
@@ -247,6 +275,7 @@ function ConnectionEditor({
     setModelKeys((keys) => keys.filter((_, i) => i !== index));
   }
   function preset(protocol: string) {
+    availableModels.reset();
     const anthropic = protocol === 'anthropic_messages';
     setConfig((old) => ({
       ...old,
@@ -261,13 +290,9 @@ function ConnectionEditor({
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      const parsedHeaders = JSON.parse(headers) as Parameter[];
-      const parsedQuery = JSON.parse(query) as Parameter[];
-      if (!Array.isArray(parsedHeaders) || !Array.isArray(parsedQuery)) {
-        throw new TypeError('Headers and query parameters must be JSON arrays.');
-      }
+      const input = formConfig();
       setFormError(null);
-      save.mutate({ ...config, headers: parsedHeaders, query_params: parsedQuery });
+      save.mutate(input);
     } catch {
       setFormError('Check the JSON arrays in the additional HTTP settings.');
     }
@@ -336,8 +361,8 @@ function ConnectionEditor({
           />
         </label>
         <p className="field-help">
-          Private or HTTP endpoints need an exact origin in the server’s LLM_ALLOWED_PRIVATE_ORIGINS
-          setting.
+          Local endpoints are allowed, including localhost and private networks. Other HTTP
+          endpoints need an exact origin in the server’s LLM_ALLOWED_PRIVATE_ORIGINS setting.
         </p>
         <label>
           Authentication
@@ -388,11 +413,32 @@ function ConnectionEditor({
         )}
         <div className="subheading">
           <h3>Models</h3>
+          <button
+            type="button"
+            className="text-button"
+            onClick={fetchModels}
+            disabled={availableModels.isPending}
+          >
+            {availableModels.isPending ? 'Fetching models…' : 'Fetch models'}
+          </button>
           <button type="button" className="text-button" onClick={addModel}>
             <Plus size={14} />
             Add model
           </button>
         </div>
+        {availableModels.isError && <ErrorNotice error={availableModels.error} />}
+        {availableModels.isSuccess && (
+          <p className="field-help" role="status">
+            {availableModels.data.length === 0
+              ? 'The endpoint returned no models.'
+              : `${availableModels.data.length} models available. Choose a model ID below.`}
+          </p>
+        )}
+        <datalist id="connection-model-options">
+          {availableModels.data?.map((item) => (
+            <option key={item.id} value={item.id} />
+          ))}
+        </datalist>
         {config.models?.map((item, index) => (
           <div className="model-form" key={modelKeys.at(index)}>
             <label>
@@ -400,6 +446,7 @@ function ConnectionEditor({
               <input
                 required
                 value={item.id}
+                list="connection-model-options"
                 onChange={(event) => model(index, { id: event.target.value })}
                 placeholder="The exact model name or deployment alias"
               />
@@ -467,7 +514,10 @@ function ConnectionEditor({
               rows={4}
               className="code-input"
               value={headers}
-              onChange={(event) => setHeaders(event.target.value)}
+              onChange={(event) => {
+                setHeaders(event.target.value);
+                availableModels.reset();
+              }}
             />
           </label>
           <label>
@@ -476,7 +526,10 @@ function ConnectionEditor({
               rows={4}
               className="code-input"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                availableModels.reset();
+              }}
             />
           </label>
           <div className="form-grid">

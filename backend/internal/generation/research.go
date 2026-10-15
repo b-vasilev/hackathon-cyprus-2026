@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/research"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 )
 
@@ -20,11 +21,11 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 	if err != nil {
 		return collection, "", fmt.Errorf("load research connection: %w", err)
 	}
-	result, err := s.Research.Run(ctx, config, run.Model, collection, func(message string) error {
+	result, err := s.Research.Run(ctx, config, run.Model, collection, func(progress research.Progress) error {
 		if _, checkErr := s.Connections.Load(ctx, run.ConnectionID, run.ConnectionRevision); checkErr != nil {
 			return errors.New("the research connection was disabled or removed")
 		}
-		return s.event(ctx, run.ID, "research_activity", "researching", message)
+		return s.recordResearchProgress(ctx, run.ID, progress)
 	})
 	if err != nil {
 		return collection, "", fmt.Errorf("research product sources: %w", err)
@@ -32,13 +33,31 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 	if _, err := s.Content.WriteJSON("runs/"+run.ID+"/research/findings.json", map[string]any{"context": result.Context, "duration_ms": result.DurationMS, "model_turns": result.Steps, "tool_batches": result.ToolCalls, "mcp_reads": result.MCPReads, "input_tokens": result.InputTokens, "output_tokens": result.OutputTokens, "snapshots": result.Collection.Snapshots}); err != nil {
 		return collection, "", fmt.Errorf("save research findings: %w", err)
 	}
-	if _, err := s.DB.ExecContext(ctx, "INSERT INTO llm_calls(id,run_id,stage,attempt,prompt_version,request_id,input_tokens,output_tokens,duration_ms,output_json,error_code,created_at) VALUES(?,?, 'researching',1,?,'',?,?,?,?, '',?)", rand.Text(), run.ID, PromptVersion, result.InputTokens, result.OutputTokens, result.DurationMS, "", time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
-		return collection, "", fmt.Errorf("save research usage: %w", err)
-	}
 	if err := s.event(ctx, run.ID, "research_completed", "researching", fmt.Sprintf("Research completed: %d model turns, %d tool batches, %d Repomix reads; %d source files read.", result.Steps, result.ToolCalls, result.MCPReads, len(result.Collection.Documents))); err != nil {
 		return collection, "", err
 	}
 	return result.Collection, result.Context, nil
+}
+
+func (s *Service) recordResearchProgress(ctx context.Context, runID string, progress research.Progress) error {
+	if progress.Step == 0 {
+		return s.event(ctx, runID, "research_activity", "researching", progress.Message)
+	}
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin research usage: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, "INSERT INTO llm_calls(id,run_id,stage,attempt,prompt_version,input_tokens,output_tokens,duration_ms,created_at) VALUES(?,?,'researching',?,?,?,?,?,?)", rand.Text(), runID, progress.Step, PromptVersion, progress.InputTokens, progress.OutputTokens, progress.DurationMS, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		return fmt.Errorf("save research usage: %w", err)
+	}
+	if err := recordEvent(ctx, tx, runID, "model_call_completed", "researching", progress.Message); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit research usage: %w", err)
+	}
+	return nil
 }
 
 func validateResearchPassport(p passport.Passport, documents map[string]int, collection source.Collection, researched bool) error {
