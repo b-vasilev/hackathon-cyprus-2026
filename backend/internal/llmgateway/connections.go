@@ -21,6 +21,9 @@ import (
 // ErrInvalid marks invalid connection configuration.
 var ErrInvalid = errors.New("invalid connection")
 
+// ErrInUse marks a connection used by a pending generation.
+var ErrInUse = errors.New("stop active generations before deleting this connection")
+
 // Parameter is an additional HTTP header or query parameter.
 type Parameter struct {
 	Name   string `json:"name"`
@@ -213,7 +216,7 @@ func (s *Store) Save(ctx context.Context, id string, config Config) (Connection,
 		_, err = tx.ExecContext(ctx, "INSERT INTO llm_connections(id,name,enabled,current_revision,created_at) VALUES(?,?,?,?,?)", id, config.Name, config.Enabled, revision, now)
 	} else {
 		var result sql.Result
-		result, err = tx.ExecContext(ctx, "UPDATE llm_connections SET name=?,enabled=?,current_revision=? WHERE id=? AND current_revision=?", config.Name, config.Enabled, revision, id, revision-1)
+		result, err = tx.ExecContext(ctx, "UPDATE llm_connections SET name=?,enabled=?,current_revision=? WHERE id=? AND current_revision=? AND deleted=0", config.Name, config.Enabled, revision, id, revision-1)
 		if err == nil {
 			var count int64
 			count, err = result.RowsAffected()
@@ -281,7 +284,7 @@ func (s *Store) Load(ctx context.Context, id string, revision int) (Config, erro
 
 func (s *Store) load(ctx context.Context, id string, revision int, enabledOnly bool) (Config, error) {
 	var encrypted []byte
-	err := s.db.QueryRowContext(ctx, "SELECT r.encrypted_config FROM llm_connection_revisions r JOIN llm_connections c ON c.id=r.connection_id WHERE r.connection_id=? AND r.revision=? AND (?=0 OR c.enabled=1)", id, revision, enabledOnly).Scan(&encrypted)
+	err := s.db.QueryRowContext(ctx, "SELECT r.encrypted_config FROM llm_connection_revisions r JOIN llm_connections c ON c.id=r.connection_id WHERE r.connection_id=? AND r.revision=? AND c.deleted=0 AND (?=0 OR c.enabled=1)", id, revision, enabledOnly).Scan(&encrypted)
 	if err != nil {
 		return Config{}, fmt.Errorf("load enabled connection: %w", err)
 	}
@@ -302,7 +305,7 @@ func (s *Store) Get(ctx context.Context, id string) (Connection, error) {
 	var c Connection
 	var encrypted []byte
 	var enabled bool
-	err := s.db.QueryRowContext(ctx, "SELECT c.id,c.current_revision,c.enabled,c.created_at,r.encrypted_config FROM llm_connections c JOIN llm_connection_revisions r ON r.connection_id=c.id AND r.revision=c.current_revision WHERE c.id=?", id).Scan(&c.ID, &c.Revision, &enabled, &c.CreatedAt, &encrypted)
+	err := s.db.QueryRowContext(ctx, "SELECT c.id,c.current_revision,c.enabled,c.created_at,r.encrypted_config FROM llm_connections c JOIN llm_connection_revisions r ON r.connection_id=c.id AND r.revision=c.current_revision WHERE c.id=? AND c.deleted=0", id).Scan(&c.ID, &c.Revision, &enabled, &c.CreatedAt, &encrypted)
 	if err != nil {
 		return Connection{}, fmt.Errorf("get connection: %w", err)
 	}
@@ -332,7 +335,7 @@ func (s *Store) Get(ctx context.Context, id string) (Connection, error) {
 
 // List returns all connections without holding a database cursor while decrypting.
 func (s *Store) List(ctx context.Context) ([]Connection, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id FROM llm_connections ORDER BY created_at")
+	rows, err := s.db.QueryContext(ctx, "SELECT id FROM llm_connections WHERE deleted=0 ORDER BY created_at")
 	if err != nil {
 		return nil, fmt.Errorf("list connections: %w", err)
 	}
@@ -354,6 +357,9 @@ func (s *Store) List(ctx context.Context) ([]Connection, error) {
 	result := make([]Connection, 0, len(ids))
 	for _, id := range ids {
 		c, err := s.Get(ctx, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue // A connection may have been deleted after collecting its ID.
+		}
 		if err != nil {
 			return nil, err
 		}

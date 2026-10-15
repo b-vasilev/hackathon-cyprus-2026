@@ -14,12 +14,27 @@ import (
 
 // State is a view of the current evidence ledger, not an estimate of all code.
 type State struct {
-	Status     string         `json:"status"`
-	Areas      []AreaProgress `json:"areas"`
-	Focus      Focus          `json:"focus"`
-	Activity   string         `json:"activity"`
-	LastResult string         `json:"last_result"`
-	Budget     BudgetProgress `json:"budget"`
+	Status     string           `json:"status"`
+	Areas      []AreaProgress   `json:"areas"`
+	Focus      Focus            `json:"focus"`
+	Activity   string           `json:"activity"`
+	LastResult string           `json:"last_result"`
+	Budget     BudgetProgress   `json:"budget"`
+	Parallel   ParallelProgress `json:"parallel,omitempty"`
+}
+
+type ParallelProgress struct {
+	Limit   int              `json:"limit"`
+	Active  int              `json:"active"`
+	Queued  int              `json:"queued"`
+	Workers []WorkerProgress `json:"workers"`
+}
+
+type WorkerProgress struct {
+	ID       string `json:"id"`
+	Task     string `json:"task"`
+	Focus    Focus  `json:"focus"`
+	Activity string `json:"activity"`
 }
 
 type Focus struct {
@@ -160,7 +175,11 @@ func (w *workspace) unresearchedRepositories() []InventoryRepository {
 func (w *workspace) state() State {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	state := State{Status: w.ledger.Status, Focus: w.ledger.Focus, Activity: w.activity, Areas: []AreaProgress{}}
+	state := State{Status: w.ledger.Status, Focus: w.ledger.Focus, Activity: w.activity, Areas: []AreaProgress{}, Parallel: w.parallel}
+	state.Parallel.Workers = slices.Clone(w.parallel.Workers)
+	if state.Parallel.Workers == nil {
+		state.Parallel.Workers = []WorkerProgress{}
+	}
 	repositories := map[string]string{}
 	for _, repo := range w.inventory.Repositories {
 		repositories[repo.ID] = repo.Locator

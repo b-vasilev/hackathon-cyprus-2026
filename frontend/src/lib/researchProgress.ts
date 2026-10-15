@@ -19,6 +19,13 @@ export const questionStatusLabels = {
   excluded: 'Excluded with reason',
 } as const;
 
+export function researchFocusLabel(progress: ResearchProgress): string {
+  const area = progress.areas.find(
+    (area) => area.id === `scope/${progress.focus.area}` || area.id === progress.focus.area
+  );
+  return area === undefined ? progress.focus.area : `${area.repository} · ${area.name}`;
+}
+
 export function researchCounts(areas: ResearchArea[]) {
   const counts = { checked: 0, investigating: 0, not_started: 0, blocked: 0, excluded: 0 };
   let answered = 0;
@@ -40,7 +47,9 @@ export function researchCounts(areas: ResearchArea[]) {
 export function orderedResearchAreas(progress: ResearchProgress): ResearchArea[] {
   const priority = { investigating: 0, not_started: 1, blocked: 2, checked: 3, excluded: 4 };
   const focused = (area: ResearchArea) =>
-    area.name === progress.focus.area || area.id === `scope/${progress.focus.area}`;
+    area.name === progress.focus.area ||
+    area.id === progress.focus.area ||
+    area.id === `scope/${progress.focus.area}`;
   return progress.areas.toSorted((left, right) => {
     if (focused(left) !== focused(right)) {
       return focused(left) ? -1 : 1;

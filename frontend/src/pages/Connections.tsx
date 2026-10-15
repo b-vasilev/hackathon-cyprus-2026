@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, KeyRound, Pencil, Plug, Plus, ShieldCheck } from 'lucide-react';
+import { Check, KeyRound, Pencil, Plug, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { GitHubConnectionPanel } from '../components/GitHubConnectionPanel';
 import { Badge, Dialog, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import {
@@ -50,6 +51,14 @@ export function Connections() {
     enabled: status.data?.connections_enabled === true,
   });
   const [editing, setEditing] = useState<Connection | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<Connection | null>(null);
+  const deleteConnection = useMutation({
+    mutationFn: (id: string) => api<Connection>(`/llm-connections/${id}`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['connections'] });
+      setDeleting(null);
+    },
+  });
   const [checks, setChecks] = useState<Record<string, string | undefined>>({});
   const probe = useMutation({
     mutationFn: ({ id, model }: Readonly<{ id: string; model: string }>) =>
@@ -141,6 +150,19 @@ export function Connections() {
                     <Pencil size={15} />
                     Edit
                   </button>
+                  <button
+                    type="button"
+                    className="text-button destructive"
+                    disabled={probe.isPending || deleteConnection.isPending}
+                    onClick={() => {
+                      deleteConnection.reset();
+                      setDeleting(connection);
+                    }}
+                    aria-label={`Delete ${connection.config.name}`}
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                    Delete
+                  </button>
                 </div>
               </div>
               <p className="endpoint">{connection.config.endpoint_url}</p>
@@ -183,6 +205,19 @@ export function Connections() {
           ))}
         </div>
       </section>
+      {deleting !== null && (
+        <DeleteConfirmation
+          title="Delete connection?"
+          label="Delete connection"
+          pending={deleteConnection.isPending}
+          error={deleteConnection.error}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => deleteConnection.mutate(deleting.id)}
+        >
+          Delete “{deleting.config.name}” and its saved credentials? Existing passports and
+          generation history will remain. This cannot be undone.
+        </DeleteConfirmation>
+      )}
       {editing !== null && (
         <ConnectionEditor
           connection={editing === 'new' ? null : editing}

@@ -141,7 +141,7 @@ type Service struct {
 
 // New wires the durable queue and source/model dependencies.
 func New(database *sql.DB, connections *llmgateway.Store, generator Generator, collector Collector, logger zerolog.Logger, files *content.Store) *Service {
-	return &Service{DB: database, Connections: connections, LLM: generator, Collector: collector, Products: product.Store{DB: database}, Content: files, Logger: logger, queue: goqite.New(goqite.NewOpts{DB: database, Name: "passport", Timeout: 45 * time.Minute, MaxReceive: 10})}
+	return &Service{DB: database, Connections: connections, LLM: generator, Collector: collector, Products: product.Store{DB: database}, Content: files, Logger: logger, queue: goqite.New(goqite.NewOpts{DB: database, Name: "passport", Timeout: 75 * time.Minute, MaxReceive: 10})}
 }
 
 // Start persists a source manifest and queue message in one transaction.
@@ -179,6 +179,10 @@ func (s *Service) Start(ctx context.Context, productID string, input Input) (Run
 		return Run{}, fmt.Errorf("begin generation: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	var enabledConnection string
+	if checkErr := tx.QueryRowContext(ctx, "SELECT id FROM llm_connections WHERE id=? AND enabled=1 AND deleted=0", c.ID).Scan(&enabledConnection); checkErr != nil {
+		return Run{}, fmt.Errorf("check generation connection: %w", checkErr)
+	}
 	_, err = tx.ExecContext(ctx, "INSERT INTO generation_runs(id,product_id,connection_id,connection_revision,model,request_timeout_seconds,status,stage,input_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", run.ID, run.ProductID, run.ConnectionID, run.ConnectionRevision, run.Model, run.RequestTimeoutSeconds, run.Status, run.Stage, string(manifest), run.CreatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: generation_runs.product_id") {
@@ -308,7 +312,7 @@ func (s *Service) work(ctx context.Context) {
 }
 
 func (s *Service) processQueued(ctx context.Context, run Run) error {
-	jobCtx, cancel := context.WithTimeout(ctx, 40*time.Minute)
+	jobCtx, cancel := context.WithTimeout(ctx, 70*time.Minute)
 	defer cancel()
 	if _, loaded := s.active.LoadOrStore(run.ID, cancel); loaded {
 		return nil

@@ -26,7 +26,7 @@ func (w *workspace) workFingerprint() [32]byte {
 //nolint:gocyclo // Keep adaptive budget decisions and continuation in one bounded lifecycle.
 func (w *workspace) investigate(ctx context.Context, agent fantasy.Agent, config llmgateway.Config, modelID, orientation string, progress func(Progress) error, result *Result) error {
 	stalled := 0
-	for result.Steps < w.turnBudget {
+	for w.turnBudget == 0 || result.Steps < w.turnBudget {
 		if w.budget != nil && (result.Steps >= w.activeLimit() || (!w.deadline.IsZero() && time.Until(w.deadline) <= 30*time.Second)) {
 			continued := w.reviewBudget()
 			if err := w.publish(progress, w.budget.decisions[len(w.budget.decisions)-1].Reason); err != nil {
@@ -39,7 +39,7 @@ func (w *workspace) investigate(ctx context.Context, agent fantasy.Agent, config
 		before := w.workFingerprint()
 		callPrompt := orientation + "Investigate the complete supplied product scope and prepare source-backed findings."
 		if result.Steps > 0 || w.submittedNotes != "" {
-			callPrompt = w.continuationPrompt(orientation, w.turnBudget-result.Steps)
+			callPrompt = w.continuationPrompt(orientation, max(0, w.turnBudget-result.Steps))
 		}
 		if err := w.modelPass(ctx, agent, config, modelID, callPrompt, progress, result); err != nil {
 			return err
@@ -63,8 +63,8 @@ func (w *workspace) investigate(ctx context.Context, agent fantasy.Agent, config
 		if err := ctx.Err(); err != nil {
 			return fmt.Errorf("research attempt time budget ended: %w", err)
 		}
-		if result.Steps < w.turnBudget {
-			if err := w.event(fmt.Sprintf("Continuing source research: %d turns remain; unresolved branches are still available.", w.turnBudget-result.Steps)); err != nil {
+		if w.turnBudget == 0 || result.Steps < w.turnBudget {
+			if err := w.event("Continuing source research: unresolved branches are still available within the time budget."); err != nil {
 				return err
 			}
 		}
@@ -75,7 +75,7 @@ func (w *workspace) investigate(ctx context.Context, agent fantasy.Agent, config
 		if !w.budget.stopped {
 			w.reviewBudget()
 		}
-	} else {
+	} else if w.turnBudget > 0 {
 		w.turn = w.turnBudget
 	}
 	if err := w.checkCoverage(coverageInput{Notes: w.summaryNotes, Status: researchComplete}); err == nil {
@@ -108,9 +108,18 @@ func (w *workspace) finishProgress(progress func(Progress) error) error {
 
 func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config llmgateway.Config, modelID, callPrompt string, progress func(Progress) error, result *Result) error {
 	base, reported := result.Steps, 0
+	gateHeld := false
+	release := func() {
+		if gateHeld {
+			<-w.stepGate
+			gateHeld = false
+		}
+	}
+	defer release()
 	var stepStarted time.Time
 	report := func(steps []fantasy.StepResult) error {
 		for reported < len(steps) {
+			release()
 			usage := steps[reported].Usage
 			step := base + reported + 1
 			state := w.state()
@@ -133,16 +142,30 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 		if usageErr := report(options.Steps); usageErr != nil {
 			return stepCtx, fantasy.PrepareStepResult{}, usageErr
 		}
+		if w.stepGate != nil {
+			select {
+			case w.stepGate <- struct{}{}:
+				gateHeld = true
+			case <-stepCtx.Done():
+				return stepCtx, fantasy.PrepareStepResult{}, stepCtx.Err()
+			}
+		}
 		w.turn = base + options.StepNumber + 1
 		stepStarted = time.Now()
 		hint := fmt.Sprintf("Attempt budget: turn %d; current allowance %d; hard limit %d. The runner alone extends the allowance in blocks of 10 for new read-and-cited planned evidence and reachable questions. The current allowance is a review point, not permission to finalize partial research. Save findings and plan evidence incrementally. Update set_research_focus before changing areas or questions. Continue independent useful work; do not repeat classifications or findings to earn turns.", w.turn, w.activeLimit(), w.turnBudget)
+		if w.turnBudget == 0 {
+			hint = fmt.Sprintf("Attempt turn %d; current allowance %d. No fixed turn cap. The runner extends the allowance for new verified evidence while reachable questions and time remain. Save findings and plan evidence incrementally.", w.turn, w.activeLimit())
+		}
+		if w.task != nil {
+			hint = fmt.Sprintf("Assigned task turn %d/%d. Stay within this task. Save read-and-cited findings AND matching plan evidence incrementally. With three turns left, prioritize saving and validating the evidence already read. The coordinator merges your results and requeues unfinished work; you do not decide global completion.", w.turn, w.turnBudget)
+		}
 		if w.budget != nil && len(w.budget.decisions) > 0 {
 			hint += "\nBudget decision: " + w.budget.decisions[len(w.budget.decisions)-1].Reason
 		}
 		budgetHint := fantasy.NewUserMessage(hint)
 		messages := slices.Clone(options.Messages)
 		messages = append(messages, budgetHint)
-		return stepCtx, fantasy.PrepareStepResult{Messages: messages}, w.event(fmt.Sprintf("Research model turn %d started. Current allowance: %d; hard limit: %d.", w.turn, w.activeLimit(), w.turnBudget))
+		return stepCtx, fantasy.PrepareStepResult{Messages: messages}, w.event(fmt.Sprintf("Research model turn %d started. Current allowance: %d.", w.turn, w.activeLimit()))
 	}})
 	if err != nil {
 		return errors.New("repository research failed through the selected connection; check protocol support, endpoint availability and timeout")

@@ -112,3 +112,22 @@ func (s *Store) ReadJSON(path, checksum string, value any) error {
 func validPath(path string) bool {
 	return filepath.IsLocal(path) && path != "." && filepath.Clean(path) == path
 }
+
+// RemoveAll removes an artifact folder within the private content directory.
+func (s *Store) RemoveAll(path string) error {
+	if !validPath(path) {
+		return errors.New("invalid content path")
+	}
+	root, err := os.OpenRoot(s.Dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("open content directory: %w", err)
+	}
+	defer root.Close()
+	if err := root.RemoveAll(path); err != nil {
+		return fmt.Errorf("remove content folder: %w", err)
+	}
+	return nil
+}

@@ -74,6 +74,8 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 	runInput := `{"connection_id":"` + connection.ID + `","model":"custom-model"}`
 	started := request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
 	request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusConflict)
+	request(http.MethodDelete, "/api/products/"+product.ID, "", http.StatusConflict)
+	request(http.MethodDelete, "/api/llm-connections/"+connection.ID, "", http.StatusConflict)
 	request(http.MethodGet, "/api/products/"+product.ID+"/passport", "", http.StatusNotFound)
 	var run generation.Run
 	if err := json.Unmarshal(started.Body.Bytes(), &run); err != nil {
@@ -85,7 +87,19 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 	}
 	request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
 	request(http.MethodPost, "/api/generations/missing/cancel", "", http.StatusNotFound)
-	request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
+	restarted := request(http.MethodPost, "/api/products/"+product.ID+"/generations", runInput, http.StatusAccepted)
+	if err := json.Unmarshal(restarted.Body.Bytes(), &run); err != nil {
+		t.Fatal(err)
+	}
+	request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
+	request(http.MethodDelete, "/api/llm-connections/"+connection.ID, "", http.StatusOK)
+	request(http.MethodGet, "/api/llm-connections/"+connection.ID, "", http.StatusNotFound)
+	request(http.MethodDelete, "/api/llm-connections/"+connection.ID, "", http.StatusNotFound)
+	request(http.MethodGet, "/api/generations/"+run.ID, "", http.StatusOK)
+	request(http.MethodDelete, "/api/products/"+product.ID, "", http.StatusOK)
+	request(http.MethodGet, "/api/products/"+product.ID, "", http.StatusNotFound)
+	request(http.MethodGet, "/api/generations/"+run.ID, "", http.StatusNotFound)
+	request(http.MethodDelete, "/api/products/"+product.ID, "", http.StatusNotFound)
 }
 
 func TestFrontendRoutesDoNotMaskAPIOrMissingAssets(t *testing.T) {

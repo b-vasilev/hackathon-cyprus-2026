@@ -22,12 +22,19 @@ import (
 //go:embed prompts/research.md
 var prompt string
 
+const (
+	defaultParallelism = 30
+	attemptTimeout     = 60 * time.Minute
+)
+
 type Runner struct {
 	Policy              llmgateway.NetworkPolicy
 	Limiter             *llmgateway.Limiter
 	WorkDir, RepomixBin string
-	// MaxTurns is the hard cap for one attempt; zero uses 120 turns.
+	// MaxTurns optionally caps an attempt; zero means no turn cap.
 	MaxTurns int
+	// Parallelism is the worker pool size; zero uses 30 workers.
+	Parallelism int
 }
 
 type Result struct {
@@ -70,6 +77,9 @@ type workspace struct {
 	readFailures        map[string]string
 	budget              *attemptBudget
 	activity            string
+	parallel            ParallelProgress
+	task                *researchTask
+	stepGate            chan struct{}
 }
 
 // run gives the model access to pinned source files with bounded paged tools.
@@ -77,7 +87,7 @@ type workspace struct {
 //nolint:gocyclo // Keep workspace, checkpoint and adaptive research lifecycle cleanup together.
 func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, checkpoint *Checkpoint, progress func(Progress) error) (result Result, err error) {
 	started := time.Now()
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, attemptTimeout)
 	defer cancel()
 	var w *workspace
 	event := func(message string) error {
@@ -95,9 +105,7 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 	w = &workspace{documents: map[string]source.Document{}, reads: map[string][]source.LineRange{}, readFailures: map[string]string{}, event: event, turnBudget: r.MaxTurns}
-	if w.turnBudget <= 0 {
-		w.turnBudget = 120
-	}
+	w.turnBudget = max(w.turnBudget, 0)
 	w.deadline, _ = ctx.Deadline()
 	for _, doc := range collection.Documents {
 		path := doc.SnapshotID + "/" + doc.Path
@@ -120,6 +128,11 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	if checkpoint != nil {
 		if restoreErr := w.restore(*checkpoint); restoreErr != nil {
 			return result, restoreErr
+		}
+	}
+	if w.ledger.Status != researchComplete {
+		if scopeErr := w.excludeDevelopmentGuidance(); scopeErr != nil {
+			return result, scopeErr
 		}
 	}
 	defer func() {
@@ -171,9 +184,17 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	if err != nil {
 		return result, err
 	}
-	tools := append(w.tools(session), w.coverageTools()...)
-	agent := fantasy.NewAgent(model, fantasy.WithSystemPrompt(prompt), fantasy.WithTools(tools...))
-	if loopErr := w.investigate(ctx, agent, config, modelID, orientation, progress, &result); loopErr != nil {
+	workers := r.Parallelism
+	if workers <= 0 {
+		workers = defaultParallelism
+	}
+	if loopErr := w.investigateParallel(ctx, min(workers, defaultParallelism), func(local *workspace) fantasy.Agent {
+		tools := append(local.tools(session), local.coverageTools()...)
+		if local.task != nil {
+			tools = slices.DeleteFunc(tools, func(tool fantasy.AgentTool) bool { return tool.Info().Name == "check_research_coverage" })
+		}
+		return fantasy.NewAgent(model, fantasy.WithSystemPrompt(prompt), fantasy.WithTools(tools...))
+	}, config, modelID, orientation, progress, &result); loopErr != nil {
 		return result, loopErr
 	}
 	result.Context, err = w.resultContext(orientation)

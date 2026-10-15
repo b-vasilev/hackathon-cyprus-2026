@@ -55,6 +55,10 @@ func (s *Service) resume(ctx context.Context, productID string, input Input) (Ru
 		return Run{}, fmt.Errorf("begin generation retry: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	var enabledConnection string
+	if checkErr := tx.QueryRowContext(ctx, "SELECT id FROM llm_connections WHERE id=? AND enabled=1 AND deleted=0", run.ConnectionID).Scan(&enabledConnection); checkErr != nil {
+		return Run{}, fmt.Errorf("check retry connection: %w", checkErr)
+	}
 	result, err := tx.ExecContext(ctx, "UPDATE generation_runs SET status='queued',stage='queued',stage_started_at='',error_code='',error_message='',finished_at=NULL,request_timeout_seconds=? WHERE id=? AND product_id=? AND status='failed'", input.RequestTimeoutSeconds, run.ID, productID)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: generation_runs.product_id") {

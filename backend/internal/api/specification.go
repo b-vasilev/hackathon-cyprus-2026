@@ -75,10 +75,12 @@ func Specification() ([]byte, error) {
 		{"post", "/api/llm-connections", "createConnection", "ConnectionConfig", "Connection", 201, false},
 		{methodGet, "/api/llm-connections/{id}", "getConnection", "", "Connection", 200, false},
 		{"patch", "/api/llm-connections/{id}", "updateConnection", "ConnectionPatch", "Connection", 200, false},
+		{"delete", "/api/llm-connections/{id}", "deleteConnection", "", "Connection", 200, false},
 		{"post", "/api/llm-connections/{id}/test", "testConnection", "Probe", "ProbeResult", 200, false},
 		{methodGet, "/api/products", "listProducts", "", "Product", 200, true},
 		{"post", "/api/products", "createProduct", "ProductInput", "Product", 201, false},
 		{methodGet, "/api/products/{id}", "getProduct", "", "Product", 200, false},
+		{"delete", "/api/products/{id}", "deleteProduct", "", "Product", 200, false},
 		{"post", "/api/products/{id}/generations", "startGeneration", "GenerationInput", "Run", 202, false},
 		{methodGet, "/api/generations/{id}", "getGeneration", "", "Run", 200, false},
 		{"post", "/api/generations/{id}/cancel", "cancelGeneration", "", "Run", 200, false},
@@ -140,4 +142,6 @@ func researchProgressSchema(state *jsonschema.Schema) {
 	}
 	areas.Items.Properties["status"].Enum = []any{"not_started", "investigating", "checked", "blocked", "excluded"}
 	questions.Items.Properties["status"].Enum = []any{"pending", "answered", "not_applicable", "blocked", "excluded"}
+	workers := state.Properties["parallel"].Properties["workers"]
+	workers.Type, workers.Types = "array", nil
 }

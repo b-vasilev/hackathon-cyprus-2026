@@ -3392,6 +3392,71 @@
                   "decisions"
                 ],
                 "additionalProperties": false
+              },
+              "parallel": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "active": {
+                    "type": "integer"
+                  },
+                  "queued": {
+                    "type": "integer"
+                  },
+                  "workers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "task": {
+                          "type": "string"
+                        },
+                        "focus": {
+                          "type": "object",
+                          "properties": {
+                            "area": {
+                              "type": "string"
+                            },
+                            "question": {
+                              "type": "string"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "area",
+                            "question",
+                            "reason"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "activity": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "task",
+                        "focus",
+                        "activity"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "limit",
+                  "active",
+                  "queued",
+                  "workers"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -4056,6 +4121,41 @@
       }
     },
     "/api/llm-connections/{id}": {
+      "delete": {
+        "operationId": "deleteConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
       "get": {
         "operationId": "getConnection",
         "parameters": [
@@ -4350,6 +4450,41 @@
       }
     },
     "/api/products/{id}": {
+      "delete": {
+        "operationId": "deleteProduct",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
       "get": {
         "operationId": "getProduct",
         "parameters": [

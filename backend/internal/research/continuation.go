@@ -73,13 +73,12 @@ func (w *workspace) pendingQuestions() []researchQuestion {
 		roles(h.ID, "", h.roles(), h.Gaps)
 	}
 	for _, repo := range w.unresearchedRepositories() {
-		questions = append(questions, researchQuestion{Key: "repository/" + repo.ID, Kind: "proof_obligation", Repository: repo.ID, Path: repo.ID, Reason: "No product responsibility has been researched in this repository yet.", Actionable: w.availablePath(repo.ID)})
+		questions = append(questions, researchQuestion{Key: "repository/" + repo.ID, Kind: "proof_obligation", Repository: repo.ID, Path: repo.ID, Reason: "No product responsibility has been researched in this repository yet.", Actionable: w.availablePath(repo.ID), priority: 1})
 	}
 	dispositions := map[string]candidateDisposition{}
 	for _, d := range w.ledger.Plan.Candidates {
 		dispositions[d.CandidateID] = d
 	}
-	priorities := map[string]int{"repository_reference": 1, "registry": 2, "source_area": 3, "entrypoint": 4, "manifest": 5, "configuration": 6, "repository": 7}
 	for _, c := range w.inventory.Candidates {
 		d, ok := dispositions[c.ID]
 		if ok && d.Disposition != "deferred" {
@@ -89,7 +88,7 @@ func (w *workspace) pendingQuestions() []researchQuestion {
 		if !ok {
 			reason = "Not classified or researched yet"
 		}
-		questions = append(questions, researchQuestion{Key: c.ID, Kind: c.Kind, Repository: c.Repository, Path: c.Path, Line: c.Line, Reason: reason, Actionable: w.availablePath(c.Path), priority: priorities[c.Kind]})
+		questions = append(questions, researchQuestion{Key: c.ID, Kind: c.Kind, Repository: c.Repository, Path: c.Path, Line: c.Line, Reason: reason, Actionable: w.availablePath(c.Path), priority: candidatePriority(c)})
 	}
 	slices.SortFunc(questions, func(a, b researchQuestion) int {
 		if a.Actionable != b.Actionable {
@@ -108,13 +107,13 @@ func (w *workspace) pendingQuestions() []researchQuestion {
 
 func (w *workspace) partialStopReason(requested string) (bool, string) {
 	// Standalone structural checks have no active runner budget.
-	if w.turnBudget == 0 {
+	if w.turnBudget == 0 && w.budget == nil && w.deadline.IsZero() {
 		return true, "Coverage-only check"
 	}
 	if w.budget != nil && w.budget.stopped {
 		return true, w.budget.decisions[len(w.budget.decisions)-1].Reason
 	}
-	if w.turn >= w.turnBudget-1 {
+	if w.turnBudget > 0 && w.turn >= w.turnBudget-1 {
 		return true, fmt.Sprintf("Attempt turn budget reached (%d/%d); remaining obligations are preserved", w.turn, w.turnBudget)
 	}
 	if !w.deadline.IsZero() && time.Until(w.deadline) <= 30*time.Second {
@@ -160,7 +159,11 @@ func (w *workspace) frontierSummary() any {
 }
 
 func (w *workspace) continuationPrompt(orientation string, remaining int) string {
-	state, _ := json.Marshal(map[string]any{"remaining_model_turns": remaining, "responsibilities": w.plan, "handoffs": w.ledger.Plan.Handoffs, "frontier": w.frontierSummary()})
+	var turnsRemaining any
+	if w.turnBudget > 0 {
+		turnsRemaining = remaining
+	}
+	state, _ := json.Marshal(map[string]any{"remaining_model_turns": turnsRemaining, "responsibilities": w.plan, "handoffs": w.ledger.Plan.Handoffs, "frontier": w.frontierSummary()})
 	return orientation + "\nContinue useful source investigation across the full supplied scope. Previous model text or a deferred classification is not a stopping reason. Resolve known role/handoff gaps, then independent source areas and material variants; prioritize product behavior over inventory bookkeeping. Do not repeat completed reads or findings. Retain new findings incrementally and update only changed plan entries. Review next_research_questions for the remaining branches.\nRESUME STATE (verified original document IDs/read ranges remain available; findings below are retained verbatim):\n" + string(state) + "\nRETAINED FINDINGS:\n" + w.submittedNotes
 }
 
@@ -172,8 +175,15 @@ func (w *workspace) questionTool() fantasy.AgentTool {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 		questions := w.pendingQuestions()
+		if w.task != nil {
+			questions = slices.DeleteFunc(questions, func(q researchQuestion) bool { return !w.task.ownsQuestion(q) })
+		}
 		start := min(max(input.Offset, 0), len(questions))
 		end := min(start+min(max(input.Limit, 1), 30), len(questions))
-		return toolJSON(map[string]any{"questions": questions[start:end], "total": len(questions), "next_offset": end, "has_more": end < len(questions), "turns_remaining": max(w.turnBudget-w.turn, 0)})
+		var turnsRemaining any
+		if w.turnBudget > 0 {
+			turnsRemaining = max(w.turnBudget-w.turn, 0)
+		}
+		return toolJSON(map[string]any{"questions": questions[start:end], "total": len(questions), "next_offset": end, "has_more": end < len(questions), "turns_remaining": turnsRemaining})
 	})
 }

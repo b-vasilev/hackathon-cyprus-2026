@@ -95,9 +95,36 @@ test('one compact panel contains focus, results, expandable areas and budget rea
   assert.match(html, /orders.go:L20–L35/);
   assert.match(html, /Why research continues/);
   assert.match(html, /allowance extended to 50/);
-  assert.match(html, /Hard cap 120 turns · 30 min/);
+  assert.match(html, /Hard cap 120 turns · 60 min/);
   assert.doesNotMatch(html, /<details[^>]*open/);
   assert.doesNotMatch(html, /role="progressbar"/);
+});
+
+test('discovery focus shows the repository and area instead of the snapshot path', () => {
+  const snapshot = '367M5PRVXPPVKCQQI6KT6KTDJ5';
+  for (const [path, name] of [
+    ['.', 'Repository overview'],
+    ['src/providers', 'src/providers'],
+  ]) {
+    const scope = `${snapshot}/${path}`;
+    const area = {
+      ...progress.areas[1],
+      id: `scope/${scope}`,
+      name,
+      repository: 'owner/product',
+    };
+    for (const focus of [scope, area.id]) {
+      const state: ResearchState = {
+        ...progress,
+        focus: { ...progress.focus, area: focus },
+        areas: [progress.areas[0], area],
+      };
+      assert.equal(orderedResearchAreas(state)[0]?.id, area.id);
+      const html = renderToStaticMarkup(<ResearchProgress progress={state} running />);
+      assert.match(html, new RegExp(`owner/product · ${name}`));
+      assert.doesNotMatch(html, new RegExp(snapshot));
+    }
+  }
 });
 
 test('a stopped run shows the reason and does not claim active research', () => {

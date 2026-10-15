@@ -3,6 +3,7 @@ import {
   orderedResearchAreas,
   questionStatusLabels,
   researchCounts,
+  researchFocusLabel,
   researchStatusLabels,
 } from '../lib/researchProgress';
 import type { ResearchArea, ResearchProgress as ResearchState } from '../lib/researchProgress';
@@ -62,7 +63,10 @@ function ResearchBudget({
           <strong>{budget.used}</strong> turns used
         </span>
         {!ended && <span>Next budget review at {budget.limit}</span>}
-        <span>Hard cap {budget.hard_limit} turns · 30 min</span>
+        <span>
+          {budget.hard_limit > 0 ? `Hard cap ${budget.hard_limit} turns · ` : 'No turn cap · '}
+          60 min
+        </span>
       </div>
       {decision !== undefined && (
         <details className="research-budget-reason">
@@ -102,7 +106,7 @@ export function ResearchProgress({
   const statuses = Object.keys(researchStatusLabels) as (keyof typeof researchStatusLabels)[];
   const countLabels = {
     not_started: 'to explore',
-    investigating: running ? 'in progress' : 'partly checked',
+    investigating: 'started',
     checked: 'checked',
     blocked: 'source gaps',
     excluded: 'excluded',
@@ -127,10 +131,35 @@ export function ResearchProgress({
             </span>
           ))}
       </div>
+      {progress.parallel !== undefined && progress.parallel.limit > 0 && (
+        <div className="research-scope-summary" aria-label="Research agents">
+          <span>
+            <strong>{active ? progress.parallel.active : 0}</strong> agents active
+          </span>
+          <span>
+            <strong>{progress.parallel.queued}</strong> tasks queued
+          </span>
+          <span>Up to {progress.parallel.limit} parallel agents</span>
+        </div>
+      )}
+      {active && progress.parallel !== undefined && progress.parallel.workers.length > 0 && (
+        <details className="research-plan-details">
+          <summary>View active agents ({progress.parallel.workers.length})</summary>
+          <ol className="research-questions">
+            {progress.parallel.workers.map((worker) => (
+              <li key={worker.id}>
+                <strong>{worker.task}</strong>
+                {worker.focus.question !== '' && <p>{worker.focus.question}</p>}
+                {worker.activity !== '' && <span className="meta">{worker.activity}</span>}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       {active && (
         <div className="research-focus" role="status">
           <span className="research-label">
-            {progress.focus.area === '' ? 'Getting oriented' : progress.focus.area}
+            {progress.focus.area === '' ? 'Getting oriented' : researchFocusLabel(progress)}
           </span>
           <p>
             {progress.focus.question === ''

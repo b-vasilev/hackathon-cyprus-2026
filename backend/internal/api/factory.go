@@ -65,12 +65,23 @@ func (f *Factory) register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/llm-connections/models", f.listConnectionModels)
 	mux.HandleFunc("GET /api/llm-connections/{id}", f.connection)
 	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.updateConnection)
+	mux.HandleFunc("DELETE /api/llm-connections/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if !f.requireConnections(w) {
+			return
+		}
+		value, err := f.Service.Connections.Delete(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	})
 	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.testConnection)
 	mux.HandleFunc("GET /api/products", func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Products.List(r.Context())
 		respond(w, r, value, err)
 	})
 	mux.HandleFunc("POST /api/products", f.createProduct)
+	mux.HandleFunc("DELETE /api/products/{id}", func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.DeleteProduct(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	})
 	mux.HandleFunc("GET /api/products/{id}", func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
@@ -305,6 +316,8 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusNotFound, "not_found", "The requested item was not found or is disabled.")
 	case errors.Is(err, generation.ErrActive):
 		problem(w, http.StatusConflict, "active_generation", err.Error())
+	case errors.Is(err, llmgateway.ErrInUse):
+		problem(w, http.StatusConflict, "connection_in_use", err.Error())
 	case errors.Is(err, product.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid_product", err.Error())
 	case errors.Is(err, llmgateway.ErrInvalid):

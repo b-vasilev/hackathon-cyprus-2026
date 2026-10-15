@@ -143,9 +143,13 @@ func (w *workspace) inventoryTool() fantasy.AgentTool {
 		if err := w.tick("Reviewing independent repository candidates."); err != nil {
 			return fantasy.ToolResponse{}, err
 		}
-		start := min(max(input.Offset, 0), len(w.inventory.Candidates))
-		end := min(start+min(max(input.Limit, 1), 100), len(w.inventory.Candidates))
-		return toolJSON(map[string]any{"repositories": w.inventory.Repositories, "note": w.inventory.Note, "candidates": w.inventory.Candidates[start:end], "next_offset": end, "has_more": end < len(w.inventory.Candidates), "total": len(w.inventory.Candidates)})
+		candidates := w.inventory.Candidates
+		if w.task != nil {
+			candidates = w.task.Candidates
+		}
+		start := min(max(input.Offset, 0), len(candidates))
+		end := min(start+min(max(input.Limit, 1), 100), len(candidates))
+		return toolJSON(map[string]any{"repositories": w.inventory.Repositories, "note": w.inventory.Note, "candidates": candidates[start:end], "next_offset": end, "has_more": end < len(candidates), "total": len(candidates)})
 	})
 }
 

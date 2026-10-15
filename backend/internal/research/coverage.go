@@ -302,6 +302,9 @@ func clonePlan(input planInput) (planInput, error) {
 func (w *workspace) setPlan(input planInput) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if err := w.validateTaskPatch(input); err != nil {
+		return err
+	}
 	patch := input
 	if duplicateKey(input.Boundaries, func(b researchBoundary) string { return b.Name }) || duplicateKey(input.Candidates, func(d candidateDisposition) string { return d.CandidateID }) || duplicateKey(input.Handoffs, func(h repositoryHandoff) string { return h.ID }) {
 		return errors.New("a plan patch cannot repeat a responsibility, candidate or handoff ID")
@@ -439,6 +442,9 @@ func (w *workspace) classifyArea(input classifyAreaInput) (int, error) {
 	}
 	prefix := path.Clean(input.PathPrefix)
 	for _, c := range w.inventory.Candidates {
+		if w.task != nil && !w.task.ownsCandidate(c.ID) {
+			continue
+		}
 		if (path.Clean(c.Path) != prefix && !strings.HasPrefix(c.Path, prefix+"/")) || (len(input.Kinds) > 0 && !slices.Contains(input.Kinds, c.Kind)) {
 			continue
 		}
