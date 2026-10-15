@@ -48,9 +48,6 @@ type modelReadInput struct {
 	Offset int    `json:"offset"`
 	Limit  int    `json:"limit"`
 }
-type tasksInput struct {
-	Tasks []Task `json:"tasks"`
-}
 type finishAreaInput struct {
 	AreaID string `json:"area_id"`
 }
@@ -143,7 +140,7 @@ func (s *analysisSession) modelTools() []fantasy.AgentTool {
 			}
 			if _, err := s.store.Finalize(ctx); err != nil {
 				if restoreErr := s.store.SetTaskStatus(ctx, s.current.ID, TaskActive); restoreErr != nil {
-					return analysisToolError(fmt.Errorf("finalization failed: %v; could not restore active reconciliation: %w", err, restoreErr)), nil
+					return analysisToolError(fmt.Errorf("finalization failed: %w; could not restore active reconciliation: %w", err, restoreErr)), nil
 				}
 				return analysisToolError(err), nil
 			}
@@ -153,20 +150,6 @@ func (s *analysisSession) modelTools() []fantasy.AgentTool {
 			return pagedAnalysisText(s.input.Instructions, input.Offset, input.Limit, nil)
 		}),
 	}
-}
-
-func (s *analysisSession) reopenReconciliation(ctx context.Context) error {
-	for _, task := range s.store.Checkpoint().Tasks {
-		if task.ID != SharedExecutionTaskID && task.ID != ReconciliationTaskID {
-			continue
-		}
-		if task.Status == TaskDone || task.ID == s.current.ID {
-			if err := s.store.SetTaskStatus(ctx, task.ID, TaskPending); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (s *analysisSession) savedResponse(action string) (fantasy.ToolResponse, error) {
@@ -198,6 +181,16 @@ func (s *analysisSession) modelIndex(kind string) ([]modelIndexItem, error) {
 		for _, x := range cp.Model.Scenarios {
 			items = append(items, modelIndexItem{kind, x.ID, x.Title})
 		}
+	default:
+		return analysisCheckpointIndex(cp, kind)
+	}
+	slices.SortFunc(items, func(a, b modelIndexItem) int { return strings.Compare(a.ID, b.ID) })
+	return items, nil
+}
+
+func analysisCheckpointIndex(cp Checkpoint, kind string) ([]modelIndexItem, error) {
+	var items []modelIndexItem
+	switch kind {
 	case "tasks":
 		for _, x := range cp.Tasks {
 			items = append(items, modelIndexItem{kind, x.ID, x.Title})
@@ -220,20 +213,31 @@ func (s *analysisSession) modelIndex(kind string) ([]modelIndexItem, error) {
 	default:
 		return nil, errors.New("choose objects, relations, claims, evidence, scenarios, tasks or recent_changes")
 	}
-	slices.SortFunc(items, func(a, b modelIndexItem) int {
-		if a.ID < b.ID {
-			return -1
-		}
-		if a.ID > b.ID {
-			return 1
-		}
-		return 0
-	})
+	slices.SortFunc(items, func(a, b modelIndexItem) int { return strings.Compare(a.ID, b.ID) })
 	return items, nil
 }
 
 func (s *analysisSession) modelEntity(kind, id string) (any, error) {
 	cp := s.store.Checkpoint()
+	switch kind {
+	case "metadata":
+		return Metadata{Title: cp.Model.Title, Tagline: cp.Model.Tagline, Summary: cp.Model.Summary}, nil
+	case "gaps", "open_questions":
+		index, err := strconv.Atoi(id)
+		values := cp.Gaps
+		if kind == "open_questions" {
+			values = cp.Model.OpenQuestions
+		}
+		if err == nil && index >= 0 && index < len(values) {
+			return values[index], nil
+		}
+		return nil, errors.New("canonical entity not found; inspect its kind/ID index first")
+	default:
+		return checkpointEntity(cp, kind, id)
+	}
+}
+
+func checkpointEntity(cp Checkpoint, kind, id string) (any, error) {
 	switch kind {
 	case "objects":
 		for _, x := range cp.Model.Objects {
@@ -270,17 +274,6 @@ func (s *analysisSession) modelEntity(kind, id string) (any, error) {
 			if x.ID == id {
 				return x, nil
 			}
-		}
-	case "metadata":
-		return Metadata{Title: cp.Model.Title, Tagline: cp.Model.Tagline, Summary: cp.Model.Summary}, nil
-	case "gaps", "open_questions":
-		index, err := strconv.Atoi(id)
-		values := cp.Gaps
-		if kind == "open_questions" {
-			values = cp.Model.OpenQuestions
-		}
-		if err == nil && index >= 0 && index < len(values) {
-			return values[index], nil
 		}
 	}
 	return nil, errors.New("canonical entity not found; inspect its kind/ID index first")
@@ -323,19 +316,7 @@ func (t observedAnalysisTool) Run(ctx context.Context, call fantasy.ToolCall) (f
 	if err == nil && !response.IsError {
 		t.session.emit("Analysis action completed: " + call.Name)
 	} else {
-		reason := "tool returned an error"
-		if err != nil {
-			reason = err.Error()
-		} else {
-			var details struct {
-				Error string `json:"error"`
-			}
-			if json.Unmarshal([]byte(response.Content), &details) == nil && details.Error != "" {
-				reason = details.Error
-			} else if response.Content != "" {
-				reason = response.Content
-			}
-		}
+		reason := analysisFailureReason(response, err)
 		if runes := []rune(reason); len(runes) > 2000 {
 			reason = string(runes[:2000])
 		}
@@ -345,5 +326,24 @@ func (t observedAnalysisTool) Run(ctx context.Context, call fantasy.ToolCall) (f
 	if err == nil && !response.IsError && (call.Name == "upsert_model_part" || call.Name == "finish_analysis_area" || call.Name == "finalize_model") {
 		t.session.lastToolFailure = ""
 	}
-	return response, err
+	if err != nil {
+		return response, fmt.Errorf("run analysis tool %s: %w", call.Name, err)
+	}
+	return response, nil
+}
+
+func analysisFailureReason(response fantasy.ToolResponse, err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	var details struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal([]byte(response.Content), &details) == nil && details.Error != "" {
+		return details.Error
+	}
+	if response.Content != "" {
+		return response.Content
+	}
+	return "tool returned an error"
 }

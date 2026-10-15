@@ -186,6 +186,10 @@ func BuildWindowContext(input Input, checkpoint Checkpoint, task Task) (string, 
 	if len(brief) > 0 {
 		value.Brief = analysisPage[Finding]{Items: brief[:1], NextOffset: 1, Total: len(brief), HasMore: len(brief) > 1}
 	}
+	return encodeWindowContext(value)
+}
+
+func encodeWindowContext(value windowEnvelope) (string, error) {
 	for {
 		data, err := json.Marshal(value)
 		if err != nil {

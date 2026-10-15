@@ -366,14 +366,13 @@ code {
   border: 1px solid var(--of-border);
   border-radius: 24px;
   box-shadow: 0 2px 6px color-mix(in srgb, var(--of-ink) 6%, transparent);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+  transition: box-shadow 0.15s;
 }
 .published-tile:hover .published-tile-icon,
 .published-tile:focus-visible .published-tile-icon {
-  border-color: var(--of-brand);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--of-ink) 9%, transparent);
+  box-shadow:
+    0 0 18px 4px color-mix(in srgb, var(--of-brand) 24%, transparent),
+    0 10px 24px color-mix(in srgb, var(--of-brand) 32%, transparent);
 }
 .published-tile h2 {
   min-width: 0;
@@ -399,7 +398,6 @@ code {
   .published-tile-icon {
     transition:
       transform 0.15s,
-      border-color 0.15s,
       box-shadow 0.15s;
   }
   .published-tile:hover .published-tile-icon {

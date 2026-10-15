@@ -54,9 +54,12 @@ type resourceFetcher func(context.Context, string, int64) ([]byte, string, error
 // AssetReader can read a pinned logo with the same access as the source collector.
 type AssetReader func(context.Context, source.Snapshot, string) ([]byte, error)
 
+// AssetFinder lists existing logo paths at the analyzed repository revision.
+type AssetFinder func(context.Context, source.Snapshot) ([]string, error)
+
 // Discover reads only collected identity files and links present in those files.
 // A missing guide or image does not prevent the product analysis from completing.
-func Discover(ctx context.Context, collection source.Collection, manual *Brandkit, readAsset AssetReader) Discovery {
+func Discover(ctx context.Context, collection source.Collection, manual *Brandkit, readAsset AssetReader, findAssets AssetFinder) Discovery {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	fetch := func(ctx context.Context, location string, limit int64) ([]byte, string, error) {
@@ -77,7 +80,45 @@ func Discover(ctx context.Context, collection source.Collection, manual *Brandki
 		}
 		return fetchPublic(ctx, location, limit)
 	}
-	return discover(ctx, collection, manual, fetch)
+	d := discover(ctx, collection, manual, fetch)
+	if len(d.Logos) == 0 && findAssets != nil {
+		d.collectRepositoryLogos(ctx, collection, findAssets, fetch)
+	}
+	return d
+}
+
+func (d *Discovery) collectRepositoryLogos(ctx context.Context, collection source.Collection, find AssetFinder, fetch resourceFetcher) {
+	seen := make(map[string]bool)
+	images := 0
+	for _, snapshot := range collection.Snapshots {
+		if repositoryURL(snapshot, "") == "" {
+			continue
+		}
+		paths, err := find(ctx, snapshot)
+		if err != nil {
+			d.Notes = append(d.Notes, "Repository logo search unavailable: "+snapshot.Locator)
+			continue
+		}
+		for _, file := range paths {
+			link := repositoryURL(snapshot, file)
+			if seen[link] || !logoLink(link) {
+				continue
+			}
+			if images >= 5 {
+				return
+			}
+			seen[link] = true
+			images++
+			data, _, err := fetch(ctx, rawRepositoryURL(link), maxLogoBytes)
+			if err != nil {
+				d.Notes = append(d.Notes, "Logo unavailable: "+link)
+				continue
+			}
+			if dataURL := logoData(data); dataURL != "" {
+				d.Logos = append(d.Logos, Logo{URL: link, DataURL: dataURL})
+			}
+		}
+	}
 }
 
 var (
@@ -90,16 +131,22 @@ var (
 
 func discover(ctx context.Context, collection source.Collection, manual *Brandkit, fetch resourceFetcher) Discovery {
 	d := Discovery{Manual: manual != nil}
+	seen := make(map[string]bool)
 	if manual != nil {
 		label := manual.FileName
 		if label == "" {
 			label = manual.URL
 		}
 		d.References = append(d.References, Reference{Label: label, URL: manual.URL, Text: manual.Text})
+		seen[manual.URL] = true
+		d.collectGuides(ctx, seen, fetch)
+		d.collectLogos(ctx, seen, fetch)
+		if len(d.Logos) > 0 {
+			return d
+		}
 	}
 	d.collectReferences(collection)
 	// Follow at most three direct brand-guide links, then only their logo links.
-	seen := make(map[string]bool)
 	for _, ref := range d.References {
 		seen[ref.URL] = true
 	}

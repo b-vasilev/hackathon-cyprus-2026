@@ -25,3 +25,29 @@ func TestBrandAssetBoundaries(t *testing.T) {
 		t.Fatal("source selection must admit product logos without collecting arbitrary icons")
 	}
 }
+
+func TestRepositoryLogoCandidates(t *testing.T) {
+	for _, test := range []struct {
+		path string
+		want bool
+	}{
+		{"public/product-logo.png", true},
+		{"assets/wordmark.JPG", true},
+		{"brand/mark.svg", true},
+		{"identity/mark/product.svg", true},
+		{"screenshots/home.png", false},
+		{"node_modules/product/logo.svg", false},
+		{"dist/logo.png", false},
+		{"public/logo.test.svg", false},
+		{"public/logo.ico", false},
+	} {
+		file := treeFile{Path: test.path, Type: "blob", Mode: "100644", Size: 100}
+		if brandAssetFile(file) != test.want {
+			t.Errorf("logo candidate %q: want %v", test.path, test.want)
+		}
+		file.Mode = "120000"
+		if brandAssetFile(file) {
+			t.Errorf("symlink accepted: %q", test.path)
+		}
+	}
+}

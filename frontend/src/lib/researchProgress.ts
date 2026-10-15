@@ -8,13 +8,17 @@ export type ResearchArea = ResearchProgress['areas'][number];
 export function researchTextFormatter(progress: ResearchProgress): (text: string) => string {
   const repositories = new Map<string, string>();
   for (const area of progress.areas) {
-    if (!area.id.startsWith('scope/') && !area.id.startsWith('responsibility/')) continue;
-    const id = area.id.split('/')[1];
-    if (id === undefined || repositories.has(id)) continue;
+    if (!area.id.startsWith('scope/') && !area.id.startsWith('responsibility/')) {
+      continue;
+    }
+    const id = area.id.split('/').at(1);
+    if (id === undefined || repositories.has(id)) {
+      continue;
+    }
     let name = area.repository;
     try {
       const url = new URL(name);
-      name = url.pathname.split('/').filter(Boolean).at(-1) ?? url.hostname;
+      name = url.pathname.split('/').findLast((segment) => segment !== '') ?? url.hostname;
     } catch {
       // Context sources may have a readable label instead of a URL.
     }

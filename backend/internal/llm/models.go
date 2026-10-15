@@ -32,10 +32,10 @@ func (c *Client) ListModels(ctx context.Context, config llmgateway.Config) ([]Av
 	config.EndpointURL = endpoint.String()
 	client, err := c.Policy.Client(config, c.Limiter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create model discovery client: %w", err)
 	}
 	defer client.CloseIdleConnections()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://provider.invalid/v1/models", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://provider.invalid/v1/models", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create model discovery request: %w", err)
 	}

@@ -31,8 +31,8 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.RunMigrations(database); err != nil {
-		t.Fatal(err)
+	if migrateErr := db.RunMigrations(database); migrateErr != nil {
+		t.Fatal(migrateErr)
 	}
 	store, err := llmgateway.NewStore(database, strings.Repeat("master", 8))
 	if err != nil {
@@ -51,9 +51,9 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 	for _, input := range []ModelDiscoveryInput{{Config: config}, {ConnectionID: saved.ID, Config: saved.Config}} {
 		input.Config.Name = ""
 		input.Config.Models = nil
-		body, err := json.Marshal(input)
-		if err != nil {
-			t.Fatal(err)
+		body, marshalErr := json.Marshal(input)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
 		}
 		request := httptest.NewRequest(http.MethodPost, "/api/llm-connections/models", strings.NewReader(string(body)))
 		request.Header.Set("Content-Type", "application/json")
@@ -70,8 +70,8 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 	}
 	disabled := saved.Config
 	disabled.Enabled = false
-	if _, err := store.Save(t.Context(), saved.ID, disabled); err != nil {
-		t.Fatal(err)
+	if _, saveErr := store.Save(t.Context(), saved.ID, disabled); saveErr != nil {
+		t.Fatal(saveErr)
 	}
 	body, err := json.Marshal(ModelDiscoveryInput{ConnectionID: saved.ID, Config: saved.Config})
 	if err != nil {
@@ -85,5 +85,4 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("disabled connection discovery: %d", response.Code)
 	}
-
 }

@@ -187,8 +187,8 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		if index == 1 {
 			// Existing products and queued runs used a bare source array.
 			legacy, _ := json.Marshal(input.Sources)
-			if _, err := database.ExecContext(ctx, "UPDATE products SET sources_json=? WHERE id=?", string(legacy), p.ID); err != nil {
-				t.Fatal(err)
+			if _, updateErr := database.ExecContext(ctx, "UPDATE products SET sources_json=? WHERE id=?", string(legacy), p.ID); updateErr != nil {
+				t.Fatal(updateErr)
 			}
 		}
 		run, err := service.Start(ctx, p.ID, Input{ConnectionID: connection.ID, Model: "same-model"})
@@ -237,16 +237,19 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if p.Name == "Payment service" {
+		switch p.Name {
+		case "Payment service":
 			if p.CardBrandkit == nil || p.CardTheme == nil || r.Content.Views.CardTheme == nil || p.CardTheme.AccentColor != "#123456" {
 				t.Fatal("brand kit or generated product theme was not preserved")
 			}
-		} else if p.Name == "Automatic brand" {
+		case "Automatic brand":
 			if p.CardBrandkit != nil || p.CardTheme == nil || r.Content.Views.CardTheme == nil || p.CardTheme.AccentColor != "#357ABC" || len(p.CardTheme.Sources) == 0 {
 				t.Fatal("branding discovered in product sources was not applied to both product and passport")
 			}
-		} else if p.CardBrandkit != nil || p.CardTheme != nil || r.Content.Views.CardTheme != nil {
-			t.Fatal("brand styling leaked into a product without a kit")
+		default:
+			if p.CardBrandkit != nil || p.CardTheme != nil || r.Content.Views.CardTheme != nil {
+				t.Fatal("brand styling leaked into a product without a kit")
+			}
 		}
 		evidence, err := service.Evidence(ctx, r.ID, "evidence-purpose")
 		if err != nil || !strings.Contains(evidence.Excerpt, "stores requests") {

@@ -53,62 +53,11 @@ func NewModelStore(input Input, persist Persist) (*ModelStore, error) {
 		}
 		store.findings[finding.ID] = true
 	}
-	if input.Checkpoint != nil {
-		store.state = cloneCheckpoint(*input.Checkpoint)
-		if store.state.Version != CheckpointVersion || store.state.SourceFingerprint != fingerprint || store.state.Revision < 0 {
-			return nil, errors.New("analysis checkpoint does not match the pinned sources or version")
-		}
-	} else {
-		store.state.Tasks = cloneTasks(input.Tasks)
-		for i := range store.state.Tasks {
-			if store.state.Tasks[i].Status == "" {
-				store.state.Tasks[i].Status = TaskPending
-			}
-		}
-	}
-	if store.state.ReadRanges == nil {
-		store.state.ReadRanges = make(map[string][]source.LineRange)
-	}
-	if err := store.validateTasks(store.state.Tasks); err != nil {
+	if err := store.restoreCheckpoint(input, fingerprint); err != nil {
 		return nil, err
 	}
-	if err := validateQuestions(store.state.Gaps); err != nil {
+	if err := store.restoreSourceReads(input.Collection, documents); err != nil {
 		return nil, err
-	}
-	if err := validateQuestions(store.state.Model.OpenQuestions); err != nil {
-		return nil, err
-	}
-	for id, ranges := range store.state.ReadRanges {
-		for _, span := range ranges {
-			if err := store.validateRange(id, span); err != nil {
-				return nil, fmt.Errorf("restore analysis reads: %w", err)
-			}
-		}
-		if _, known := store.lines[id]; !known {
-			return nil, fmt.Errorf("checkpoint has an unknown source document: %s", id)
-		}
-		store.state.ReadRanges[id] = mergeRanges(ranges)
-	}
-	for _, snapshot := range input.Collection.Snapshots {
-		seenFiles := make(map[string]bool)
-		for _, file := range snapshot.Coverage.Files {
-			if file.ID != "" && seenFiles[file.ID] {
-				return nil, fmt.Errorf("duplicate source coverage entry: %s", file.ID)
-			}
-			seenFiles[file.ID] = true
-			if len(file.ReadRanges) > 0 {
-				document, known := documents[file.ID]
-				if !known || document.SnapshotID != snapshot.ID || document.Path != file.Path {
-					return nil, fmt.Errorf("research reads do not match source ownership: %s", file.ID)
-				}
-			}
-			for _, span := range file.ReadRanges {
-				if err := store.validateRange(file.ID, span); err != nil {
-					return nil, fmt.Errorf("restore research reads: %w", err)
-				}
-				store.state.ReadRanges[file.ID] = mergeRanges(append(store.state.ReadRanges[file.ID], span))
-			}
-		}
 	}
 	if err := passport.ValidateModelDraft(store.state.Model, store.lines); err != nil {
 		return nil, fmt.Errorf("invalid saved analysis model: %w", err)
@@ -244,20 +193,8 @@ func applyPart(next *Checkpoint, part ModelPart) ([]string, error) {
 		next.Model.Title, next.Model.Tagline, next.Model.Summary = part.Metadata.Title, part.Metadata.Tagline, part.Metadata.Summary
 		ids = append(ids, "model_metadata")
 	}
-	for _, pair := range []struct {
-		target *[]string
-		values []string
-	}{{&next.Model.OpenQuestions, part.OpenQuestions}, {&next.Gaps, part.Gaps}} {
-		if pair.values == nil {
-			continue
-		}
-		if err := validateQuestions(pair.values); err != nil {
-			return nil, err
-		}
-		if len(*pair.target) > 0 && !slices.Equal(*pair.target, pair.values) && strings.TrimSpace(part.Correction) == "" {
-			return nil, errors.New("changed questions or gaps require a correction explanation")
-		}
-		*pair.target = slices.Clone(pair.values)
+	if err := updateModelQuestions(next, part); err != nil {
+		return nil, err
 	}
 	for _, object := range part.Objects {
 		ids = append(ids, object.ID)
@@ -333,7 +270,7 @@ func removeEntities(model *passport.Model, part ModelPart) error {
 			return errors.New("ambiguous duplicate removal or upsert/removal combination")
 		}
 		seen[removal.ID] = true
-		found := false
+		var found bool
 		switch removal.Kind {
 		case "object":
 			model.Objects, found = removeEntity(model.Objects, removal.ID, func(value passport.Object) string { return value.ID })
@@ -546,14 +483,19 @@ func ValidationIssues(checkpoint Checkpoint) []Issue {
 			issues = append(issues, Issue{Code: "unfinished_area", EntityID: task.ID, Message: "Analysis area is not done: " + task.Title})
 		}
 	}
+	return append(issues, modelReferenceIssues(checkpoint.Model)...)
+}
+
+func modelReferenceIssues(model passport.Model) []Issue {
+	issues := make([]Issue, 0)
 	evidence, claims, objects := make(map[string]bool), make(map[string]bool), make(map[string]bool)
-	for _, value := range checkpoint.Model.Evidence {
+	for _, value := range model.Evidence {
 		evidence[value.ID] = true
 	}
-	for _, value := range checkpoint.Model.Claims {
+	for _, value := range model.Claims {
 		claims[value.ID] = true
 	}
-	for _, value := range checkpoint.Model.Objects {
+	for _, value := range model.Objects {
 		objects[value.ID] = true
 	}
 	refs := func(entity, kind string, ids []string, known map[string]bool) {
@@ -563,13 +505,13 @@ func ValidationIssues(checkpoint Checkpoint) []Issue {
 			}
 		}
 	}
-	for _, value := range checkpoint.Model.Claims {
+	for _, value := range model.Claims {
 		if value.Basis == "source_backed" && len(value.EvidenceIDs) == 0 {
 			issues = append(issues, Issue{Code: "missing_evidence", EntityID: value.ID, Message: "Source-backed claim needs exact read source evidence: " + value.ID})
 		}
 		refs(value.ID, "evidence", value.EvidenceIDs, evidence)
 	}
-	for _, value := range checkpoint.Model.Objects {
+	for _, value := range model.Objects {
 		if len(value.ClaimIDs) == 0 {
 			issues = append(issues, Issue{Code: "missing_claims", EntityID: value.ID, Message: "Object needs supporting claims: " + value.ID})
 		}
@@ -578,14 +520,14 @@ func ValidationIssues(checkpoint Checkpoint) []Issue {
 			refs(value.ID, "parent object", []string{value.ParentID}, objects)
 		}
 	}
-	for _, value := range checkpoint.Model.Relations {
+	for _, value := range model.Relations {
 		if len(value.ClaimIDs) == 0 {
 			issues = append(issues, Issue{Code: "missing_claims", EntityID: value.ID, Message: "Relation needs supporting claims: " + value.ID})
 		}
 		refs(value.ID, "object", []string{value.From, value.To}, objects)
 		refs(value.ID, "claim", value.ClaimIDs, claims)
 	}
-	for _, scenario := range checkpoint.Model.Scenarios {
+	for _, scenario := range model.Scenarios {
 		for _, step := range scenario.Steps {
 			refs(step.ID, "object", step.ObjectIDs, objects)
 			refs(step.ID, "claim", step.ClaimIDs, claims)
@@ -798,4 +740,88 @@ func cloneCollection(collection source.Collection) source.Collection {
 		}
 	}
 	return collection
+}
+
+func (store *ModelStore) restoreCheckpoint(input Input, fingerprint string) error {
+	if input.Checkpoint != nil {
+		store.state = cloneCheckpoint(*input.Checkpoint)
+		if store.state.Version != CheckpointVersion || store.state.SourceFingerprint != fingerprint || store.state.Revision < 0 {
+			return errors.New("analysis checkpoint does not match the pinned sources or version")
+		}
+	} else {
+		store.state.Tasks = cloneTasks(input.Tasks)
+		for i := range store.state.Tasks {
+			if store.state.Tasks[i].Status == "" {
+				store.state.Tasks[i].Status = TaskPending
+			}
+		}
+	}
+	if store.state.ReadRanges == nil {
+		store.state.ReadRanges = make(map[string][]source.LineRange)
+	}
+	if err := store.validateTasks(store.state.Tasks); err != nil {
+		return err
+	}
+	if err := validateQuestions(store.state.Gaps); err != nil {
+		return err
+	}
+	if err := validateQuestions(store.state.Model.OpenQuestions); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (store *ModelStore) restoreSourceReads(collection source.Collection, documents map[string]source.Document) error {
+	for id, ranges := range store.state.ReadRanges {
+		for _, span := range ranges {
+			if err := store.validateRange(id, span); err != nil {
+				return fmt.Errorf("restore analysis reads: %w", err)
+			}
+		}
+		if _, known := store.lines[id]; !known {
+			return fmt.Errorf("checkpoint has an unknown source document: %s", id)
+		}
+		store.state.ReadRanges[id] = mergeRanges(ranges)
+	}
+	for _, snapshot := range collection.Snapshots {
+		seenFiles := make(map[string]bool)
+		for _, file := range snapshot.Coverage.Files {
+			if file.ID != "" && seenFiles[file.ID] {
+				return fmt.Errorf("duplicate source coverage entry: %s", file.ID)
+			}
+			seenFiles[file.ID] = true
+			if len(file.ReadRanges) > 0 {
+				document, known := documents[file.ID]
+				if !known || document.SnapshotID != snapshot.ID || document.Path != file.Path {
+					return fmt.Errorf("research reads do not match source ownership: %s", file.ID)
+				}
+			}
+			for _, span := range file.ReadRanges {
+				if err := store.validateRange(file.ID, span); err != nil {
+					return fmt.Errorf("restore research reads: %w", err)
+				}
+				store.state.ReadRanges[file.ID] = mergeRanges(append(store.state.ReadRanges[file.ID], span))
+			}
+		}
+	}
+	return nil
+}
+
+func updateModelQuestions(next *Checkpoint, part ModelPart) error {
+	for _, pair := range []struct {
+		target *[]string
+		values []string
+	}{{&next.Model.OpenQuestions, part.OpenQuestions}, {&next.Gaps, part.Gaps}} {
+		if pair.values == nil {
+			continue
+		}
+		if err := validateQuestions(pair.values); err != nil {
+			return err
+		}
+		if len(*pair.target) > 0 && !slices.Equal(*pair.target, pair.values) && strings.TrimSpace(part.Correction) == "" {
+			return errors.New("changed questions or gaps require a correction explanation")
+		}
+		*pair.target = slices.Clone(pair.values)
+	}
+	return nil
 }

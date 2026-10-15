@@ -32,6 +32,7 @@ func TestRespondCancellation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			if tt.cancelRequest {
@@ -41,7 +42,7 @@ func TestRespondCancellation(t *testing.T) {
 			handler := requestContext(zerolog.New(&logs), accessLog(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				respond(w, r, map[string]bool{"ok": true}, tt.err)
 			})))
-			request := httptest.NewRequest(http.MethodGet, "/api/generations/test", nil).WithContext(ctx)
+			request := httptest.NewRequest(http.MethodGet, "/api/generations/test", http.NoBody).WithContext(ctx)
 			response := httptest.NewRecorder()
 			response.Code = 0 // Detect whether the handler writes a response at all.
 			handler.ServeHTTP(response, request)
@@ -56,8 +57,8 @@ func TestRespondCancellation(t *testing.T) {
 				Message string `json:"message"`
 				Status  int    `json:"status"`
 			}
-			var entries []logEntry
-			for _, line := range bytes.Split(bytes.TrimSpace(logs.Bytes()), []byte("\n")) {
+			entries := make([]logEntry, 0, 2)
+			for line := range bytes.SplitSeq(bytes.TrimSpace(logs.Bytes()), []byte("\n")) {
 				var entry logEntry
 				if err := json.Unmarshal(line, &entry); err != nil {
 					t.Fatal(err)

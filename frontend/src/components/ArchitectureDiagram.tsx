@@ -49,8 +49,8 @@ export function ArchitectureDiagram({
     if (container === null) {
       return;
     }
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry !== undefined) {
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
         setVertical(entry.contentRect.width <= 700);
       }
     });

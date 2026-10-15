@@ -559,24 +559,7 @@ func (w *workspace) checkCoverage(input coverageInput) error {
 		missing = append(missing, m...)
 		frontier = append(frontier, f...)
 	}
-	dispositions := map[string]candidateDisposition{}
-	for _, d := range w.ledger.Plan.Candidates {
-		dispositions[d.CandidateID] = d
-	}
-	for _, c := range w.inventory.Candidates {
-		d, ok := dispositions[c.ID]
-		if !isResearchCandidate(c, d) {
-			continue
-		}
-		if !ok {
-			frontier = append(frontier, "unclassified "+c.Kind+": "+c.Path)
-		} else if d.Disposition == "deferred" {
-			frontier = append(frontier, "deferred "+c.Kind+": "+c.Path+": "+d.Reason)
-		}
-	}
-	for _, snap := range w.unresearchedRepositories() {
-		frontier = append(frontier, "repository has no researched responsibility: "+snap.ID)
-	}
+	frontier = append(frontier, w.unclassifiedResearchScopes()...)
 	slices.Sort(missing)
 	slices.Sort(frontier)
 	w.ledger.Frontier = append(slices.Clone(frontier), missing...)
@@ -714,4 +697,27 @@ func (w *workspace) roleCoverage(name string, roles map[string][]roleEvidence, g
 		}
 	}
 	return missing, frontier
+}
+
+func (w *workspace) unclassifiedResearchScopes() []string {
+	var frontier []string
+	dispositions := map[string]candidateDisposition{}
+	for _, d := range w.ledger.Plan.Candidates {
+		dispositions[d.CandidateID] = d
+	}
+	for _, c := range w.inventory.Candidates {
+		d, ok := dispositions[c.ID]
+		if !isResearchCandidate(c, d) {
+			continue
+		}
+		if !ok {
+			frontier = append(frontier, "unclassified "+c.Kind+": "+c.Path)
+		} else if d.Disposition == "deferred" {
+			frontier = append(frontier, "deferred "+c.Kind+": "+c.Path+": "+d.Reason)
+		}
+	}
+	for _, snap := range w.unresearchedRepositories() {
+		frontier = append(frontier, "repository has no researched responsibility: "+snap.ID)
+	}
+	return frontier
 }

@@ -40,11 +40,7 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 	var result research.Result
 	reused := checkpoint != nil && checkpoint.Context != ""
 	if checkpoint != nil {
-		message := "Continuing from saved source evidence and research findings."
-		if reused {
-			message = "Reusing verified research evidence for analysis."
-		}
-		if eventErr := s.event(ctx, run.ID, "research_resumed", "researching", message); eventErr != nil {
+		if eventErr := s.announceResearchResume(ctx, run.ID, reused); eventErr != nil {
 			return collection, "", eventErr
 		}
 		if reused {
@@ -74,20 +70,7 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 	if err != nil {
 		return collection, "", fmt.Errorf("research product sources: %w", err)
 	}
-	eventKind, label := "research_completed", "Research completed"
-	if result.Ledger.Status == "partial" {
-		eventKind, label = "research_partial", "Partial research accepted with explicit research gaps"
-		if len(result.Ledger.Frontier) > 0 {
-			label += ": " + strings.Join(result.Ledger.Frontier[:min(2, len(result.Ledger.Frontier))], "; ")
-		}
-	}
-	message := fmt.Sprintf("%s: %d model turns, %d tool batches, %d source reads; %d source files read; %d unresolved research obligations.", label, result.Steps, result.ToolCalls, result.MCPReads, len(result.Collection.Documents), len(result.Ledger.Frontier))
-	if reused {
-		message = fmt.Sprintf("Saved research evidence reused: %d source files read; %d unresolved research obligations. No additional research model calls.", len(result.Collection.Documents), len(result.Ledger.Frontier))
-		if result.Ledger.Status == "partial" {
-			message = "Saved partial research evidence reused: " + strings.TrimPrefix(message, "Saved research evidence reused: ")
-		}
-	}
+	eventKind, message := researchCompletionMessage(result, reused)
 	if err := s.event(ctx, run.ID, eventKind, "researching", message); err != nil {
 		return collection, "", err
 	}
@@ -96,15 +79,7 @@ func (s *Service) researchSources(ctx context.Context, run Run, collection sourc
 
 func (s *Service) recordResearchProgress(ctx context.Context, runID string, progress research.Progress) error {
 	if progress.Step == 0 {
-		if progress.State != nil {
-			if err := recordResearchState(ctx, s.DB, runID, progress.State); err != nil {
-				return err
-			}
-			if !progress.Retry {
-				return nil
-			}
-		}
-		return s.event(ctx, runID, "research_activity", "researching", progress.Message)
+		return s.recordResearchActivity(ctx, runID, progress)
 	}
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -201,4 +176,45 @@ func (s *Service) saveCitedCoverage(ctx context.Context, runID string, p passpor
 		}
 	}
 	return nil
+}
+
+func (s *Service) announceResearchResume(ctx context.Context, runID string, reused bool) error {
+	message := "Continuing from saved source evidence and research findings."
+	if reused {
+		message = "Reusing verified research evidence for analysis."
+	}
+	if eventErr := s.event(ctx, runID, "research_resumed", "researching", message); eventErr != nil {
+		return eventErr
+	}
+	return nil
+}
+
+func researchCompletionMessage(result research.Result, reused bool) (string, string) {
+	eventKind, label := "research_completed", "Research completed"
+	if result.Ledger.Status == "partial" {
+		eventKind, label = "research_partial", "Partial research accepted with explicit research gaps"
+		if len(result.Ledger.Frontier) > 0 {
+			label += ": " + strings.Join(result.Ledger.Frontier[:min(2, len(result.Ledger.Frontier))], "; ")
+		}
+	}
+	message := fmt.Sprintf("%s: %d model turns, %d tool batches, %d source reads; %d source files read; %d unresolved research obligations.", label, result.Steps, result.ToolCalls, result.MCPReads, len(result.Collection.Documents), len(result.Ledger.Frontier))
+	if reused {
+		message = fmt.Sprintf("Saved research evidence reused: %d source files read; %d unresolved research obligations. No additional research model calls.", len(result.Collection.Documents), len(result.Ledger.Frontier))
+		if result.Ledger.Status == "partial" {
+			message = "Saved partial research evidence reused: " + strings.TrimPrefix(message, "Saved research evidence reused: ")
+		}
+	}
+	return eventKind, message
+}
+
+func (s *Service) recordResearchActivity(ctx context.Context, runID string, progress research.Progress) error {
+	if progress.State != nil {
+		if err := recordResearchState(ctx, s.DB, runID, progress.State); err != nil {
+			return err
+		}
+		if !progress.Retry {
+			return nil
+		}
+	}
+	return s.event(ctx, runID, "research_activity", "researching", progress.Message)
 }

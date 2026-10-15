@@ -36,31 +36,17 @@ func TestIncrementalToolsSaveDraftThenRequireReadEvidenceToFinalize(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	byName := map[string]fantasy.AgentTool{}
-	for _, tool := range tools {
-		byName[tool.Info().Name] = tool
-	}
-	for _, name := range []string{"read_source", "search_sources", "list_sources", "add_analysis_tasks"} {
-		if byName[name] != nil {
-			t.Fatalf("synthesis exposes research tool %s", name)
-		}
-	}
-	objectSchema := byName["upsert_model_part"].Info().Parameters["objects"].(map[string]any)["items"].(map[string]any)["properties"].(map[string]any)
-	kinds := objectSchema["kind"].(map[string]any)["enum"].([]any)
-	if !slices.Contains(kinds, any("component")) || slices.Contains(kinds, any("software_system")) {
-		t.Fatal("tool schema does not distinguish object kinds from architecture roles")
-	}
-	call := func(name string, args any, wantError bool) fantasy.ToolResponse {
+	byName := analysisToolsByName(t, tools)
+	call := func(name string, args any, wantError bool) {
 		t.Helper()
-		data, err := json.Marshal(args)
-		if err != nil {
-			t.Fatal(err)
+		data, marshalErr := json.Marshal(args)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
 		}
-		response, err := byName[name].Run(t.Context(), fantasy.ToolCall{Name: name, Input: string(data)})
-		if err != nil || response.IsError != wantError {
-			t.Fatalf("%s: err=%v response=%s", name, err, response.Content)
+		response, runErr := byName[name].Run(t.Context(), fantasy.ToolCall{Name: name, Input: string(data)})
+		if runErr != nil || response.IsError != wantError {
+			t.Fatalf("%s: err=%v response=%s", name, runErr, response.Content)
 		}
-		return response
 	}
 	object := passport.Object{ID: "product", Kind: "software_system", Name: "Fixture", Status: "implemented", ArchitectureRole: "software_system"}
 	part := ModelPart{AreaID: "purpose", Objects: []passport.Object{object}, Metadata: &Metadata{Title: "Fixture", Summary: "Runs the fixture flow"}}
@@ -90,14 +76,38 @@ func TestIncrementalToolsSaveDraftThenRequireReadEvidenceToFinalize(t *testing.T
 	claim.EvidenceIDs = []string{"proof"}
 	call("upsert_model_part", ModelPart{AreaID: "purpose", Correction: "Attach the verified source evidence", Objects: []passport.Object{object}, Claims: []passport.Claim{claim}}, false)
 	call("finish_analysis_area", finishAreaInput{AreaID: "purpose"}, false)
-	if err := store.SetTaskStatus(t.Context(), ReconciliationTaskID, TaskActive); err != nil {
-		t.Fatal(err)
+	if statusErr := store.SetTaskStatus(t.Context(), ReconciliationTaskID, TaskActive); statusErr != nil {
+		t.Fatal(statusErr)
 	}
 	session.current = input.Tasks[1]
 	call("finalize_model", finalizeInput{AreaID: ReconciliationTaskID}, false)
 	if !durable.Finalized || len(store.Issues()) != 0 {
 		t.Fatal("the incrementally saved source-backed model did not finalize")
 	}
+	assertSynthesisRetry(t, input, durable)
+}
+
+func analysisToolsByName(t *testing.T, tools []fantasy.AgentTool) map[string]fantasy.AgentTool {
+	t.Helper()
+	byName := map[string]fantasy.AgentTool{}
+	for _, tool := range tools {
+		byName[tool.Info().Name] = tool
+	}
+	for _, name := range []string{"read_source", "search_sources", "list_sources", "add_analysis_tasks"} {
+		if byName[name] != nil {
+			t.Fatalf("synthesis exposes research tool %s", name)
+		}
+	}
+	objectSchema := byName["upsert_model_part"].Info().Parameters["objects"].(map[string]any)["items"].(map[string]any)["properties"].(map[string]any)
+	kinds := objectSchema["kind"].(map[string]any)["enum"].([]any)
+	if !slices.Contains(kinds, any("component")) || slices.Contains(kinds, any("software_system")) {
+		t.Fatal("tool schema does not distinguish object kinds from architecture roles")
+	}
+	return byName
+}
+
+func assertSynthesisRetry(t *testing.T, input Input, durable Checkpoint) {
+	t.Helper()
 	legacy := cloneCheckpoint(durable)
 	legacy.Finalized = false
 	legacy.Tasks = nil

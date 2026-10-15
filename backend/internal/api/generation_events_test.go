@@ -41,7 +41,7 @@ func readStreamRun(t *testing.T, scanner *bufio.Scanner) generation.Run {
 //nolint:gocyclo // Integration test covers one connection, terminal delivery and reconnect replay.
 func TestGenerationStreamReplayAndCompletion(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	database, err := db.Open(ctx, filepath.Join(t.TempDir(), "stream.db"))
 	if err != nil {

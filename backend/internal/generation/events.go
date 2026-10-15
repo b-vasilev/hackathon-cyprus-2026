@@ -22,6 +22,8 @@ type eventWriter interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 
+const runStatusQueued = "queued"
+
 func recordEvent(ctx context.Context, writer eventWriter, runID, kind, stage, message string) error {
 	_, err := writer.ExecContext(ctx, "INSERT INTO generation_events(run_id,type,stage,message,created_at) VALUES(?,?,?,?,?)", runID, kind, stage, message, time.Now().UTC().Format(time.RFC3339Nano))
 	if err != nil {
@@ -44,7 +46,7 @@ func (s *Service) stage(ctx context.Context, id, stage string) error {
 	if err := tx.QueryRowContext(ctx, "SELECT stage,status FROM generation_runs WHERE id=?", id).Scan(&previous, &status); err != nil {
 		return fmt.Errorf("read generation stage: %w", err)
 	}
-	if status != "queued" && status != "running" {
+	if status != runStatusQueued && status != "running" {
 		return context.Canceled
 	}
 	if previous == stage {
@@ -89,8 +91,8 @@ func (s *Service) failRun(ctx context.Context, id, code, message string) error {
 		return fmt.Errorf("save generation failure: %w", err)
 	}
 	kind, eventMessage := "run_failed", "Generation stopped. See the error above for details."
-	if code == "cancelled" {
-		kind, eventMessage = "run_cancelled", "Generation cancelled."
+	if code == canceledErrorCode {
+		kind, eventMessage = "run_"+canceledErrorCode, "Generation canceled."
 	}
 	if err := recordEvent(ctx, tx, id, kind, stage, eventMessage); err != nil {
 		return err

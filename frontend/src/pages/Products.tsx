@@ -203,7 +203,7 @@ export function NewProduct() {
   }
   return (
     <>
-      <Link to="/" className="back-link">
+      <Link to="/products" className="back-link">
         ← Product studio
       </Link>
       <PageHeading
@@ -317,7 +317,7 @@ export function NewProduct() {
         </fieldset>
         {create.isError && <ErrorNotice error={create.error} />}
         <div className="form-actions">
-          <Link className="button quiet" to="/">
+          <Link className="button quiet" to="/products">
             Cancel
           </Link>
           <button

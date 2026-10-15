@@ -28,7 +28,7 @@ createRoot(root).render(
         <App />
         <footer className="site-footer">
           <span>Wayfinder</span>
-          <span>Source-backed drafts. Human understanding.</span>
+          <span>From trusted sources to clear understanding.</span>
         </footer>
       </BrowserRouter>
     </QueryClientProvider>

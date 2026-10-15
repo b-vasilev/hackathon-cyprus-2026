@@ -85,9 +85,9 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 	if err := json.Unmarshal(started.Body.Bytes(), &run); err != nil {
 		t.Fatal(err)
 	}
-	cancelled := request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
-	if err := json.Unmarshal(cancelled.Body.Bytes(), &run); err != nil || run.ErrorCode != "cancelled" {
-		t.Fatalf("cancel generation: %s, %v", cancelled.Body.String(), err)
+	canceled := request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
+	if err := json.Unmarshal(canceled.Body.Bytes(), &run); err != nil || run.ErrorCode != "cancelled" { //nolint:misspell // Assert compatibility with existing API clients.
+		t.Fatalf("cancel generation: %s, %v", canceled.Body.String(), err)
 	}
 	request(http.MethodPost, "/api/generations/"+run.ID+"/cancel", "", http.StatusOK)
 	request(http.MethodPost, "/api/generations/missing/cancel", "", http.StatusNotFound)

@@ -17,7 +17,7 @@ func (s *Service) loadAnalysisCheckpoint(ctx context.Context, runID string) (*an
 	var revision int
 	err := s.DB.QueryRowContext(ctx, "SELECT revision,content_path,content_hash FROM analysis_checkpoints WHERE run_id=? ORDER BY revision DESC LIMIT 1", runID).Scan(&revision, &path, &hash)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // A new run has no saved checkpoint to resume.
 	}
 	if err != nil {
 		return nil, fmt.Errorf("load canonical analysis checkpoint reference: %w", err)
@@ -65,7 +65,7 @@ func (s *Service) saveAnalysisCheckpoint(ctx context.Context, runID string, chec
 	if err := tx.QueryRowContext(ctx, "SELECT status FROM generation_runs WHERE id=?", runID).Scan(&status); err != nil {
 		return fmt.Errorf("read generation before saving analysis: %w", err)
 	}
-	if status != "running" && status != "queued" {
+	if status != "running" && status != runStatusQueued {
 		return context.Canceled
 	}
 	if _, err := tx.ExecContext(ctx, "INSERT INTO analysis_checkpoints(run_id,revision,content_path,content_hash,created_at) VALUES(?,?,?,?,?)", runID, checkpoint.Revision, path, hash, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {

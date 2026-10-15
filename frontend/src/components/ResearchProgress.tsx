@@ -167,7 +167,11 @@ export function ResearchProgress({
             {progress.parallel.workers.map((worker) => (
               <li key={worker.id}>
                 <strong>{displayText(worker.task)}</strong>
-                <p>{displayText(worker.focus.question || worker.question || '')}</p>
+                <p>
+                  {displayText(
+                    worker.focus.question === '' ? (worker.question ?? '') : worker.focus.question
+                  )}
+                </p>
                 <span className="meta">
                   {workerStatusLabels[worker.status ?? 'working']} · {worker.turns ?? 0} turns
                 </span>

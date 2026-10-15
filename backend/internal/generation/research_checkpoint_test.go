@@ -39,8 +39,8 @@ func TestResearchCheckpointRetainsEarlierAttempts(t *testing.T) {
 	if err != nil || checkpoint == nil || checkpoint.Notes != "first findings" || outputPath != researchArtifactPath(runID, 2) {
 		t.Fatalf("retry: checkpoint=%v path=%s err=%v", checkpoint, outputPath, err)
 	}
-	if _, err := s.Content.WriteJSON(researchArtifactPath(runID, 1), map[string]string{"notes": "second findings"}); err != nil {
-		t.Fatal(err)
+	if _, writeErr := s.Content.WriteJSON(researchArtifactPath(runID, 1), map[string]string{"notes": "second findings"}); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 	checkpoint, _, err = s.researchCheckpoint(ctx, runID)
 	if err != nil || checkpoint == nil || checkpoint.Notes != "second findings" {
