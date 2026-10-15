@@ -30,6 +30,7 @@ export function Products() {
   const query = useQuery({
     queryKey: ['products'],
     queryFn: ({ signal }) => api<Product[]>('/products', { signal }),
+    refetchInterval: 5000,
   });
   const products = query.data?.filter((product) => canManage(me, product.id));
   return (
@@ -85,7 +86,25 @@ export function Products() {
             <Link className="product-card-content" to={`/products/${product.id}`}>
               <div className="card-top">
                 <ProductIdentity name={product.name} theme={product.card_theme} />
-                <Badge>{productStatus(product)}</Badge>
+                <div className="product-card-statuses" role="status">
+                  <Badge>{productStatus(product)}</Badge>
+                  {product.latest_run_status === 'queued' && (
+                    <Badge tone="active">Generation queued</Badge>
+                  )}
+                  {product.latest_run_status === 'running' && (
+                    <Badge tone="active">
+                      {product.latest_revision_id === '' ? 'Generating…' : 'Regenerating…'}
+                    </Badge>
+                  )}
+                  {product.latest_run_status === 'failed' && (
+                    <Badge tone="error">Generation stopped</Badge>
+                  )}
+                  {product.latest_run_status === 'succeeded' &&
+                    product.published_revision_id !== '' &&
+                    product.latest_revision_id !== product.published_revision_id && (
+                      <Badge tone="active">New draft ready</Badge>
+                    )}
+                </div>
               </div>
               <h2>{product.name}</h2>
               <p>

@@ -460,6 +460,12 @@ code {
   color: var(--of-muted);
   font-weight: 400;
 }
+.product-card-statuses {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
 .badge.warning {
   color: #825115;
   background: #fbf1df;

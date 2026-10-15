@@ -116,6 +116,57 @@ func TestRepositoryLogoLinksKeepTheirCommit(t *testing.T) {
 	}
 }
 
+func TestLogoPathsInBrandGuide(t *testing.T) {
+	for _, test := range []struct {
+		name, location, text, want string
+	}{
+		{"URL guide", "https://example.com/docs/brand.md", "Asset base URL: `https://example.com/identity/`\n`mark/product-blue.svg`", "https://example.com/identity/mark/product-blue.svg"},
+		{"uploaded guide", "", "Asset base URL: `https://example.com/identity`\n`mark/product-blue.svg`", "https://example.com/identity/mark/product-blue.svg"},
+		{"Markdown asset", "https://example.com/docs/brand.md", "Asset base URL: https://example.com/identity/\n![Product logo](mark/product-blue.svg)", "https://example.com/identity/mark/product-blue.svg"},
+		{"document relative", "https://example.com/brand/guide.md", "`logo.svg`", "https://example.com/brand/logo.svg"},
+		{"repository relative", repositoryURL(brandCollection().Snapshots[0], "docs/brand.md"), "`../public/logo.svg`", repositoryURL(brandCollection().Snapshots[0], "public/logo.svg")},
+		{"no base", "", "`mark/product-blue.svg`", ""},
+		{"unsafe base", "", "Asset base URL: `https://user:password@example.com/brand/`\n`mark/product-blue.svg`", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			found := logoLinks(Reference{URL: test.location, Text: test.text})
+			if test.want == "" {
+				if len(found) != 0 {
+					t.Fatal("unexpected logo", found)
+				}
+			} else if len(found) != 1 || found[0] != test.want {
+				t.Fatal("logo path was not resolved", found)
+			}
+		})
+	}
+}
+
+func TestDiscoverBrandGuideAssetPaths(t *testing.T) {
+	// Naming examples precede the actual asset paths, as in the Antares guide.
+	kit := &Brandkit{URL: "https://example.com/brand/agents.md", Text: "Asset base URL: `https://example.com/brand/`\nPrimary #123456\n" +
+		"SVG naming example: `product-mark-blue.svg`\n" +
+		"| Logo, light surface | `mark/product-blue.svg` |\n" +
+		"| Logo, light surface | `mark/product-blue.svg` |"}
+	var images []string
+	fetch := func(_ context.Context, location string, _ int64) ([]byte, string, error) {
+		if strings.HasSuffix(location, ".svg") {
+			images = append(images, location)
+		}
+		if location == "https://example.com/brand/mark/product-blue.svg" {
+			return []byte(testLogo), "image/svg+xml", nil
+		}
+		return nil, "", errors.New("unavailable")
+	}
+	d := discover(t.Context(), source.Collection{}, kit, fetch)
+	if len(images) != 2 || images[0] != "https://example.com/brand/mark/product-blue.svg" || len(d.Logos) != 1 {
+		t.Fatalf("expected actual paths before naming examples, without duplicates: %v; logos: %d", images, len(d.Logos))
+	}
+	theme := d.Theme(&passport.ProductCardTheme{AccentColor: "#123456", LogoURL: d.Logos[0].URL})
+	if theme == nil || theme.AccentColor != "#123456" || !strings.HasPrefix(theme.LogoURL, "data:image/svg+xml;base64,") {
+		t.Fatal("brand guide palette or original logo was lost")
+	}
+}
+
 func TestPrivateRepositoryLogoUsesSourceAccess(t *testing.T) {
 	collection := brandCollection()
 	collection.Documents = []source.Document{{SnapshotID: "repo", Path: "README.md", Content: "![Product logo](public/logo.svg)"}}
