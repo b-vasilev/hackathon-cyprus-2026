@@ -1,22 +1,9 @@
 import { AlertTriangle, Lightbulb } from 'lucide-react';
+import { CodeTools } from './CodeTools';
 import { GitHistoryDiagram } from './GitHistoryDiagram';
+import { Inline } from './Inline';
+import { SceneDiagram } from './SceneDiagram';
 import type { Block } from '../foundations/types';
-
-// Renders `backtick` spans as code; everything else stays plain text.
-export function Inline({ text }: Readonly<{ text: string }>) {
-  return (
-    <>
-      {text.split(/(`[^`]+`)/).map((part, index) =>
-        part.startsWith('`') && part.endsWith('`') && part.length > 1 ? (
-          // eslint-disable-next-line react/no-array-index-key -- parts of a fixed string
-          <code key={index}>{part.slice(1, -1)}</code>
-        ) : (
-          part
-        )
-      )}
-    </>
-  );
-}
 
 export function LessonBlocks({ blocks }: Readonly<{ blocks: Block[] }>) {
   return (
@@ -104,5 +91,9 @@ function LessonBlock({ block }: Readonly<{ block: Block }>) {
       );
     case 'git-history':
       return <GitHistoryDiagram />;
+    case 'scenes':
+      return <SceneDiagram block={block} />;
+    case 'code-tools':
+      return <CodeTools block={block} />;
   }
 }

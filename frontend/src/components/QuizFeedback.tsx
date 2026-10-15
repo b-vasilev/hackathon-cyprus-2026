@@ -1,4 +1,4 @@
-import { Inline } from './LessonContent';
+import { Inline } from './Inline';
 
 export function Feedback({ correct, text }: Readonly<{ correct: boolean; text: string }>) {
   return (

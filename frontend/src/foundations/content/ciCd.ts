@@ -1,20 +1,23 @@
 import type { FoundationModule } from '../types';
 
+const NPM_BUILD = '`npm run build`';
+const CREATES_DIST = 'creates `dist/`';
+
 export const ciCd: FoundationModule = {
   id: 'ci-cd',
   title: 'CI/CD and GitHub Actions',
-  summary: 'What a pipeline does, how a workflow file is put together, and where it runs.',
-  outcome: 'Read a workflow file, figure out why a check failed, and fix it.',
+  summary: 'What a pipeline does, how a workflow file is built, and where it runs.',
+  outcome: 'Read a workflow file, find out why a check failed, and fix it.',
   minutes: 30,
   lessons: [
     {
       id: 'what-is-ci',
       title: 'What CI and CD mean',
-      summary: 'The terms, and what a typical pipeline runs.',
+      summary: 'What CI and CD mean, and the steps of a typical pipeline.',
       blocks: [
         {
           type: 'p',
-          text: "Continuous integration (CI) means people merge small changes often, and every push or PR gets built and checked automatically. When something breaks, you hear about it minutes after the change, while it's still fresh in your head.",
+          text: 'Continuous integration (CI) means that people merge small changes often. Every push or pull request (PR) is built and checked automatically. When something breaks, you find out a few minutes after the change. You still remember what you changed, so the fix is easier.',
         },
         {
           type: 'table',
@@ -30,7 +33,7 @@ export const ciCd: FoundationModule = {
         },
         {
           type: 'p',
-          text: 'Pipelines usually run the quick checks first, so a typo fails in 30 seconds and not after a 10-minute test run:',
+          text: 'A pipeline is the list of automatic steps that runs for each change. Pipelines usually run the quick checks first. A typo then fails in 30 seconds, and you do not wait for a 10-minute test run. A typical order is below. (A linter is a tool that reads your code and warns about likely mistakes.)',
         },
         {
           type: 'list',
@@ -41,23 +44,85 @@ export const ciCd: FoundationModule = {
             'Type check',
             'Tests',
             'Build (bundle, binary, Docker image)',
-            "Deploy, if it's a delivery pipeline",
+            'Deploy, if it is a delivery pipeline',
           ],
         },
         {
           type: 'p',
-          text: 'On GitHub, every result shows up as a check on the PR. Branch protection can make checks required, so the merge button stays disabled until they pass.',
+          text: 'The pipeline stops at the first stage that fails. The stages after it do not run.',
+        },
+        {
+          type: 'scenes',
+          title: 'What happens when a stage fails',
+          legend: [
+            { tone: 'brand', label: 'Passed' },
+            { tone: 'danger', label: 'Failed' },
+            { tone: 'muted', label: 'Skipped' },
+          ],
+          scenes: [
+            {
+              name: 'All green',
+              summary: 'Every stage passes, so the PR can be merged.',
+              rows: [
+                {
+                  label: 'Pipeline',
+                  blocks: [
+                    { text: 'Install', tone: 'brand' },
+                    { text: 'Lint', tone: 'brand' },
+                    { text: 'Test', tone: 'brand' },
+                    { text: 'Build', tone: 'brand' },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'Lint fails',
+              summary: 'The pipeline stops at the lint stage.',
+              description: 'Tests and build do not run. Fix the lint error first.',
+              rows: [
+                {
+                  label: 'Pipeline',
+                  blocks: [
+                    { text: 'Install', tone: 'brand' },
+                    { text: 'Lint', tone: 'danger', note: 'unused variable' },
+                    { text: 'Test', tone: 'muted', note: 'skipped' },
+                    { text: 'Build', tone: 'muted', note: 'skipped' },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'Test fails',
+              summary: 'Lint passes, but one test fails, so the build does not run.',
+              description: 'The PR cannot be merged until the test passes.',
+              rows: [
+                {
+                  label: 'Pipeline',
+                  blocks: [
+                    { text: 'Install', tone: 'brand' },
+                    { text: 'Lint', tone: 'brand' },
+                    { text: 'Test', tone: 'danger', note: '1 test failed' },
+                    { text: 'Build', tone: 'muted', note: 'skipped' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'p',
+          text: 'On GitHub, every result is shown as a check on the PR. Branch protection can make checks required. The merge button then stays disabled until the checks pass.',
         },
       ],
     },
     {
       id: 'actions-anatomy',
       title: 'Reading a GitHub Actions workflow',
-      summary: 'Events, jobs, steps, and how they fit together.',
+      summary: 'How events, jobs and steps fit together in a workflow file.',
       blocks: [
         {
           type: 'p',
-          text: "Workflows are YAML files in `.github/workflows/`. Here's a small but realistic one:",
+          text: 'A workflow is a YAML file in `.github/workflows/`. It tells GitHub what to run and when. Here is a small but realistic one:',
         },
         {
           type: 'code',
@@ -80,10 +145,10 @@ export const ciCd: FoundationModule = {
               'Step',
               "Either a shell command (`run:`) or a ready-made action (`uses:`). Steps run in order and share the job's files.",
             ],
-            ['Action', 'A reusable step someone published, like `actions/checkout`.'],
+            ['Action', 'A reusable step that someone published, for example `actions/checkout`.'],
             [
               'Matrix',
-              'Runs the same job several times with different values, say Node 20, 22 and 24.',
+              'Runs the same job several times with different values, for example Node 20, 22 and 24.',
             ],
             ['Artifact', 'Files a job uploads so a later job, or a person, can download them.'],
           ],
@@ -91,8 +156,77 @@ export const ciCd: FoundationModule = {
         {
           type: 'callout',
           tone: 'tip',
-          title: "Jobs don't share a disk",
-          text: "Each job runs on its own machine. A `dist/` folder built in one job won't exist in the next. Pass it with `actions/upload-artifact` and `actions/download-artifact`, or do both steps in the same job.",
+          title: 'Jobs do not share a disk',
+          text: 'Each job runs on its own machine. A `dist/` folder built in one job does not exist in the next job. Pass it with `actions/upload-artifact` and `actions/download-artifact`, or do both steps in the same job.',
+        },
+        {
+          type: 'scenes',
+          title: 'Where the `dist/` folder exists',
+          legend: [
+            { tone: 'neutral', label: 'Step' },
+            { tone: 'brand', label: 'Has `dist/`' },
+            { tone: 'soft', label: 'Copied as artifact' },
+            { tone: 'danger', label: 'Failed' },
+          ],
+          scenes: [
+            {
+              name: 'Steps in one job',
+              summary: 'All steps run on one machine, so later steps see `dist/`.',
+              description: 'Steps in the same job share files.',
+              rows: [
+                {
+                  label: 'Machine A',
+                  blocks: [
+                    { text: 'Checkout' },
+                    { text: NPM_BUILD, tone: 'brand', note: CREATES_DIST },
+                    { text: 'Deploy', tone: 'brand', note: 'reads `dist/`' },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'Two jobs',
+              summary: 'The deploy job runs on a new machine without `dist/`.',
+              description: '`needs` only sets the order. It does not move files.',
+              rows: [
+                {
+                  label: 'Job build',
+                  blocks: [
+                    { text: 'Checkout' },
+                    { text: NPM_BUILD, tone: 'brand', note: CREATES_DIST },
+                  ],
+                },
+                {
+                  label: 'Job deploy',
+                  blocks: [
+                    { text: 'Checkout' },
+                    { text: 'Deploy', tone: 'danger', note: '`dist/` missing' },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'Two jobs + artifact',
+              summary: 'The build job uploads `dist/`, and the deploy job downloads it.',
+              description: 'Artifacts are the way to pass files between jobs.',
+              rows: [
+                {
+                  label: 'Job build',
+                  blocks: [
+                    { text: NPM_BUILD, tone: 'brand', note: CREATES_DIST },
+                    { text: 'upload-artifact', tone: 'soft', note: 'stores `dist/`' },
+                  ],
+                },
+                {
+                  label: 'Job deploy',
+                  blocks: [
+                    { text: 'download-artifact', tone: 'soft', note: 'gets `dist/`' },
+                    { text: 'Deploy', tone: 'brand', note: 'reads `dist/`' },
+                  ],
+                },
+              ],
+            },
+          ],
         },
       ],
     },
@@ -103,87 +237,192 @@ export const ciCd: FoundationModule = {
       blocks: [
         {
           type: 'p',
-          text: 'A runner is the machine a job runs on. You pick it with `runs-on`, using a label such as `ubuntu-latest`, `windows-latest`, `macos-latest`, or `[self-hosted, linux]` for your own machines.',
+          text: 'A runner is the machine a job runs on. You choose it with `runs-on`. Use a label such as `ubuntu-latest`, `windows-latest`, `macos-latest`, or `[self-hosted, linux]` for your own machines.',
         },
         {
           type: 'table',
-          columns: ['Type', 'Who looks after it', 'Between jobs', 'Use it for'],
+          columns: ['Type', 'Who maintains it', 'Between jobs', 'Use it for'],
           rows: [
             [
               'GitHub-hosted',
               'GitHub',
-              'Brand new VM for every job',
-              'Most things. No maintenance.',
+              'A new virtual machine (VM) for every job',
+              'Most work. No maintenance.',
             ],
             [
               'Larger runners',
               'GitHub (paid)',
-              'Brand new, with more CPU and RAM',
+              'A new VM, with more CPU and RAM',
               'Heavy builds, GPUs, fixed IP ranges.',
             ],
             [
               'Self-hosted',
               'Your team',
               'Keeps files and state unless you set it up not to',
-              'Private network access, special hardware.',
+              'Access to a private network, special hardware.',
             ],
           ],
         },
         {
           type: 'p',
-          text: "Because a hosted runner starts empty, every job installs what it needs. Caching (like `cache: npm` above) keeps that fast. If something works on a self-hosted runner and fails on a hosted one, it's usually relying on a tool someone installed by hand.",
+          text: 'A hosted runner starts empty, so every job installs what it needs. Caching (like `cache: npm` above) keeps this fast. Sometimes a job works on a self-hosted runner and fails on a hosted one. The usual reason is that it needs a tool that someone installed by hand on the self-hosted machine.',
+        },
+        {
+          type: 'scenes',
+          title: 'What the next job finds on the machine',
+          legend: [
+            { tone: 'neutral', label: 'Reused machine' },
+            { tone: 'soft', label: 'New, empty VM' },
+            { tone: 'brand', label: 'Job work' },
+            { tone: 'warning', label: 'Left from earlier' },
+            { tone: 'muted', label: 'Removed' },
+          ],
+          scenes: [
+            {
+              name: 'GitHub-hosted',
+              summary: 'Each job gets a new, empty VM.',
+              description: 'Nothing from job 1 is left for job 2. The VM is removed after the job.',
+              rows: [
+                {
+                  label: 'Job 1',
+                  blocks: [
+                    { text: 'New VM', tone: 'soft', note: 'empty' },
+                    { text: 'Install + build', tone: 'brand' },
+                    { text: 'VM removed', tone: 'muted' },
+                  ],
+                },
+                {
+                  label: 'Job 2',
+                  blocks: [
+                    { text: 'New VM', tone: 'soft', note: 'empty' },
+                    { text: 'Install + test', tone: 'brand' },
+                    { text: 'VM removed', tone: 'muted' },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'Self-hosted',
+              summary: 'Both jobs run on the same machine, one after the other.',
+              description:
+                'Job 2 can see files and tools from job 1. This can hide missing setup steps.',
+              rows: [
+                {
+                  label: 'Job 1',
+                  blocks: [
+                    { text: 'Office server', tone: 'neutral' },
+                    { text: 'Install + build', tone: 'brand', note: 'leaves files' },
+                  ],
+                },
+                {
+                  label: 'Job 2',
+                  blocks: [
+                    { text: 'Office server', tone: 'neutral', note: 'same machine' },
+                    { text: 'Old files', tone: 'warning', note: 'from job 1' },
+                    { text: 'Install + test', tone: 'brand' },
+                  ],
+                },
+              ],
+            },
+          ],
         },
         {
           type: 'callout',
           tone: 'warning',
           title: 'Self-hosted runners and public repos',
-          text: "Anyone can open a PR on a public repo, and workflows can run the code in that PR. On a self-hosted runner, that means a stranger's code running on your machine, on your network. GitHub recommends self-hosted runners for private repos only.",
+          text: "Anyone can open a PR on a public repo, and workflows can run the code in that PR. On a self-hosted runner, a stranger's code then runs on your machine, inside your network. GitHub recommends self-hosted runners for private repos only.",
         },
       ],
     },
     {
       id: 'secrets-and-safety',
       title: 'Secrets and permissions',
-      summary: 'Give workflows only the access they need.',
+      summary: 'How to give workflows only the access they need.',
       blocks: [
         {
           type: 'p',
           // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax, not a JS template
-          text: "Store credentials as secrets (per repo, environment or organization) and read them with `${{ secrets.NAME }}`. GitHub hides secret values in logs, but only exact matches. If a script base64-encodes a secret and prints it, it's out.",
+          text: 'A secret is a stored value such as a password or an API key. Store credentials as secrets (per repo, environment or organization) and read them with `${{ secrets.NAME }}`. GitHub hides secret values in logs, but only exact matches. If a script base64-encodes a secret and prints it, the secret is visible in the log.',
         },
         {
           type: 'list',
           items: [
             'Each workflow gets a `GITHUB_TOKEN` automatically. Limit it with a `permissions:` block. Most CI jobs only need `contents: read`.',
-            "PRs from forks don't get your secrets (apart from a read-only `GITHUB_TOKEN`). That's on purpose.",
+            'PRs from forks do not get your secrets (apart from a read-only `GITHUB_TOKEN`). This is on purpose.',
             '`pull_request_target` runs with secrets, in the context of your repo. Never check out and run PR code in it.',
             'Use environments with required reviewers for deployment credentials.',
-            'Pin third-party actions to a version tag, or to a full commit SHA if you want to be strict.',
+            'Pin third-party actions to a version tag. To be strict, pin them to a full commit SHA.',
+          ],
+        },
+        {
+          type: 'p',
+          text: 'A fork is a copy of a repo under another account. Anyone can fork a public repo and open a PR from the fork.',
+        },
+        {
+          type: 'scenes',
+          title: 'Which secrets a PR workflow gets',
+          legend: [
+            { tone: 'neutral', label: 'Trigger' },
+            { tone: 'brand', label: 'Available' },
+            { tone: 'warning', label: 'Limited' },
+            { tone: 'danger', label: 'Not available' },
+          ],
+          scenes: [
+            {
+              name: 'PR from your repo',
+              summary: 'The workflow gets repo secrets and a normal `GITHUB_TOKEN`.',
+              description: 'The `permissions:` block still limits what the token can do.',
+              rows: [
+                {
+                  label: 'Workflow',
+                  blocks: [
+                    { text: 'PR from a branch', tone: 'neutral' },
+                    { text: 'Repo secrets', tone: 'brand' },
+                    { text: '`GITHUB_TOKEN`', tone: 'brand', note: 'as set in `permissions:`' },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'PR from a fork',
+              summary: 'The workflow gets no repo secrets and only a read-only token.',
+              description: 'This stops code from strangers from reading your credentials.',
+              rows: [
+                {
+                  label: 'Workflow',
+                  blocks: [
+                    { text: 'PR from a fork', tone: 'neutral' },
+                    { text: 'Repo secrets', tone: 'danger', note: 'not given' },
+                    { text: '`GITHUB_TOKEN`', tone: 'warning', note: 'read-only' },
+                  ],
+                },
+              ],
+            },
           ],
         },
       ],
     },
     {
       id: 'failing-checks',
-      title: 'When a check goes red',
-      summary: 'A routine for working out what broke.',
+      title: 'When a check fails',
+      summary: 'A routine to find out what broke.',
       blocks: [
         {
           type: 'list',
           ordered: true,
           items: [
-            'Open the failed check and find the first step that failed. Everything after it is often fallout.',
-            'Read the actual error. Search the log for "error" or the name of the failing test.',
-            'Run the same command locally, for example `npm ci && npm test`.',
-            "Unrelated to your change and passes on re-run? That's a flaky test. Report it. Don't keep clicking re-run until it's green.",
-            'Push the fix to the same branch. Checks re-run on their own.',
+            'Open the failed check and find the first step that failed. Errors after it are often caused by that first failure.',
+            'Read the actual error. Search the log for "error" or for the name of the failing test.',
+            'Run the same command on your laptop, for example `npm ci && npm test`.',
+            'Is the failure unrelated to your change, and does it pass when you run it again? Then it is a flaky test, a test that sometimes passes and sometimes fails without a code change. Report it. Do not click re-run again and again until it passes.',
+            'Push the fix to the same branch. The checks run again automatically.',
           ],
         },
         {
           type: 'callout',
           tone: 'warning',
-          title: "Don't go around the pipeline",
-          text: 'Skipping tests, disabling the check or merging with admin rights just moves the problem to whoever comes next. Fix it, or agree an exception with whoever owns the check.',
+          title: 'Do not go around the pipeline',
+          text: 'Skipping tests, turning off the check or merging with admin rights only moves the problem to the next person. Fix it, or agree an exception with the owner of the check.',
         },
       ],
     },
@@ -194,96 +433,96 @@ export const ciCd: FoundationModule = {
       kind: 'fill',
       code: true,
       prompt:
-        "Complete the workflow: run on pull requests, use a GitHub-hosted Linux machine, install exactly what's in the lockfile, and build only after `check` passes.",
+        'Complete the workflow. It must run on pull requests, use a GitHub-hosted Linux machine, install exactly what is in the lockfile, and build only after `check` passes.',
       template:
         'on:\n  {{0}}:\n\njobs:\n  check:\n    runs-on: {{1}}\n    steps:\n      - uses: actions/checkout@v5\n      - run: {{2}}\n      - run: npm test\n  build:\n    {{3}}: check\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v5\n      - run: npm ci && npm run build',
       answers: ['pull_request', 'ubuntu-latest', 'npm ci', 'needs'],
       distractors: ['self-hosted', 'npm install', 'after', 'pull'],
       explanation:
-        '`pull_request` is the event name, `ubuntu-latest` is a hosted runner label, `npm ci` installs from the lockfile without changing it, and `needs` makes `build` wait for `check`.',
+        '`pull_request` is the event name. `ubuntu-latest` is a hosted runner label. `npm ci` installs from the lockfile without changing it. `needs` makes `build` wait for `check`.',
     },
     {
       id: 'ci-pipeline-order',
       kind: 'fill',
-      prompt: 'Put a typical pipeline in order, cheapest checks first.',
+      prompt: 'Put a typical pipeline in order, with the cheapest checks first.',
       template: '1. {{0}}\n2. {{1}}\n3. {{2}}\n4. {{3}}',
       answers: ['Install dependencies', 'Lint and format check', 'Run tests', 'Build'],
       distractors: [],
       explanation:
-        'Nothing runs without dependencies. Then fail fast on cheap checks before spending minutes on tests, and only build what passed.',
+        'Nothing runs without dependencies. Then run the cheap checks, so they fail fast before minutes of tests. Build only what passed.',
     },
     {
       id: 'ci-red-check',
       kind: 'branch',
-      prompt: 'Work through it. Each decision changes what happens next.',
+      prompt: 'Work through the situation. Each decision changes what happens next.',
       steps: [
         {
           id: 'start',
-          text: "Thursday, 17:40. Your PR has to go out tomorrow morning and the `test` check just went red: `checkout.spec.ts › applies discount` timed out. You didn't touch checkout.",
+          text: 'Thursday, 17:40. Your PR must go out tomorrow morning. The `test` check just failed: `checkout.spec.ts › applies discount` timed out. You did not change the checkout code.',
           choices: [
             {
               label: 'Open the log and find the first failing step',
               good: true,
               outcome:
-                'Install and lint passed. Only that one test failed, after waiting 5 seconds for a call to the payment sandbox.',
+                'Install and lint passed. Only that one test failed. It waited 5 seconds for a call to the payment sandbox.',
               next: 'local',
             },
             {
-              label: 'Click re-run until it goes green',
+              label: 'Click re-run until it passes',
               good: false,
               outcome:
-                "It passes on the third try. You still don't know why it failed, and it'll do the same to the next person.",
+                'It passes on the third try. You still do not know why it failed, and it will fail for the next person too.',
               next: 'local',
             },
             {
               label: 'Ask an admin to merge it anyway',
               good: false,
-              outcome: "They say no and ask what's failing. You have to look anyway.",
+              outcome: 'They say no and ask what is failing. You have to look anyway.',
               next: 'local',
             },
           ],
         },
         {
           id: 'local',
-          text: 'You run `npm test -- checkout` locally. It passes 9 times out of 10. On `main`, the same test failed twice this week.',
+          text: 'You run `npm test -- checkout` on your laptop. It passes 9 times out of 10. On `main`, the same test failed twice this week.',
           choices: [
             {
               label: "Open an issue with links to the failed runs and tell the test's owner",
               good: true,
               outcome:
-                'The owner already suspected the sandbox timeouts and quarantines the test. Your next run is green.',
+                'The owner already suspected the sandbox timeouts. They quarantine the test, which means it still runs but cannot block merges. Your next run passes.',
               next: 'merge',
             },
             {
               label: 'Delete the test so your PR passes',
               good: false,
               outcome:
-                'The reviewer notices a deleted test in a PR about something else and asks you to put it back.',
+                'The reviewer sees a deleted test in a PR about something else. They ask you to put it back.',
               next: 'merge',
             },
             {
               label: 'Add `sleep(10000)` before the assertion',
               good: false,
               outcome:
-                'Now the suite is 10 seconds slower and still flaky. The sandbox sometimes takes 12.',
+                'Now the test suite is 10 seconds slower and still flaky. The sandbox sometimes takes 12 seconds.',
               next: 'merge',
             },
           ],
         },
         {
           id: 'merge',
-          text: "Your PR is green and approved. It's 18:30.",
+          text: 'Your PR passes all checks and is approved. It is 18:30.',
           choices: [
             {
               label: 'Merge, and link the flaky-test issue in the PR',
               good: true,
               outcome:
-                "Anyone looking back at this week's red builds finds the explanation in one click.",
+                "Anyone who looks at this week's failed builds later finds the explanation in one click.",
             },
             {
-              label: "Merge and don't mention it",
+              label: 'Merge and do not mention it',
               good: false,
-              outcome: 'Next week someone else spends an hour rediscovering the same flaky test.',
+              outcome: 'Next week someone else spends an hour finding the same flaky test again.',
             },
           ],
         },
@@ -293,46 +532,76 @@ export const ciCd: FoundationModule = {
       id: 'ci-jobs-share',
       kind: 'single',
       scenario:
-        'Job `build` creates `dist/`. Job `deploy` has `needs: build`, and fails with "dist: no such file or directory".',
-      prompt: 'Why?',
+        'Job `build` creates `dist/`. Job `deploy` has `needs: build` and fails with "dist: no such file or directory".',
+      prompt: 'Why does `deploy` fail?',
       options: [
         '`needs` only works on self-hosted runners.',
-        "Each job runs on its own machine, so `dist/` isn't there. Upload it as an artifact and download it in `deploy`.",
+        'Each job runs on its own machine, so `dist/` is not there. Upload it as an artifact and download it in `deploy`.',
         'The jobs ran in the wrong order.',
         'GitHub deletes `dist/` folders for security reasons.',
       ],
       correct: [1],
-      explanation: "`needs` sets the order but doesn't move files. Artifacts do.",
+      explanation: '`needs` sets the order but does not move files. Artifacts move files.',
     },
     {
       id: 'ci-self-hosted',
       kind: 'single',
       scenario:
-        'An open-source project wants faster builds, so someone suggests running all PR checks on a spare server in the office.',
-      prompt: "What's the problem?",
+        'An open-source project wants faster builds. Someone suggests running all PR checks on a spare server in the office.',
+      prompt: 'What is the problem?',
       options: [
-        "Self-hosted runners can't run Linux.",
+        'Self-hosted runners cannot run Linux.',
         "Anyone can open a PR, so strangers' code would run on a machine inside the office network.",
-        "Self-hosted runners don't support npm.",
-        "There isn't one.",
+        'Self-hosted runners do not support npm.',
+        'There is no problem.',
       ],
       correct: [1],
       explanation:
-        "On a public repo you don't control who triggers workflows. Keep self-hosted runners for private repos.",
+        'On a public repo you do not control who starts workflows. Use self-hosted runners for private repos only.',
     },
     {
       id: 'ci-secrets',
       kind: 'multiple',
       prompt: 'Which of these are true about secrets in GitHub Actions?',
       options: [
-        'Secret values are masked in logs.',
-        "Workflows triggered by PRs from forks don't get repository secrets.",
+        'Secret values are masked (hidden) in logs.',
+        'Workflows started by PRs from forks do not get repository secrets.',
         'A `permissions:` block can limit what `GITHUB_TOKEN` can do.',
-        "Masking means a script can't leak a secret.",
+        'Masking means a script cannot leak a secret.',
       ],
       correct: [0, 1, 2],
       explanation:
-        'Masking only catches the exact value. Encode or split it and it shows up in the log just fine.',
+        'Masking only hides the exact value. If a script encodes or splits the secret, it is visible in the log.',
+    },
+    {
+      id: 'ci-patch-target',
+      kind: 'patch',
+      prompt: 'Review this workflow change. Flag the lines that are a security problem.',
+      file: '.github/workflows/preview.yml',
+      lines: [
+        { type: 'context', text: 'on:' },
+        {
+          type: 'add',
+          text: '  pull_request_target:',
+          issue:
+            '`pull_request_target` runs with your secrets. Combined with checking out PR code, a fork PR can read them.',
+        },
+        { type: 'context', text: 'permissions:' },
+        { type: 'context', text: '  contents: read' },
+        { type: 'context', text: 'jobs:' },
+        { type: 'context', text: '  preview:' },
+        { type: 'context', text: '    runs-on: ubuntu-latest' },
+        { type: 'context', text: '    steps:' },
+        { type: 'context', text: '      - uses: actions/checkout@v5' },
+        { type: 'context', text: '        with:' },
+        {
+          type: 'add',
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax, not a JS template
+          text: '          ref: ${{ github.event.pull_request.head.sha }}',
+          issue: 'This checks out the PR code, so code from a stranger runs with your secrets.',
+        },
+        { type: 'context', text: '      - run: npm ci && npm run build' },
+      ],
     },
   ],
 };

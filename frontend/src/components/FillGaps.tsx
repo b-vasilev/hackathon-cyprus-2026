@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type DragEvent } from 'react';
-import { Inline } from './LessonContent';
+import { Inline } from './Inline';
 import { Feedback } from './QuizFeedback';
 import type { FillQuestion } from '../foundations/types';
 

@@ -8,7 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Inline } from './LessonContent';
+import { Inline } from './Inline';
 import type { Card, CardQuestion } from '../foundations/types';
 
 const icons = {

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { BranchScenario } from './BranchScenario';
 import { CardPick } from './CardPick';
 import { FillGaps } from './FillGaps';
-import { Inline } from './LessonContent';
+import { Inline } from './Inline';
 import { PatchReview } from './PatchReview';
 import { Feedback } from './QuizFeedback';
 import type { ChoiceQuestion, Question } from '../foundations/types';

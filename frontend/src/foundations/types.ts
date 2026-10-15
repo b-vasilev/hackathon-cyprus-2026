@@ -8,7 +8,48 @@ export type Block =
   | { type: 'callout'; tone: 'tip' | 'warning'; title: string; text: string }
   | { type: 'table'; columns: string[]; rows: string[][] }
   // Interactive merge / rebase / squash history picture.
-  | { type: 'git-history' };
+  | { type: 'git-history' }
+  | ScenesBlock
+  | CodeToolsBlock;
+
+// Colour roles for diagram blocks. Each also differs in border or fill style,
+// so meaning never depends on colour alone.
+export type Tone =
+  | 'neutral' // plain white block: existing or unaffected parts
+  | 'brand' // solid violet: the thing this view is about
+  | 'soft' // dashed violet: new, replaced or simulated
+  | 'strong' // thick dark outline: a result or join point
+  | 'muted' // dashed grey: skipped, unused or left behind
+  | 'warning' // amber: needs attention
+  | 'danger'; // red: failed or not allowed
+
+export interface SceneBlock {
+  text: string;
+  tone?: Tone;
+  // Short line under the block.
+  note?: string;
+}
+
+export interface SceneRow {
+  label?: string;
+  blocks: SceneBlock[];
+}
+
+export interface Scene {
+  name: string;
+  // Bold first sentence of the caption.
+  summary: string;
+  description?: string;
+  rows: SceneRow[];
+}
+
+// Tabs that each show rows of connected coloured blocks, like the Git history picture.
+export interface ScenesBlock {
+  type: 'scenes';
+  title?: string;
+  legend?: { tone: Tone; label: string }[];
+  scenes: Scene[];
+}
 
 export interface Lesson {
   id: string;
@@ -105,4 +146,33 @@ export interface FoundationModule {
   minutes: number;
   lessons: Lesson[];
   quiz: Question[];
+}
+
+export interface CodeTool {
+  name: string;
+  // Formatters rewrite code themselves; most other tools only report.
+  fixedBy: 'tool' | 'you';
+  // True for the formatter: applying it uses each statement's `formatted` text.
+  formats?: boolean;
+  summary: string;
+}
+
+export interface CodeStatement {
+  // The code as first written. May span several lines.
+  text: string;
+  // Layout after the formatter runs. Defaults to `text`.
+  formatted?: string;
+  // Problems a tool reports on this statement.
+  findings?: { tool: string; text: string }[];
+  // How a tool's fix changes this statement: remove it, or replace text in it.
+  // Replacements are applied when found, so list one for each layout if they differ.
+  fixes?: { tool: string; remove?: boolean; replace?: [string, string][] }[];
+}
+
+// Code playground: run the tools in any order and compare the code before and after.
+export interface CodeToolsBlock {
+  type: 'code-tools';
+  title?: string;
+  tools: CodeTool[];
+  statements: CodeStatement[];
 }
