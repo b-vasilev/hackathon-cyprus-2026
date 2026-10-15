@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
@@ -33,7 +34,7 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := generation.New(database, store, nil, nil, zerolog.Nop())
+	service := generation.New(database, store, nil, nil, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
 	handler := New(database, zerolog.Nop(), nil, &Factory{Service: service, Network: policy})
 	request := func(method, path, body string, status int) *httptest.ResponseRecorder {
 		t.Helper()

@@ -19,6 +19,8 @@ export type Parameter = components['schemas']['Parameter'];
 export type ProbeResult = components['schemas']['ProbeResult'];
 export type FactoryStatus = components['schemas']['FactoryStatus'];
 export type SourceInput = components['schemas']['SourceInput'];
+export type GitHubConnection = components['schemas']['GitHubConnection'];
+export type OAuthURL = components['schemas']['OAuthURL'];
 
 interface ErrorBody {
   code?: string;

@@ -33,6 +33,7 @@ type Model struct {
 	ID              string `json:"id"`
 	OutputMode      string `json:"output_mode"`
 	MaxOutputTokens int    `json:"max_output_tokens"`
+	ReasoningEffort string `json:"reasoning_effort"`
 }
 
 // Config is encrypted as a whole. Secret values are removed from public responses.
@@ -135,6 +136,9 @@ func Validate(c *Config) error {
 	}
 	seen := make(map[string]bool)
 	for _, m := range c.Models {
+		if !slices.Contains([]string{"", "none", "minimal", "low", "medium", "high", "xhigh"}, m.ReasoningEffort) {
+			return fmt.Errorf("%w: unsupported reasoning effort", ErrInvalid)
+		}
 		if strings.TrimSpace(m.ID) == "" || len(m.ID) > 200 || seen[m.ID] || !safeValue(m.ID) {
 			return fmt.Errorf("%w: model IDs must be non-empty and unique", ErrInvalid)
 		}

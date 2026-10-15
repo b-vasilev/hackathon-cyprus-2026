@@ -5,28 +5,10 @@ import { message } from '../lib/api';
 
 export function Brand() {
   return (
-    <Link to="/" className="brand" aria-label="Onboarding Factory home">
-      <svg viewBox="0 0 32 36" fill="none" aria-hidden="true">
-        <path d="M6 29V15h20V5" stroke="currentColor" strokeWidth="2.7" strokeLinejoin="round" />
-        <circle
-          cx="6"
-          cy="29"
-          r="3.4"
-          fill="var(--of-surface)"
-          stroke="currentColor"
-          strokeWidth="2.2"
-        />
-        <circle
-          cx="26"
-          cy="5"
-          r="3.4"
-          fill="var(--of-surface)"
-          stroke="currentColor"
-          strokeWidth="2.2"
-        />
-      </svg>
+    <Link to="/" className="brand" aria-label="Wayfinder home">
+      <img src="/brand/wayfinder-mark-violet.svg" width={32} height={32} alt="" />
       <span>
-        <strong>onboarding</strong> factory
+        <strong>Wayfinder</strong>
       </span>
     </Link>
   );

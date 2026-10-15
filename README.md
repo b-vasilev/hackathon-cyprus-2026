@@ -1,4 +1,4 @@
-# Onboarding Factory
+# Wayfinder
 
 Generate a standard product passport from repository evidence. Each product gets
 its own content, model, scenarios and diagrams through shared renderers.
@@ -6,13 +6,13 @@ its own content, model, scenarios and diagrams through shared renderers.
 ```text
 GitHub SHA + optional context
               |
-       LLM file selection
+      go-git + Repomix safety checks
               |
-      Git + Repomix safety checks
+      Fantasy + Repomix MCP research
               |
-  analyze -> reconcile -> compose -> validate
+  analyze + reconcile -> compose -> validate
               |
-    immutable passport in SQLite
+    versioned passport JSON + SQLite metadata
               |
      React Flow + ELK + evidence
 ```
@@ -46,6 +46,22 @@ Use a single API instance and a local persistent SQLite disk. Migrations run at
 startup. One goqite worker processes durable queued runs. Interrupted running jobs
 become failed after restart and can be generated again. A failed regeneration
 keeps the last successful passport.
+
+Passport content is stored in files, outside SQLite. `PASSPORT_CONTENT_DIR` defaults
+to a `content` directory beside `DATABASE_PATH`. Local development keeps the database
+and content in `backend/data/`, which is ignored by Git. Readable passport JSON lives under
+`products/<product-id>/versions/<version>/`; collected source text and model responses
+live under `runs/<run-id>/`. SQLite retains version metadata, paths, checksums,
+connections, processing state and usage. Back up the database and content directory
+together; the content directory must persist across API restarts and deployments.
+Startup exports existing database payloads, verifies the files and clears the legacy
+payload columns in one transaction. Failed exports preserve the database originals.
+New files are immutable and published before their database references are committed.
+Source settings and the frozen input configuration remain in SQLite.
+
+System context diagrams use custom React Flow nodes and ELK-routed orthogonal
+edges with labels included in layout. Narrow screens use a vertical arrangement;
+other diagram kinds keep their existing renderer.
 
 For a single-origin local build, run `just frontend::build`, then start the API
 with `FRONTEND_DIR=../frontend/dist` and `CORS_ORIGINS=http://127.0.0.1:8080`.
@@ -92,16 +108,37 @@ and allow origin `http://llm-proxy:8317`. The profile stays off by default.
 
 ## Source collection and generation
 
-GitHub sources resolve to immutable SHAs. A bounded file catalog is sent to the
-selected model, which chooses exact files. Include patterns narrow that catalog.
-Git fetches the pinned commit without checking out or running repository code.
-Only selected regular files are staged for the pinned Repomix CLI. Repomix
+GitHub sources resolve to immutable SHAs. All eligible repository text is indexed;
+optional include patterns narrow that scope only when explicitly configured.
+The embedded go-git library fetches the pinned commit without checking out or
+running repository code. No installed Git executable is needed by the API or tests.
+Regular source files are staged for the pinned Repomix CLI. Repomix
 security and ignore filters determine safe files; original Git bytes are retained
-for exact hashes and line citations. Optional `GITHUB_TOKEN` supports private repos.
+for exact hashes and line citations.
 
-Limits: 5 sources, 120 documents, 300 KB total text, 128 KiB per file, 5,000 catalog
-entries and 80 selected files per repository. Catalog truncation and source coverage
-are explicit. These are context limits, not a claim of complete repository analysis.
+In **Connections**, connect GitHub with a personal access token. The account is
+shared across this portal and used for private source
+repositories. Tokens are checked against GitHub, encrypted using `LLM_MASTER_KEY`,
+and never returned by the API. A fine-grained token needs Contents read access to
+the selected repositories; organization approval may also be required.
+
+Browser sign-in is implemented on the server; its UI button is temporarily hidden.
+It requires a GitHub OAuth app. Set `GITHUB_OAUTH_CLIENT_ID`,
+`GITHUB_OAUTH_CLIENT_SECRET`, and `GITHUB_OAUTH_REDIRECT_URL`. Register the exact
+callback URL, ending in `/api/git-connection/oauth/callback`, in the OAuth app.
+Compose reads these settings from `.env`; local runs require exported environment
+variables. Use the portal's browser origin for the callback; HTTP is allowed only on localhost
+or 127.0.0.1. OAuth requests the `repo` scope for private repository access and uses
+state and PKCE. If an OAuth access token expires, reconnect in Connections.
+Disconnect removes the saved credential; revoke provider access on GitHub if needed.
+Optional `GITHUB_TOKEN` remains a server fallback when no account is connected.
+Repomix stays installed and runs against the staged local files.
+
+Safety ceilings: 5 sources, 20,000 files, 128 MiB total text and 8 MiB per file.
+Oversized collections fail explicitly instead of silently using a partial catalog.
+Dependencies, build outputs, binary files, secret-like paths, oversized files and
+Repomix security exclusions are outside the indexed scope. The previous 80 KB / 40
+document selection limit is no longer used by the application.
 Source text can be sent to the selected provider; use appropriate source access.
 
 Editable stage and section prompts live in
@@ -109,8 +146,23 @@ Editable stage and section prompts live in
 Each section has its own Markdown recipe. They are embedded at build time; rebuild
 and restart to apply edits. The prompt version is recorded with every model call.
 
-The same selected model performs file selection, analysis, reconciliation,
-composition and bounded repair. google/jsonschema-go checks each response.
+Fantasy runs the selected model through the saved gateway connection using OpenAI
+Responses, OpenAI Chat Completions or Anthropic Messages. It can list files, search
+the entire indexed source and batch paged reads through sandboxed Repomix MCP.
+Repository code is never executed. Research stops after at most 24 model turns or
+12 minutes and fails visibly if its completion/evidence checks are not satisfied.
+Indexed, read and cited files are recorded separately, including original line
+ranges. Every final evidence anchor must be inside a range actually read.
+
+Research findings and original cited excerpts feed analysis with reconciliation,
+composition and bounded repair. Analysis and reconciliation share one request.
+The research recipe is editable in
+[`backend/internal/research/prompts/research.md`](backend/internal/research/prompts/research.md).
+The analysis recipe bounds the first model to its core responsibilities and flows;
+the composition recipe keeps all 12 sections concise and reuses shared diagrams.
+OpenAI connections can set a lower reasoning effort to reduce latency.
+A bounded memory cache reuses safe source packages at unchanged commit SHAs;
+restarting the API clears it. google/jsonschema-go checks each response.
 Semantic checks verify all references, all 12 sections and citation line bounds.
 React Flow renders model references; ELK computes coordinates. Generated content
 cannot supply executable HTML, JavaScript or diagram code. Source material is
@@ -121,6 +173,15 @@ always treated as untrusted data, including instructions found inside documents.
 The full [OpenAPI contract](backend/internal/api/openapi.json) is served at
 `GET /api/openapi.json`. Request IDs, exact-origin CORS, timeouts, a 1 MiB body
 limit, sanitized errors and structured logs come from the scaffold.
+
+Generation progress is saved with ordered events in SQLite. The passport page
+shows run and stage timing, recorded model usage, and an expandable activity feed.
+`GET /api/generations/{id}/events` streams `snapshot` and `update` SSE events.
+Each payload is a Run with only activity after the supplied cursor. Automatic
+reconnect uses `Last-Event-ID`; a new connection can use `?after=<event-id>`.
+Heartbeat comments keep idle streams open. The browser merges replayed events by
+ID, falls back to five-second status polling while disconnected, and closes the
+stream when the run finishes. A stream heartbeat does not mean worker progress.
 
 | Routes | Purpose |
 | --- | --- |

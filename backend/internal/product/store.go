@@ -11,24 +11,36 @@ import (
 	"strings"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/productcard"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 )
 
 // Product contains source configuration and the latest generation pointers.
 type Product struct {
-	ID               string         `json:"id"`
-	Name             string         `json:"name"`
-	Sources          []source.Input `json:"sources"`
-	CreatedAt        string         `json:"created_at"`
-	LatestRevisionID string         `json:"latest_revision_id"`
-	LatestRunID      string         `json:"latest_run_id"`
-	LatestRunStatus  string         `json:"latest_run_status"`
+	ID               string                     `json:"id"`
+	Name             string                     `json:"name"`
+	Sources          []source.Input             `json:"sources"`
+	CardBrandkit     *productcard.Brandkit      `json:"card_brandkit,omitempty"`
+	CardTheme        *passport.ProductCardTheme `json:"card_theme,omitempty"`
+	CreatedAt        string                     `json:"created_at"`
+	LatestRevisionID string                     `json:"latest_revision_id"`
+	LatestRunID      string                     `json:"latest_run_id"`
+	LatestRunStatus  string                     `json:"latest_run_status"`
 }
 
 // Input registers a product without requiring a manually written passport.
 type Input struct {
-	Name    string         `json:"name"`
-	Sources []source.Input `json:"sources"`
+	Name         string                `json:"name"`
+	Sources      []source.Input        `json:"sources"`
+	CardBrandkit *productcard.Brandkit `json:"card_brandkit,omitempty"`
+}
+
+// configuration extends the existing JSON field without changing the DB schema.
+type configuration struct {
+	Sources      []source.Input             `json:"sources"`
+	CardBrandkit *productcard.Brandkit      `json:"card_brandkit,omitempty"`
+	CardTheme    *passport.ProductCardTheme `json:"card_theme,omitempty"`
 }
 
 // ErrInvalid identifies invalid product input.
@@ -46,11 +58,15 @@ func (s Store) Create(ctx context.Context, input Input) (Product, error) {
 	if err := source.Validate(input.Sources); err != nil {
 		return Product{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	encoded, err := json.Marshal(input.Sources)
+	kit, err := productcard.ResolveBrandkit(ctx, input.CardBrandkit)
+	if err != nil {
+		return Product{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	encoded, err := json.Marshal(configuration{Sources: input.Sources, CardBrandkit: kit})
 	if err != nil {
 		return Product{}, fmt.Errorf("encode sources: %w", err)
 	}
-	p := Product{ID: rand.Text(), Name: input.Name, Sources: input.Sources, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	p := Product{ID: rand.Text(), Name: input.Name, Sources: input.Sources, CardBrandkit: kit, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	if _, err := s.DB.ExecContext(ctx, "INSERT INTO products(id,name,sources_json,created_at) VALUES(?,?,?,?)", p.ID, p.Name, string(encoded), p.CreatedAt); err != nil {
 		return Product{}, fmt.Errorf("save product: %w", err)
 	}
@@ -70,8 +86,16 @@ func scanProduct(row scanner) (Product, error) {
 	if err := row.Scan(&p.ID, &p.Name, &sources, &p.CreatedAt, &p.LatestRevisionID, &p.LatestRunID, &p.LatestRunStatus); err != nil {
 		return p, fmt.Errorf("read product: %w", err)
 	}
-	if err := json.Unmarshal([]byte(sources), &p.Sources); err != nil {
-		return p, fmt.Errorf("decode product sources: %w", err)
+	if strings.HasPrefix(strings.TrimSpace(sources), "[") {
+		if err := json.Unmarshal([]byte(sources), &p.Sources); err != nil {
+			return p, fmt.Errorf("decode product sources: %w", err)
+		}
+	} else {
+		var config configuration
+		if err := json.Unmarshal([]byte(sources), &config); err != nil {
+			return p, fmt.Errorf("decode product configuration: %w", err)
+		}
+		p.Sources, p.CardBrandkit, p.CardTheme = config.Sources, config.CardBrandkit, config.CardTheme
 	}
 	return p, nil
 }

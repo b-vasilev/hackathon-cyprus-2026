@@ -13,6 +13,7 @@ The files are embedded in the API binary; rebuild and restart after changes.
 | `sections/*.md` | One recipe per section: goal, inputs, content, references, diagrams and unknowns |
 | `repair-schema.md` | Correct a JSON Schema failure |
 | `repair.md` | Correct semantic validation failures |
+| `../../research/prompts/research.md` | Investigate the complete indexed repositories through search and Repomix MCP reads |
 
 Section recipes are passed to analysis and composition, in the contract's fixed
 order. Composition runs once for the whole passport, so sections share the same

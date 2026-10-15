@@ -1,17 +1,17 @@
-# Onboarding Factory visual rules — for agents
+# Wayfinder visual rules — for agents
 
 Read this guide before creating or changing portal UI, styles, components, layouts,
 illustrations, or product themes. It is the source of truth for the portal's visual
 identity. Use these rules over framework defaults and earlier design experiments.
 Explicit user instructions take precedence.
 
-Scope: the Onboarding Factory portal, including My learning, Foundations, product
+Scope: the Wayfinder portal, including My learning, Foundations, product
 navigation, interactive missions, and Content Studio. Product brands may appear
 inside their own content area under the product-theme rules below.
 
 ## Identity
 
-- Product name: **Onboarding Factory**. The typeset wordmark is `onboarding factory`.
+- Product name: **Wayfinder**. The typeset wordmark is `Wayfinder`. Always use this exact spelling and casing in the UI, page titles, and accessible names.
 - Purpose: help engineers understand a product, investigate real code, and prepare
   a safe first contribution through practical learning.
 - Character: precise, approachable, contemporary, and calm.
@@ -109,41 +109,45 @@ scale is not a default for every panel. Reflow content before reducing type size
 
 ## Logo files
 
-The mark is an orthogonal route with two circular endpoints. The wordmark uses
-`onboarding` in Geist 600 and `factory` in Geist 400 on one line. A mark beside this
-wordmark is permitted. Keep the name readable and the route geometry consistent.
+The approved mark is a W-shaped route with two open circular endpoints. It combines
+Wayfinder's initial with the route motif. The wordmark is `Wayfinder` in Geist 600
+on one line. Keep the name readable and the route geometry consistent.
 
 Canonical mark geometry:
 
 ```svg
-<svg viewBox="0 0 32 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M6 29V15h20V5" stroke="currentColor" stroke-width="2.7"
+<svg viewBox="0 0 40 40" fill="none" stroke="currentColor"
+     xmlns="http://www.w3.org/2000/svg">
+  <path d="M5 12L11 31L20 17L29 31L35 12" stroke-width="3"
         stroke-linejoin="round" />
-  <circle cx="6" cy="29" r="3.4" fill="var(--of-surface, #FDFCFD)"
-          stroke="currentColor" stroke-width="2.2" />
-  <circle cx="26" cy="5" r="3.4" fill="var(--of-surface, #FDFCFD)"
-          stroke="currentColor" stroke-width="2.2" />
+  <circle cx="4" cy="9" r="3" stroke-width="2.2" />
+  <circle cx="36" cy="9" r="3" stroke-width="2.2" />
 </svg>
 ```
 
-The circle fill must match the logo's actual flat background. Use CSS `currentColor`
-for the stroke. In code, hide a decorative mark from assistive technology when an
-adjacent name already labels it; give a standalone logo link an accessible name.
+The shortened route stops at the endpoint rings, keeping their centres transparent.
+Do not fill the circles to match a particular background. Use `currentColor` for
+inline SVG strokes. An SVG inside an `<img>` does not inherit CSS colour: use the
+fixed violet, ink, or white file. Hide a decorative mark from assistive technology
+when an adjacent name labels it; give the home link an accessible name.
 
-This guide does not ship separate logo, font, or favicon assets. When adding them,
-use explicit filenames such as:
+The site ships only four image files:
 
-```text
-onboarding-factory-mark-currentcolor.svg
-onboarding-factory-mark-violet.svg
-onboarding-factory-mark-ink.svg
-onboarding-factory-mark-white.svg
-onboarding-factory-lockup-violet.svg
-onboarding-factory-mark-violet-transparent-512.png
-```
+- `frontend/public/brand/wayfinder-mark-violet.svg`: transparent mark for the header.
+- `frontend/public/brand/wayfinder-lockup-violet.svg`: violet mark with an ink
+  wordmark; Geist 600 is embedded so it works without an installed font.
+- `frontend/public/favicon.svg`: white W on a violet tile.
+- `frontend/public/favicon.ico`: 16/32/48px browser fallbacks in one file.
 
-Keep SVG masters; export PNG only when required. Keep asset and font licences with
-bundled files. Do not claim an asset exists until it has been created and inspected.
+`frontend/public/brand/Geist-OFL.txt` covers the embedded font. See the adjacent
+`README.md` for usage. The header uses the SVG mark and live Geist 600 text.
+
+The favicon omits the open endpoint rings and uses rounded stroke ends to keep
+the W clear at 16px; this is the approved small-size variant. Create other colors,
+PNG exports, or home-screen icons only when there is a concrete need.
+
+Keep the SVG masters and font licence with the assets. Do not claim an asset
+exists until it has been created and inspected.
 
 ## Logo usage rules
 

@@ -1,0 +1,56 @@
+.source-coverage {
+  margin-top: 16px;
+  width: 100%;
+}
+.source-coverage > summary {
+  cursor: pointer;
+  color: var(--of-brand);
+  font-size: 13px;
+  padding: 12px 0;
+}
+.source-coverage-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+  gap: 16px;
+  margin: 16px 0;
+}
+.source-coverage-filters label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.source-coverage-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.source-coverage-files li {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid var(--of-border);
+  padding: 12px 0;
+  font-size: 13px;
+}
+.source-coverage-files li > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.source-coverage-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 12px;
+}
+.source-coverage-pages > span {
+  margin-right: auto;
+}
+@media (max-width: 600px) {
+  .source-coverage-filters {
+    grid-template-columns: 1fr;
+  }
+}

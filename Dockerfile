@@ -13,7 +13,7 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /onboarding-api ./cmd/api
 
 FROM node:24-alpine
-RUN apk add --no-cache ca-certificates tzdata git && \
+RUN apk add --no-cache ca-certificates tzdata && \
     addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -G app app && \
     mkdir -p /app/data /app/work && chown app:app /app/data /app/work
 WORKDIR /app
