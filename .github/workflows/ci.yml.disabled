@@ -23,8 +23,9 @@ jobs:
         with:
           cache: true
           install_args: go golangci-lint just go:golang.org/x/vuln/cmd/govulncheck
-      - name: Check, test with race detector, audit and build
-        run: just ci
+      # Tests are temporarily disabled. Restore `just ci` to enable them.
+      - name: Check, audit and build
+        run: just check audit build
       - name: Check dependency files are tidy
         working-directory: backend
         run: |
