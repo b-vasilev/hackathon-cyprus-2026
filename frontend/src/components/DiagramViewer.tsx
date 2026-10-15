@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react';
 import { Maximize2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { Dialog, ErrorNotice, Loading } from './ui';
 import type { Diagram, ProductModel, ProductObject } from '../lib/api';
 import '@xyflow/react/dist/style.css';
@@ -56,7 +57,15 @@ function FitDiagram() {
   return null;
 }
 
-export function DiagramViewer({
+export function DiagramViewer(props: Parameters<typeof StandardDiagramViewer>[0]) {
+  return props.diagram.kind === 'context' ? (
+    <ArchitectureDiagram {...props} />
+  ) : (
+    <StandardDiagramViewer {...props} />
+  );
+}
+
+function StandardDiagramViewer({
   diagram,
   model,
   onSelect,

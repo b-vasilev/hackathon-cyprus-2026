@@ -1,6 +1,7 @@
 package config
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -13,8 +14,14 @@ func TestLoad(t *testing.T) {
 		invalid bool
 	}{
 		{name: "defaults"},
+		{name: "database directory", env: map[string]string{"DATABASE_PATH": "/custom/data/onboarding.db"}},
+		{name: "factory override", env: map[string]string{"FACTORY_WORK_DIR": "/custom/work"}},
 		{name: "overrides", env: map[string]string{"HTTP_ADDR": ":9000", "LOG_FORMAT": "json", "CORS_ORIGINS": "https://learn.example"}},
 		{name: "cors disabled", env: map[string]string{"CORS_ORIGINS": ""}},
+		{name: "github oauth", env: map[string]string{"CONNECTION_MASTER_KEY": "01234567890123456789012345678901", "GITHUB_OAUTH_CLIENT_ID": "id", "GITHUB_OAUTH_CLIENT_SECRET": "secret", "GITHUB_OAUTH_REDIRECT_URL": "https://portal.example/api/git-connection/oauth/callback"}},
+		{name: "github localhost", env: map[string]string{"CONNECTION_MASTER_KEY": "01234567890123456789012345678901", "GITHUB_OAUTH_CLIENT_ID": "id", "GITHUB_OAUTH_CLIENT_SECRET": "secret", "GITHUB_OAUTH_REDIRECT_URL": "http://127.0.0.1:19080/api/git-connection/oauth/callback"}},
+		{name: "github incomplete", env: map[string]string{"GITHUB_OAUTH_CLIENT_ID": "id"}, invalid: true},
+		{name: "github remote http", env: map[string]string{"CONNECTION_MASTER_KEY": "01234567890123456789012345678901", "GITHUB_OAUTH_CLIENT_ID": "id", "GITHUB_OAUTH_CLIENT_SECRET": "secret", "GITHUB_OAUTH_REDIRECT_URL": "http://portal.example/api/git-connection/oauth/callback"}, invalid: true},
 		{name: "bad address", env: map[string]string{"HTTP_ADDR": "localhost"}, invalid: true},
 		{name: "bad port", env: map[string]string{"HTTP_ADDR": ":0"}, invalid: true},
 		{name: "empty database", env: map[string]string{"DATABASE_PATH": ""}, invalid: true},
@@ -43,6 +50,21 @@ func TestLoad(t *testing.T) {
 			}
 			if tt.name == "defaults" && (cfg.HTTPAddr != "127.0.0.1:8080" || cfg.DatabasePath != "./data/onboarding.db") {
 				t.Fatalf("unexpected defaults: %+v", cfg)
+			}
+			if tt.name == "defaults" {
+				want, err := filepath.Abs("./data/wayfinder")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if cfg.FactoryWorkDir != want {
+					t.Errorf("factory directory = %q, want %q", cfg.FactoryWorkDir, want)
+				}
+			}
+			if tt.name == "database directory" && cfg.FactoryWorkDir != "/custom/data/wayfinder" {
+				t.Errorf("factory directory = %q, want directory beside database", cfg.FactoryWorkDir)
+			}
+			if tt.name == "factory override" && cfg.FactoryWorkDir != "/custom/work" {
+				t.Errorf("factory directory override = %q", cfg.FactoryWorkDir)
 			}
 		})
 	}

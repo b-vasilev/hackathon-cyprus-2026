@@ -97,7 +97,7 @@ func TestNetworkPolicyAndPaths(t *testing.T) {
 	for _, tc := range []struct {
 		endpoint string
 		valid    bool
-	}{{"https://api.example.com/v1", true}, {"http://api.example.com/v1", false}, {"http://127.0.0.1:11434/v1", true}, {"http://127.0.0.1:9000/v1", false}, {"https://127.0.0.1/v1", false}} {
+	}{{"https://api.example.com/v1", true}, {"http://api.example.com/v1", true}, {"http://127.0.0.1:11434/v1", true}, {"http://127.0.0.1:9000/v1", true}, {"https://127.0.0.1/v1", true}, {"http://localhost:8317/v1", true}, {"http://192.168.1.10:8000/v1", true}, {"http://[::1]:8317/v1", true}, {"http://169.254.169.254/v1", false}, {"http://8.8.8.8/v1", false}, {"ftp://localhost/v1", false}} {
 		if got := policy.ValidateEndpoint(tc.endpoint) == nil; got != tc.valid {
 			t.Errorf("endpoint %s valid=%v", tc.endpoint, got)
 		}

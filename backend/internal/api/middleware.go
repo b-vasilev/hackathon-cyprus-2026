@@ -89,7 +89,7 @@ func cors(origins []string, next http.Handler) http.Handler {
 				w.Header().Add("Vary", "Access-Control-Request-Method")
 				w.Header().Add("Vary", "Access-Control-Request-Headers")
 				w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, X-Request-ID")
+				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, X-Request-ID, Last-Event-ID")
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

@@ -25,7 +25,7 @@ type envelope struct {
 // New requires a master secret independent of provider credentials.
 func New(secret string) (*Vault, error) {
 	if len(secret) < 32 {
-		return nil, errors.New("LLM_MASTER_KEY must contain at least 32 characters")
+		return nil, errors.New("CONNECTION_MASTER_KEY must contain at least 32 characters")
 	}
 	return &Vault{secret: secret}, nil
 }
@@ -80,7 +80,7 @@ func (v *Vault) Open(id string, encoded []byte) ([]byte, error) {
 	}
 	plaintext, err := aead.Open(nil, data.Nonce, data.Ciphertext, []byte(id))
 	if err != nil {
-		return nil, errors.New("credential decryption failed; check LLM_MASTER_KEY")
+		return nil, errors.New("credential decryption failed; check CONNECTION_MASTER_KEY")
 	}
 	return plaintext, nil
 }

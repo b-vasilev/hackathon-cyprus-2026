@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
@@ -33,7 +34,7 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := generation.New(database, store, nil, nil, zerolog.Nop())
+	service := generation.New(database, store, nil, nil, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
 	handler := New(database, zerolog.Nop(), nil, &Factory{Service: service, Network: policy})
 	request := func(method, path, body string, status int) *httptest.ResponseRecorder {
 		t.Helper()
@@ -61,7 +62,7 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 		t.Fatal("patch lost the saved credential", err)
 	}
 	request(http.MethodPatch, "/api/llm-connections/"+connection.ID, `{"unexpected":true}`, http.StatusBadRequest)
-	request(http.MethodPatch, "/api/llm-connections/"+connection.ID, `{"endpoint_url":"http://127.0.0.1:80"}`, http.StatusBadRequest)
+	request(http.MethodPatch, "/api/llm-connections/"+connection.ID, `{"endpoint_url":"http://169.254.169.254:80"}`, http.StatusBadRequest)
 	request(http.MethodPost, "/api/products", `{"name":"Example","sources":[{"kind":"text","text":"Product purpose"}],"unknown":true}`, http.StatusBadRequest)
 	created := request(http.MethodPost, "/api/products", `{"name":"Example","sources":[{"kind":"text","text":"Product purpose"}]}`, http.StatusCreated)
 	var product struct {

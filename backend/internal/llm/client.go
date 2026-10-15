@@ -68,6 +68,9 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 		client := openai.NewClient(ooption.WithAPIKey("connection-managed"), ooption.WithHTTPClient(httpClient), ooption.WithMaxRetries(1))
 		params := responses.ResponseNewParams{Model: request.Model, Input: responses.ResponseNewParamsInputUnion{OfString: openai.String(input)}, Instructions: openai.String(request.System), MaxOutputTokens: openai.Int(int64(model.MaxOutputTokens))}
 		opts := []ooption.RequestOption{ooption.WithJSONSet("store", false)}
+		if model.ReasoningEffort != "" {
+			opts = append(opts, ooption.WithJSONSet("reasoning.effort", model.ReasoningEffort))
+		}
 		if model.OutputMode == "json_schema" {
 			opts = append(opts, ooption.WithJSONSet("text.format", map[string]any{"type": "json_schema", "name": "passport_result", "strict": true, "schema": request.Schema}))
 		}
@@ -79,6 +82,9 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 		client := openai.NewClient(ooption.WithAPIKey("connection-managed"), ooption.WithHTTPClient(httpClient), ooption.WithMaxRetries(1))
 		params := openai.ChatCompletionNewParams{Model: request.Model, Messages: []openai.ChatCompletionMessageParamUnion{openai.SystemMessage(request.System), openai.UserMessage(input)}}
 		opts := []ooption.RequestOption{ooption.WithJSONSet("max_tokens", model.MaxOutputTokens)}
+		if model.ReasoningEffort != "" {
+			opts = append(opts, ooption.WithJSONSet("reasoning_effort", model.ReasoningEffort))
+		}
 		if model.OutputMode == "json_schema" {
 			opts = append(opts, ooption.WithJSONSet("response_format", map[string]any{"type": "json_schema", "json_schema": map[string]any{"name": "passport_result", "strict": true, "schema": request.Schema}}))
 		}

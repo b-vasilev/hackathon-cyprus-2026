@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -113,9 +114,18 @@ type Section struct {
 
 // Views contains LLM-written sections and diagram definitions sharing model IDs.
 type Views struct {
-	Sections []Section `json:"sections"`
-	Diagrams []Diagram `json:"diagrams"`
+	Sections  []Section         `json:"sections"`
+	Diagrams  []Diagram         `json:"diagrams"`
+	CardTheme *ProductCardTheme `json:"card_theme"`
 }
+
+// ProductCardTheme permits only local product colours, never generated CSS or portal styles.
+type ProductCardTheme struct {
+	AccentColor     string `json:"accent_color" jsonschema:"Brand accent as a six-digit hex colour, for example #6550B9."`
+	BackgroundColor string `json:"background_color" jsonschema:"Product card background as a six-digit hex colour."`
+}
+
+var themeColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // Passport is an immutable draft, pending expert review.
 type Passport struct {
@@ -160,6 +170,9 @@ func CheckJSON[T any](data []byte) (T, error) {
 //
 //nolint:gocyclo // Validate all cross references together against one immutable model.
 func Validate(p Passport, documents map[string]int) error {
+	if p.Views.CardTheme != nil && (!themeColor.MatchString(p.Views.CardTheme.AccentColor) || !themeColor.MatchString(p.Views.CardTheme.BackgroundColor)) {
+		return errors.New("product theme colours must be six-digit hex colours")
+	}
 	ids := make(map[string]bool)
 	register := func(id string) error {
 		if id == "" || ids[id] {

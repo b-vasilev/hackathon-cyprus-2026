@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
@@ -19,6 +20,8 @@ import (
 
 // Factory exposes product, connection and generation operations.
 type Factory struct {
+	GitHub      *githubconnection.Store
+	GitHubOAuth githubconnection.OAuthConfig
 	Service     *generation.Service
 	Network     llmgateway.NetworkPolicy
 	FrontendDir string
@@ -50,6 +53,7 @@ type FactoryStatus struct {
 }
 
 func (f *Factory) register(mux *http.ServeMux) {
+	f.registerGitHub(mux)
 	if f.FrontendDir != "" {
 		mux.Handle("GET /", frontend(f.FrontendDir))
 	}
@@ -58,6 +62,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("GET /api/llm-connections", f.connections)
 	mux.HandleFunc("POST /api/llm-connections", f.createConnection)
+	mux.HandleFunc("POST /api/llm-connections/models", f.listConnectionModels)
 	mux.HandleFunc("GET /api/llm-connections/{id}", f.connection)
 	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.updateConnection)
 	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.testConnection)
@@ -71,6 +76,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 		respond(w, r, value, err)
 	})
 	mux.HandleFunc("POST /api/products/{id}/generations", f.startGeneration)
+	mux.HandleFunc("GET /api/generations/{id}/events", f.generationEvents)
 	mux.HandleFunc("GET /api/generations/{id}", func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.GetRun(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
@@ -104,7 +110,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 
 func (f *Factory) requireConnections(w http.ResponseWriter) bool {
 	if f.Service.Connections == nil {
-		problem(w, http.StatusServiceUnavailable, "setup_required", "Set LLM_MASTER_KEY to a stable secret of at least 32 characters, then restart the API.")
+		problem(w, http.StatusServiceUnavailable, "setup_required", "Set CONNECTION_MASTER_KEY to a stable secret of at least 32 characters, then restart the API.")
 		return false
 	}
 	return true
@@ -213,7 +219,7 @@ func (f *Factory) testConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	format := map[string]any{"type": "object", "properties": map[string]any{"status": map[string]any{"type": "string", "enum": []string{"ok"}}}, "required": []string{"status"}, "additionalProperties": false}
+	format := map[string]any{schemaTypeKey: "object", "properties": map[string]any{"status": map[string]any{schemaTypeKey: "string", "enum": []string{"ok"}}}, "required": []string{"status"}, "additionalProperties": false}
 	result, err := f.Service.LLM.Generate(ctx, config, llm.Request{Model: input.Model, System: "Return only the requested JSON result.", Input: "Check this connection by returning status equal to ok.", Schema: format})
 	if err != nil {
 		respond(w, r, nil, err)
@@ -295,6 +301,8 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusBadRequest, "invalid_product", err.Error())
 	case errors.Is(err, llmgateway.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid_connection", err.Error())
+	case errors.Is(err, githubconnection.ErrInvalid):
+		problem(w, http.StatusBadRequest, "invalid_github_connection", err.Error())
 	case errors.As(err, &failure):
 		problem(w, http.StatusBadGateway, failure.Code, failure.Message)
 	default:

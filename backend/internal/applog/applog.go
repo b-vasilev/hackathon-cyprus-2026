@@ -19,6 +19,6 @@ func New(output io.Writer, level, format string) (zerolog.Logger, error) {
 	} else if format != "json" {
 		return zerolog.Logger{}, fmt.Errorf("unsupported log format %q", format)
 	}
-	logger := zerolog.New(output).Level(parsed).With().Timestamp().Str("service", "onboarding-factory").Logger()
+	logger := zerolog.New(output).Level(parsed).With().Timestamp().Str("service", "wayfinder").Logger()
 	return logger, nil
 }

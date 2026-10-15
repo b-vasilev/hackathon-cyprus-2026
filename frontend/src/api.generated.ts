@@ -36,6 +36,55 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/generations/{id}/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description SSE snapshot and update events contain a Run with events after Last-Event-ID. IDs are ordered and durable. Reconnects replay missed events. Terminal snapshots close the stream. */
+    get: operations['streamGeneration'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/git-connection': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getGitHubConnection'];
+    put: operations['connectGitHubToken'];
+    post?: never;
+    delete: operations['disconnectGitHub'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/git-connection/oauth/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['startGitHubOAuth'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/llm-connections': {
     parameters: {
       query?: never;
@@ -46,6 +95,22 @@ export interface paths {
     get: operations['listConnections'];
     put?: never;
     post: operations['createConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/llm-connections/models': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['listConnectionModels'];
     delete?: never;
     options?: never;
     head?: never;
@@ -251,6 +316,9 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AvailableModel: {
+      id: string;
+    };
     Claim: {
       id: string;
       text: string;
@@ -292,6 +360,7 @@ export interface components {
               id: string;
               output_mode: string;
               max_output_tokens: number;
+              reasoning_effort: string;
             }[];
         timeout_seconds: number;
         max_concurrent: number;
@@ -329,6 +398,7 @@ export interface components {
             id: string;
             output_mode: string;
             max_output_tokens: number;
+            reasoning_effort: string;
           }[];
       timeout_seconds: number;
       max_concurrent: number;
@@ -364,6 +434,7 @@ export interface components {
             id: string;
             output_mode: string;
             max_output_tokens: number;
+            reasoning_effort: string;
           }[];
       timeout_seconds?: number;
       max_concurrent?: number;
@@ -397,9 +468,27 @@ export interface components {
     FactoryStatus: {
       connections_enabled: boolean;
     };
+    GenerationEvent: {
+      id: number;
+      type: string;
+      stage: string;
+      message: string;
+      created_at: string;
+    };
     GenerationInput: {
       connection_id: string;
       model: string;
+    };
+    GitHubConnection: {
+      enabled: boolean;
+      connected: boolean;
+      login: string;
+      auth_method: string;
+      connected_at: string;
+      oauth_enabled: boolean;
+    };
+    GitHubTokenInput: {
+      token: string;
     };
     Health: {
       /** @enum {string} */
@@ -409,6 +498,49 @@ export interface components {
       id: string;
       output_mode: string;
       max_output_tokens: number;
+      reasoning_effort: string;
+    };
+    ModelDiscoveryInput: {
+      connection_id: string;
+      config: {
+        name: string;
+        enabled: boolean;
+        protocol: string;
+        endpoint_url: string;
+        endpoint_mode: string;
+        auth_mode: string;
+        auth_header: string;
+        auth_prefix: string;
+        secret: string;
+        headers:
+          | null
+          | {
+              name: string;
+              value: string;
+              secret: boolean;
+            }[];
+        query_params:
+          | null
+          | {
+              name: string;
+              value: string;
+              secret: boolean;
+            }[];
+        models:
+          | null
+          | {
+              id: string;
+              output_mode: string;
+              max_output_tokens: number;
+              reasoning_effort: string;
+            }[];
+        timeout_seconds: number;
+        max_concurrent: number;
+        quota_group: string;
+      };
+    };
+    OAuthURL: {
+      url: string;
     };
     Parameter: {
       name: string;
@@ -511,6 +643,12 @@ export interface components {
               node_ids: null | string[];
               relation_ids: null | string[];
             }[];
+        card_theme: null | {
+          /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+          accent_color: string;
+          /** @description Product card background as a six-digit hex colour. */
+          background_color: string;
+        };
       };
     };
     Probe: {
@@ -539,6 +677,17 @@ export interface components {
             include: string;
             text: string;
           }[];
+      card_brandkit?: null | {
+        url: string;
+        file_name: string;
+        text: string;
+      };
+      card_theme?: null | {
+        /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+        accent_color: string;
+        /** @description Product card background as a six-digit hex colour. */
+        background_color: string;
+      };
       created_at: string;
       latest_revision_id: string;
       latest_run_id: string;
@@ -555,6 +704,11 @@ export interface components {
             include: string;
             text: string;
           }[];
+      card_brandkit?: null | {
+        url: string;
+        file_name: string;
+        text: string;
+      };
     };
     ProductModel: {
       title: string;
@@ -751,6 +905,12 @@ export interface components {
                 node_ids: null | string[];
                 relation_ids: null | string[];
               }[];
+          card_theme: null | {
+            /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+            accent_color: string;
+            /** @description Product card background as a six-digit hex colour. */
+            background_color: string;
+          };
         };
       };
       snapshots:
@@ -764,6 +924,22 @@ export interface components {
               bytes: number;
               selection: string;
               note: string;
+              read_files: number;
+              cited_files: number;
+              files:
+                | null
+                | {
+                    id: string;
+                    path: string;
+                    bytes: number;
+                    read_ranges:
+                      | null
+                      | {
+                          start_line: number;
+                          end_line: number;
+                        }[];
+                    cited: boolean;
+                  }[];
             };
           }[];
     };
@@ -783,10 +959,19 @@ export interface components {
       error_code: string;
       error_message: string;
       created_at: string;
+      started_at: string;
+      stage_started_at: string;
       finished_at: string;
       document_count: number;
       input_tokens: number;
       output_tokens: number;
+      events: {
+        id: number;
+        type: string;
+        stage: string;
+        message: string;
+        created_at: string;
+      }[];
     };
     Scenario: {
       id: string;
@@ -893,6 +1078,162 @@ export interface operations {
       };
     };
   };
+  streamGeneration: {
+    parameters: {
+      query?: {
+        /** @description Replay cursor when creating a new EventSource. Last-Event-ID takes precedence on automatic reconnect. */
+        after?: number;
+      };
+      header?: {
+        'Last-Event-ID'?: number;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Generation event stream */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/event-stream': string;
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getGitHubConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GitHubConnection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  connectGitHubToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GitHubTokenInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GitHubConnection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  disconnectGitHub: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GitHubConnection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  startGitHubOAuth: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OAuthURL'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   listConnections: {
     parameters: {
       query?: never;
@@ -942,6 +1283,39 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Connection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listConnectionModels: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ModelDiscoveryInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AvailableModel'][];
         };
       };
       /** @description Request failed */

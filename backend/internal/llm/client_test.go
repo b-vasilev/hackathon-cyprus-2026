@@ -25,6 +25,15 @@ func TestConfiguredProtocolsAndOutputModes(t *testing.T) {
 					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 						t.Fatal(err)
 					}
+					if protocol == "openai_responses" {
+						reasoning, _ := body["reasoning"].(map[string]any)
+						if reasoning["effort"] != "low" {
+							t.Error("reasoning effort was not forwarded")
+						}
+					}
+					if protocol == "openai_chat_completions" && body["reasoning_effort"] != "low" {
+						t.Error("chat reasoning effort was not forwarded")
+					}
 					if body["model"] != "same-model" {
 						t.Error("model was rewritten")
 					}
@@ -61,7 +70,7 @@ func TestConfiguredProtocolsAndOutputModes(t *testing.T) {
 					t.Fatal(err)
 				}
 				client := Client{Policy: policy, Limiter: llmgateway.NewLimiter(2, 2, 2, 2)}
-				config := llmgateway.Config{Protocol: protocol, EndpointURL: server.URL + "/custom/endpoint", EndpointMode: "full", AuthMode: "header", AuthHeader: "api-key", Secret: "configured-secret", QueryParams: []llmgateway.Parameter{{Name: "api-version", Value: "test"}}, TimeoutSeconds: 15, MaxConcurrent: 1, Models: []llmgateway.Model{{ID: "same-model", OutputMode: mode, MaxOutputTokens: 256}}}
+				config := llmgateway.Config{Protocol: protocol, EndpointURL: server.URL + "/custom/endpoint", EndpointMode: "full", AuthMode: "header", AuthHeader: "api-key", Secret: "configured-secret", QueryParams: []llmgateway.Parameter{{Name: "api-version", Value: "test"}}, TimeoutSeconds: 15, MaxConcurrent: 1, Models: []llmgateway.Model{{ID: "same-model", OutputMode: mode, MaxOutputTokens: 256, ReasoningEffort: "low"}}}
 				result, err := client.Generate(t.Context(), config, Request{Model: "same-model", System: "Return JSON.", Input: "Check.", Schema: map[string]any{"type": "object", "properties": map[string]any{"status": map[string]any{"type": "string"}}, "required": []string{"status"}, "additionalProperties": false}})
 				if err != nil {
 					t.Fatal(err)

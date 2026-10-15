@@ -32,4 +32,4 @@ jobs:
           go mod tidy
           git diff --exit-code -- go.mod go.sum
       - name: Build runtime image
-        run: docker build --tag onboarding-factory:ci .
+        run: docker build --tag wayfinder:ci .

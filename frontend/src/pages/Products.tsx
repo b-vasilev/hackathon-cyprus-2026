@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Badge, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import { api, date, type Product, type ProductInput } from '../lib/api';
+import { productCardTheme } from '../lib/productCardTheme';
 
 export function Products() {
   const query = useQuery({
@@ -42,13 +43,18 @@ export function Products() {
             </Link>
           }
         >
-          Add a repository and any useful product context. The factory will generate the content and
+          Add a repository and any useful product context. Wayfinder will generate the content and
           diagrams.
         </EmptyState>
       )}
       <div className="product-grid">
         {query.data?.map((product) => (
-          <Link className="product-card" to={`/products/${product.id}`} key={product.id}>
+          <Link
+            className={`product-card${product.card_theme ? ' product-branded' : ''}`}
+            style={productCardTheme(product.card_theme)}
+            to={`/products/${product.id}`}
+            key={product.id}
+          >
             <div className="card-top">
               <span className="product-initial">{product.name.slice(0, 1).toUpperCase()}</span>
               <Badge>
@@ -79,9 +85,34 @@ export function NewProduct() {
   const [ref, setRef] = useState('');
   const [include, setInclude] = useState('');
   const [context, setContext] = useState('');
+  const [cardBrandkitMode, setCardBrandkitMode] = useState('url');
+  const [cardBrandkitUrl, setCardBrandkitUrl] = useState('');
+  const [cardBrandkitFile, setCardBrandkitFile] = useState<File | null>(null);
   const create = useMutation({
-    mutationFn: (input: ProductInput) =>
-      api<Product>('/products', { method: 'POST', body: JSON.stringify(input) }),
+    mutationFn: async (input: ProductInput) => {
+      let cardBrandkit: ProductInput['card_brandkit'];
+      if (cardBrandkitMode === 'url' && cardBrandkitUrl.trim() !== '') {
+        cardBrandkit = { url: cardBrandkitUrl.trim(), file_name: '', text: '' };
+      } else if (cardBrandkitMode === 'file' && cardBrandkitFile !== null) {
+        if (!/\.(txt|md|json|css|html)$/i.test(cardBrandkitFile.name)) {
+          throw new Error('Choose a TXT, Markdown, JSON, CSS or HTML file.');
+        }
+        if (cardBrandkitFile.size > 100_000) {
+          throw new Error('Product card brand kit files must be 100 KB or smaller.');
+        }
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(
+          await cardBrandkitFile.arrayBuffer()
+        );
+        if (text.trim() === '') {
+          throw new Error('The brand kit file is empty.');
+        }
+        cardBrandkit = { url: '', file_name: cardBrandkitFile.name, text };
+      }
+      return api<Product>('/products', {
+        method: 'POST',
+        body: JSON.stringify({ ...input, card_brandkit: cardBrandkit }),
+      });
+    },
     onSuccess: async (product) => {
       await client.invalidateQueries({ queryKey: ['products'] });
       void navigate(`/products/${product.id}`);
@@ -106,7 +137,7 @@ export function NewProduct() {
       </Link>
       <PageHeading
         eyebrow="New product"
-        title="Give the factory its sources."
+        title="Give Wayfinder its sources."
         description="The passport is generated from your materials. You do not need to write it first."
       />
       <form className="form-panel narrow" onSubmit={submit}>
@@ -164,6 +195,54 @@ export function NewProduct() {
           Repository files and these notes are source material. Missing information will appear as
           open questions.
         </p>
+        <fieldset className="product-card-brandkit-fields" disabled={create.isPending}>
+          <legend>Product card brand kit (optional)</legend>
+          <p className="product-card-brandkit-description">
+            Add brand guidelines so the LLM can style your product card with your brand colours.
+          </p>
+          <label>
+            Product card brand kit source
+            <select
+              value={cardBrandkitMode}
+              onChange={(event) => {
+                setCardBrandkitMode(event.target.value);
+                setCardBrandkitFile(null);
+              }}
+            >
+              <option value="url">Link</option>
+              <option value="file">Upload file</option>
+            </select>
+          </label>
+          {cardBrandkitMode === 'url' ? (
+            <label>
+              Product card brand kit URL
+              <input
+                type="url"
+                maxLength={2048}
+                value={cardBrandkitUrl}
+                onChange={(event) => setCardBrandkitUrl(event.target.value)}
+                placeholder="https://example.com/brand/guidelines"
+                aria-describedby="product-card-brandkit-help"
+              />
+            </label>
+          ) : (
+            <label>
+              Product card brand kit file
+              <input
+                type="file"
+                accept=".txt,.md,.json,.css,.html"
+                onChange={(event) => setCardBrandkitFile(event.target.files?.item(0) ?? null)}
+                aria-describedby="product-card-brandkit-help"
+              />
+            </label>
+          )}
+          <p id="product-card-brandkit-help" className="field-help">
+            {cardBrandkitMode === 'url'
+              ? 'Use a direct public HTTPS link to text, HTML, CSS or JSON. No login or redirects. Up to 100 KB.'
+              : 'TXT, Markdown, JSON, CSS or HTML in UTF-8. Up to 100 KB.'}{' '}
+            The LLM reads the guidelines when you generate the passport.
+          </p>
+        </fieldset>
         {create.isError && <ErrorNotice error={create.error} />}
         <div className="form-actions">
           <Link className="button quiet" to="/">
