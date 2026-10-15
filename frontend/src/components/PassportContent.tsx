@@ -185,7 +185,6 @@ export function SectionContent({
   return (
     <section className="passport-section" aria-label={title}>
       <div className="section-title">
-        <p className="eyebrow">Product passport</p>
         <h2>{title}</h2>
         {section.status !== 'available' && (
           <Badge tone="warning">{section.status.replaceAll('_', ' ')}</Badge>

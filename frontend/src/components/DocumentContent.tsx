@@ -70,7 +70,6 @@ export function DocumentContent({
   return (
     <section className="passport-section document-chapter" aria-labelledby="passport-chapter-title">
       <div className="section-title">
-        <p className="eyebrow">Product passport</p>
         <h2 id="passport-chapter-title" tabIndex={-1}>
           {chapter.title}
         </h2>

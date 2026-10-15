@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, BookOpen, FileCode2, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Check, Plus, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { ProductIdentity } from '../components/ProductIdentity';
 import { Badge, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
-import { api, date, type Product, type ProductInput } from '../lib/api';
+import { api, type Product, type ProductInput } from '../lib/api';
 import { canManage, isAdmin, useMe } from '../lib/auth';
 import { activeRun } from '../lib/generation';
 import { productCardTheme } from '../lib/productCardTheme';
@@ -48,13 +48,6 @@ export function Products() {
           )
         }
       />
-      <div className="intro-strip">
-        <BookOpen size={19} aria-hidden="true" />
-        <p>
-          A product passport connects purpose, people, domain and architecture. Every generated
-          version starts as a draft. Approve a version, then publish it when it is ready.
-        </p>
-      </div>
       {query.isPending && <Loading />}
       {query.isError && <ErrorNotice error={query.error} />}
       {products?.length === 0 && !admin && (
@@ -76,60 +69,58 @@ export function Products() {
           diagrams.
         </EmptyState>
       )}
-      <div className="product-grid">
+      <div className="published-grid">
         {products?.map((product) => (
           <article
-            className={`product-card${product.card_theme ? ' product-branded' : ''}`}
+            className="studio-tile"
             style={productCardTheme(product.card_theme)}
             key={product.id}
           >
-            <Link className="product-card-content" to={`/products/${product.id}`}>
-              <div className="card-top">
+            <Link className="published-tile" to={`/products/${product.id}`}>
+              <span className="published-tile-icon">
                 <ProductIdentity name={product.name} theme={product.card_theme} />
-                <div className="product-card-statuses" role="status">
-                  <Badge>{productStatus(product)}</Badge>
-                  {product.latest_run_status === 'queued' && (
-                    <Badge tone="active">Generation queued</Badge>
-                  )}
-                  {product.latest_run_status === 'running' && (
-                    <Badge tone="active">
-                      {product.latest_revision_id === '' ? 'Generating…' : 'Regenerating…'}
-                    </Badge>
-                  )}
-                  {product.latest_run_status === 'failed' && (
-                    <Badge tone="error">Generation stopped</Badge>
-                  )}
-                  {product.latest_run_status === 'succeeded' &&
-                    product.published_revision_id !== '' &&
-                    product.latest_revision_id !== product.published_revision_id && (
-                      <Badge tone="active">New draft ready</Badge>
-                    )}
-                </div>
-              </div>
+              </span>
               <h2>{product.name}</h2>
-              <p>
-                <FileCode2 size={15} aria-hidden="true" />
-                {product.sources?.length ?? 0} sources
-              </p>
+              <div className="studio-card-statuses" role="status">
+                <span className="studio-card-status">
+                  {product.published_revision_id !== '' && <Check size={14} aria-hidden="true" />}
+                  {productStatus(product)}
+                </span>
+                {product.latest_run_status === 'queued' && (
+                  <Badge tone="active">Generation queued</Badge>
+                )}
+                {product.latest_run_status === 'running' && (
+                  <Badge tone="active">
+                    {product.latest_revision_id === '' ? 'Generating…' : 'Regenerating…'}
+                  </Badge>
+                )}
+                {product.latest_run_status === 'failed' && (
+                  <Badge tone="error">Generation stopped</Badge>
+                )}
+                {product.latest_run_status === 'succeeded' &&
+                  product.published_revision_id !== '' &&
+                  product.latest_revision_id !== product.published_revision_id && (
+                    <Badge tone="active">New draft ready</Badge>
+                  )}
+              </div>
             </Link>
-            <div className="card-bottom">
-              <span>{date(product.created_at)}</span>
-              {admin && (
-                <button
-                  type="button"
-                  className="text-button destructive"
-                  disabled={activeRun(product.latest_run_status) || remove.isPending}
-                  aria-label={`Delete passport for ${product.name}`}
-                  onClick={() => {
-                    remove.reset();
-                    setDeleting(product);
-                  }}
-                >
-                  <Trash2 size={16} aria-hidden="true" />
-                  Delete passport
-                </button>
-              )}
-            </div>
+            {admin && (
+              <button
+                type="button"
+                className="studio-tile-delete"
+                disabled={activeRun(product.latest_run_status) || remove.isPending}
+                aria-label={`Delete passport for ${product.name}`}
+                title="Delete passport"
+                onClick={() => {
+                  remove.reset();
+                  setDeleting(product);
+                }}
+              >
+                <span className="studio-tile-delete-icon">
+                  <Trash2 size={14} aria-hidden="true" />
+                </span>
+              </button>
+            )}
           </article>
         ))}
       </div>

@@ -280,6 +280,68 @@ code {
 .product-card-content {
   display: block;
 }
+.studio-tile {
+  position: relative;
+}
+.studio-tile-delete {
+  position: absolute;
+  top: -12px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--of-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.studio-tile-delete-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--of-border);
+  border-radius: 50%;
+  background: var(--of-surface);
+}
+.studio-tile:hover .studio-tile-delete,
+.studio-tile:focus-within .studio-tile-delete {
+  opacity: 1;
+}
+.studio-tile-delete:hover:not(:disabled) {
+  color: #b42335;
+}
+.studio-tile-delete:disabled {
+  cursor: not-allowed;
+}
+@media (hover: none), (pointer: coarse) {
+  .studio-tile-delete {
+    opacity: 1;
+  }
+}
+.studio-card-statuses {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.studio-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--of-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.studio-card-status svg {
+  flex-shrink: 0;
+}
 .published-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, 120px);
@@ -385,9 +447,36 @@ code {
   object-fit: contain;
   object-position: left center;
 }
-.passport-heading .product-logo,
-.passport-heading .product-initial {
-  margin-bottom: 16px;
+.passport-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.passport-product-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 56px;
+  height: 56px;
+  padding: 12px;
+  border: 1px solid var(--of-border);
+  border-radius: 12px;
+  background: var(--of-surface);
+}
+.passport-identity .product-logo {
+  width: auto;
+  max-width: 128px;
+  height: 32px;
+}
+.passport-identity .product-logo img {
+  width: auto;
+  max-width: 128px;
+}
+.passport-identity .product-initial {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
 }
 .passport-heading.product-branded .product-initial {
   background: var(--product-card-accent);
@@ -907,7 +996,15 @@ summary {
   margin-bottom: 32px;
 }
 .passport-heading h1 {
+  min-width: 0;
   font-size: clamp(30px, 3.4vw, 42px);
+  overflow-wrap: anywhere;
+}
+.passport-heading-content {
+  min-width: 0;
+}
+.passport-heading .page-description {
+  margin-top: 12px;
 }
 .generation-controls {
   display: flex;

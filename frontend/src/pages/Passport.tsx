@@ -634,10 +634,14 @@ function PassportHeader({
         className={`passport-heading${revision?.content.views.card_theme ? ' product-branded' : ''}`}
         style={productCardTheme(revision?.content.views.card_theme)}
       >
-        <div>
-          <ProductIdentity name={product.name} theme={revision?.content.views.card_theme} />
+        <div className="passport-heading-content">
           <p className="eyebrow">Product passport</p>
-          <h1>{revision?.content.model.title ?? product.name}</h1>
+          <div className="passport-identity">
+            <div className="passport-product-mark">
+              <ProductIdentity name={product.name} theme={revision?.content.views.card_theme} />
+            </div>
+            <h1>{revision?.content.model.title ?? product.name}</h1>
+          </div>
           <p className="page-description">
             {revision?.content.model.tagline ??
               'Connect the sources. Generate the picture. Inspect the evidence.'}
