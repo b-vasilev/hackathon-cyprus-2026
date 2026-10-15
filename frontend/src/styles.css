@@ -20,6 +20,9 @@
 * {
   box-sizing: border-box;
 }
+html {
+  scrollbar-gutter: stable;
+}
 body {
   margin: 0;
   min-width: 320px;
@@ -176,6 +179,12 @@ code {
   justify-content: space-between;
   gap: 32px;
   margin-bottom: 36px;
+}
+.page-heading > div {
+  min-width: 0;
+}
+.page-heading .page-description {
+  min-height: 2lh;
 }
 .eyebrow {
   color: var(--of-muted);
@@ -4056,7 +4065,7 @@ summary {
 .foundations-tabs {
   display: flex;
   gap: 4px;
-  margin: -12px 0 24px;
+  margin: 0 0 24px;
   border-bottom: 1px solid var(--of-border);
 }
 .foundations-tabs a {
