@@ -643,6 +643,24 @@ func (s *Service) saveRevision(ctx context.Context, run Run, p passport.Passport
 	return nil
 }
 
+// RunProduct returns the product that owns a generation run.
+func (s *Service) RunProduct(ctx context.Context, runID string) (string, error) {
+	var productID string
+	if err := s.DB.QueryRowContext(ctx, "SELECT product_id FROM generation_runs WHERE id=?", runID).Scan(&productID); err != nil {
+		return "", fmt.Errorf("get run product: %w", err)
+	}
+	return productID, nil
+}
+
+// RevisionProduct returns the product that owns a passport revision.
+func (s *Service) RevisionProduct(ctx context.Context, revisionID string) (string, error) {
+	var productID string
+	if err := s.DB.QueryRowContext(ctx, "SELECT product_id FROM passport_revisions WHERE id=?", revisionID).Scan(&productID); err != nil {
+		return "", fmt.Errorf("get revision product: %w", err)
+	}
+	return productID, nil
+}
+
 // History returns compact revision metadata.
 func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo, error) {
 	rows, err := s.DB.QueryContext(ctx, "SELECT id,version,created_at FROM passport_revisions WHERE product_id=? ORDER BY version DESC", productID)

@@ -7,9 +7,10 @@ import { DocumentContent } from '../components/DocumentContent';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
 import { PartialResearchNotice } from '../components/PartialResearchNotice';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
+import { ProductAccess } from '../components/ProductAccess';
 import { ProductBrandSources, ProductIdentity } from '../components/ProductIdentity';
 import { SourceCoverage } from '../components/SourceCoverage';
-import { EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
+import { DisclosureHint, EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
 import {
   api,
   date,
@@ -22,6 +23,7 @@ import {
   type RevisionInfo,
   type Run,
 } from '../lib/api';
+import { canManage, isAdmin, useMe } from '../lib/auth';
 import { activeRun, cancelledRun, mergeRun, stageLabels } from '../lib/generation';
 import { generationMessage } from '../lib/generationMessages';
 import { documentChapters, legacySections } from '../lib/passportDocument';
@@ -34,6 +36,8 @@ export function PassportPage() {
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const queryClient = useQueryClient();
+  const me = useMe();
+  const manage = canManage(me, id);
   const product = useQuery({
     queryKey: ['product', id],
     queryFn: ({ signal }) => api<Product>(`/products/${id}`, { signal }),
@@ -45,7 +49,7 @@ export function PassportPage() {
   const connections = useQuery({
     queryKey: ['connections'],
     queryFn: ({ signal }) => api<Connection[]>('/llm-connections', { signal }),
-    enabled: setup.data?.connections_enabled === true,
+    enabled: manage && setup.data?.connections_enabled === true,
   });
   const history = useQuery({
     queryKey: ['revisions', id],
@@ -192,18 +196,20 @@ export function PassportPage() {
           hasDraft={product.data.latest_revision_id !== '' || revision.data !== undefined}
         />
       </div>
-      <button
-        type="button"
-        className="text-button destructive"
-        disabled={busy}
-        onClick={() => {
-          deletePassport.reset();
-          setConfirmDelete(true);
-        }}
-      >
-        <Trash2 size={16} aria-hidden="true" />
-        Delete passport
-      </button>
+      {isAdmin(me) && (
+        <button
+          type="button"
+          className="text-button destructive"
+          disabled={busy}
+          onClick={() => {
+            deletePassport.reset();
+            setConfirmDelete(true);
+          }}
+        >
+          <Trash2 size={16} aria-hidden="true" />
+          Delete passport
+        </button>
+      )}
       {confirmDelete && (
         <DeleteConfirmation
           title="Delete product passport?"
@@ -218,84 +224,73 @@ export function PassportPage() {
           generation data? This cannot be undone. Original repositories stay unchanged.
         </DeleteConfirmation>
       )}
-      <div className="generation-controls">
-        <label>
-          Connection
-          <select
-            value={connection?.id ?? ''}
-            disabled={busy}
-            onChange={(event) => {
-              setConnectionId(event.target.value);
-              setModelId('');
-            }}
-          >
-            <option value="" disabled>
-              Select a connection
-            </option>
-            {availableConnections.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.config.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Model
-          <select
-            value={model?.id ?? ''}
-            disabled={busy}
-            onChange={(event) => setModelId(event.target.value)}
-          >
-            <option value="" disabled>
-              Select a model
-            </option>
-            {connection?.config.models?.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="button primary"
-          disabled={busy || connection === undefined || model === undefined}
-          onClick={() => generate.mutate()}
-        >
-          {busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
-          {busy ? 'Generating…' : generateLabel}
-        </button>
-        <CancelGenerationButton
-          status={run.data?.status}
-          pending={cancelGeneration.isPending}
-          onCancel={() => cancelGeneration.mutate()}
-        />
-        {(history.data?.length ?? 0) > 0 && (
-          <label className="revision-select">
-            Version
-            <select
-              value={revisionId}
-              onChange={(event) => setSelectedRevision(event.target.value)}
-            >
-              {history.data?.map((item) => (
-                <option key={item.id} value={item.id}>
-                  Version {item.version}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
-      {availableConnections.length === 0 &&
-        (setup.data?.connections_enabled === false || !connections.isPending) && (
-          <div className="notice">
-            <p>Add an enabled model connection to generate this passport.</p>
-            <Link className="text-link" to="/connections">
-              Set up a connection
-              <ArrowRight size={15} />
-            </Link>
-          </div>
-        )}
+      {(manage || (history.data?.length ?? 0) > 0) && (
+        <div className="generation-controls">
+          {manage && (
+            <>
+              <label>
+                Connection
+                <select
+                  value={connection?.id ?? ''}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setConnectionId(event.target.value);
+                    setModelId('');
+                  }}
+                >
+                  <option value="" disabled>
+                    Select a connection
+                  </option>
+                  {availableConnections.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.config.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Model
+                <select
+                  value={model?.id ?? ''}
+                  disabled={busy}
+                  onChange={(event) => setModelId(event.target.value)}
+                >
+                  <option value="" disabled>
+                    Select a model
+                  </option>
+                  {connection?.config.models?.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="button primary"
+                disabled={busy || connection === undefined || model === undefined}
+                onClick={() => generate.mutate()}
+              >
+                {busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
+                {busy ? 'Generating…' : generateLabel}
+              </button>
+              <CancelGenerationButton
+                status={run.data?.status}
+                pending={cancelGeneration.isPending}
+                onCancel={() => cancelGeneration.mutate()}
+              />
+            </>
+          )}
+          <VersionSelect history={history.data} value={revisionId} onChange={setSelectedRevision} />
+        </div>
+      )}
+      <MissingConnectionNotice
+        manage={manage}
+        admin={isAdmin(me)}
+        available={availableConnections.length}
+        setupEnabled={setup.data?.connections_enabled}
+        loading={connections.isPending}
+      />
       {generate.isError && <ErrorNotice error={generate.error} />}
       {cancelGeneration.isError && <ErrorNotice error={cancelGeneration.error} />}
       {run.isError && <ErrorNotice error={run.error} />}
@@ -317,8 +312,7 @@ export function PassportPage() {
         !revision.isFetching &&
         run.data?.status !== 'failed' && (
           <EmptyState title="Your sources are ready to explore">
-            Choose a connection and model, then generate a passport. It will cover the product’s
-            purpose, users, domain, scenarios, architecture and developer workflow.
+            {emptyPassportMessage(manage)}
           </EmptyState>
         )}
       {revision.data !== undefined && selected !== undefined && (
@@ -413,6 +407,7 @@ export function PassportPage() {
             <summary>
               <GitBranch size={17} />
               Analyzed sources and coverage
+              <DisclosureHint show="Show sources" hide="Hide sources" />
             </summary>
             {revision.data.snapshots?.map((snapshot) => (
               <div className="source-row" key={snapshot.id}>
@@ -445,6 +440,7 @@ export function PassportPage() {
         <summary>
           <FileCode2 size={17} />
           Product source configuration
+          <DisclosureHint show="Show configuration" hide="Hide configuration" />
         </summary>
         {product.data.sources?.map((source) => (
           <div className="source-row" key={JSON.stringify(source)}>
@@ -455,6 +451,7 @@ export function PassportPage() {
           </div>
         ))}
       </details>
+      {manage && <ProductAccess productId={id} />}
       {object !== null && revision.data !== undefined && (
         <ObjectDetail
           object={object}
@@ -519,4 +516,64 @@ function GenerationOutcome({
       </div>
     </div>
   );
+}
+
+function VersionSelect({
+  history,
+  value,
+  onChange,
+}: Readonly<{ history?: RevisionInfo[]; value: string; onChange: (id: string) => void }>) {
+  if (history === undefined || history.length === 0) {
+    return null;
+  }
+  return (
+    <label className="revision-select">
+      Version
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {history.map((item) => (
+          <option key={item.id} value={item.id}>
+            Version {item.version}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function MissingConnectionNotice({
+  manage,
+  admin,
+  available,
+  setupEnabled,
+  loading,
+}: Readonly<{
+  manage: boolean;
+  admin: boolean;
+  available: number;
+  setupEnabled?: boolean;
+  loading: boolean;
+}>) {
+  // Connections are only fetched for people who can generate, once setup allows them.
+  if (!manage || available > 0 || (setupEnabled !== false && loading)) {
+    return null;
+  }
+  return (
+    <div className="notice">
+      <p>Add an enabled model connection to generate this passport.</p>
+      {admin ? (
+        <Link className="text-link" to="/connections">
+          Set up a connection
+          <ArrowRight size={15} />
+        </Link>
+      ) : (
+        <p>Ask an admin to set one up.</p>
+      )}
+    </div>
+  );
+}
+
+function emptyPassportMessage(manage: boolean): string {
+  return manage
+    ? 'Choose a connection and model, then generate a passport. It will cover the product’s purpose, users, domain, scenarios, architecture and developer workflow.'
+    : 'No passport has been generated yet. A product lead can generate it.';
 }

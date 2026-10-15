@@ -8,8 +8,10 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
@@ -20,6 +22,7 @@ import (
 
 // Factory exposes product, connection and generation operations.
 type Factory struct {
+	Access      *access.Store
 	GitHub      *githubconnection.Store
 	GitHubOAuth githubconnection.OAuthConfig
 	Service     *generation.Service
@@ -53,58 +56,61 @@ type FactoryStatus struct {
 }
 
 func (f *Factory) register(mux *http.ServeMux) {
+	f.registerAccess(mux)
 	f.registerGitHub(mux)
 	if f.FrontendDir != "" {
 		mux.Handle("GET /", frontend(f.FrontendDir))
 	}
-	mux.HandleFunc("GET /api/factory/status", func(w http.ResponseWriter, _ *http.Request) {
+	runProduct := func(r *http.Request) (string, error) { return f.Service.RunProduct(r.Context(), r.PathValue("id")) }
+	revisionProduct := func(r *http.Request) (string, error) {
+		return f.Service.RevisionProduct(r.Context(), r.PathValue("id"))
+	}
+	mux.HandleFunc("GET /api/factory/status", f.signedIn(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, FactoryStatus{ConnectionsEnabled: f.Service.Connections != nil})
-	})
-	mux.HandleFunc("GET /api/llm-connections", f.connections)
-	mux.HandleFunc("POST /api/llm-connections", f.createConnection)
-	mux.HandleFunc("POST /api/llm-connections/models", f.listConnectionModels)
-	mux.HandleFunc("GET /api/llm-connections/{id}", f.connection)
-	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.updateConnection)
-	mux.HandleFunc("DELETE /api/llm-connections/{id}", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	// Leads read connections to choose a model; only admins change them.
+	mux.HandleFunc("GET /api/llm-connections", f.lead(f.connections))
+	mux.HandleFunc("POST /api/llm-connections", f.admin(f.createConnection))
+	mux.HandleFunc("POST /api/llm-connections/models", f.admin(f.listConnectionModels))
+	mux.HandleFunc("GET /api/llm-connections/{id}", f.lead(f.connection))
+	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.admin(f.updateConnection))
+	mux.HandleFunc("DELETE /api/llm-connections/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireConnections(w) {
 			return
 		}
 		value, err := f.Service.Connections.Delete(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.testConnection)
-	mux.HandleFunc("GET /api/products", func(w http.ResponseWriter, r *http.Request) {
-		value, err := f.Service.Products.List(r.Context())
-		respond(w, r, value, err)
-	})
-	mux.HandleFunc("POST /api/products", f.createProduct)
-	mux.HandleFunc("DELETE /api/products/{id}", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.admin(f.testConnection))
+	mux.HandleFunc("GET /api/products", f.signedIn(f.products))
+	mux.HandleFunc("POST /api/products", f.admin(f.createProduct))
+	mux.HandleFunc("DELETE /api/products/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.DeleteProduct(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("GET /api/products/{id}", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("GET /api/products/{id}", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("POST /api/products/{id}/generations", f.startGeneration)
-	mux.HandleFunc("POST /api/generations/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("POST /api/products/{id}/generations", f.product(true, pathProduct, f.startGeneration))
+	mux.HandleFunc("POST /api/generations/{id}/cancel", f.product(true, runProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Cancel(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("GET /api/generations/{id}/events", f.generationEvents)
-	mux.HandleFunc("GET /api/generations/{id}", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("GET /api/generations/{id}/events", f.product(false, runProduct, f.generationEvents))
+	mux.HandleFunc("GET /api/generations/{id}", f.product(false, runProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.GetRun(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("GET /api/products/{id}/passport-revisions", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("GET /api/products/{id}/passport-revisions", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.History(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("GET /api/passport-revisions/{id}", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("GET /api/passport-revisions/{id}", f.product(false, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Revision(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("GET /api/products/{id}/passport", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("GET /api/products/{id}/passport", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		history, err := f.Service.History(r.Context(), r.PathValue("id"))
 		if err != nil {
 			respond(w, r, nil, err)
@@ -116,11 +122,33 @@ func (f *Factory) register(mux *http.ServeMux) {
 		}
 		value, err := f.Service.Revision(r.Context(), history[0].ID)
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("GET /api/passport-revisions/{id}/evidence/{evidenceId}", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("GET /api/passport-revisions/{id}/evidence/{evidenceId}", f.product(false, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Evidence(r.Context(), r.PathValue("id"), r.PathValue("evidenceId"))
 		respond(w, r, value, err)
-	})
+	}))
+}
+
+// products lists every product for admins and only member products for other users.
+func (f *Factory) products(w http.ResponseWriter, r *http.Request) {
+	value, err := f.Service.Products.List(r.Context())
+	user := currentUser(r)
+	if err != nil || user.Role == access.RoleAdmin {
+		respond(w, r, value, err)
+		return
+	}
+	memberships, err := f.Access.Memberships(r.Context(), user.ID)
+	if err != nil {
+		respond(w, r, nil, err)
+		return
+	}
+	visible := make([]product.Product, 0, len(memberships))
+	for _, item := range value {
+		if slices.ContainsFunc(memberships, func(m access.Membership) bool { return m.ProductID == item.ID }) {
+			visible = append(visible, item)
+		}
+	}
+	respond(w, r, visible, nil)
 }
 
 func (f *Factory) requireConnections(w http.ResponseWriter) bool {
@@ -322,6 +350,18 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusBadRequest, "invalid_product", err.Error())
 	case errors.Is(err, llmgateway.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid_connection", err.Error())
+	case errors.Is(err, access.ErrSession):
+		problem(w, http.StatusUnauthorized, "unauthenticated", err.Error())
+	case errors.Is(err, access.ErrCredentials):
+		problem(w, http.StatusUnauthorized, "invalid_credentials", "Incorrect email or password.")
+	case errors.Is(err, access.ErrInvalid):
+		problem(w, http.StatusBadRequest, "invalid_input", err.Error())
+	case errors.Is(err, access.ErrConflict):
+		problem(w, http.StatusConflict, "email_taken", "An account with this email already exists.")
+	case errors.Is(err, access.ErrLastAdmin):
+		problem(w, http.StatusConflict, "last_admin", "At least one admin must remain.")
+	case errors.Is(err, access.ErrUnknownUser):
+		problem(w, http.StatusNotFound, "unknown_user", "No account uses this email. Ask the person to register first.")
 	case errors.Is(err, githubconnection.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid_github_connection", err.Error())
 	case errors.As(err, &failure):

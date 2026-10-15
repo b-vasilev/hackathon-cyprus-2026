@@ -16,7 +16,7 @@ type OAuthURL struct {
 }
 
 func (f *Factory) registerGitHub(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/git-connection", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/git-connection", f.admin(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		if f.GitHub == nil {
 			writeJSON(w, http.StatusOK, githubconnection.Status{})
@@ -25,8 +25,8 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 		value, err := f.GitHub.Status(r.Context())
 		value.OAuthEnabled = f.GitHubOAuth.Enabled()
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("PUT /api/git-connection", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("PUT /api/git-connection", f.admin(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireGitHub(w) {
 			return
 		}
@@ -37,15 +37,15 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 		value, err := f.GitHub.Connect(r.Context(), input.Token, "token", time.Time{})
 		value.OAuthEnabled = f.GitHubOAuth.Enabled()
 		respond(w, r, value, err)
-	})
-	mux.HandleFunc("DELETE /api/git-connection", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("DELETE /api/git-connection", f.admin(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireGitHub(w) {
 			return
 		}
 		err := f.GitHub.Disconnect(r.Context())
 		respond(w, r, githubconnection.Status{Enabled: true, OAuthEnabled: f.GitHubOAuth.Enabled()}, err)
-	})
-	mux.HandleFunc("POST /api/git-connection/oauth/start", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("POST /api/git-connection/oauth/start", f.admin(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireGitHub(w) {
 			return
 		}
@@ -61,7 +61,7 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 		f.setGitHubCookie(w, cookie, 600)
 		w.Header().Set("Cache-Control", "no-store")
 		writeJSON(w, http.StatusOK, OAuthURL{URL: authorization})
-	})
+	}))
 	mux.HandleFunc("GET /api/git-connection/oauth/callback", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")

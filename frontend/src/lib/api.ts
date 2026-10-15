@@ -25,6 +25,9 @@ export type FactoryStatus = components['schemas']['FactoryStatus'];
 export type SourceInput = components['schemas']['SourceInput'];
 export type GitHubConnection = components['schemas']['GitHubConnection'];
 export type OAuthURL = components['schemas']['OAuthURL'];
+export type User = components['schemas']['User'];
+export type Me = components['schemas']['Me'];
+export type Member = components['schemas']['Member'];
 
 interface ErrorBody {
   code?: string;
@@ -50,6 +53,10 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     ...options,
     headers,
   });
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    // The session expired or was revoked; start again from sign-in.
+    globalThis.location.assign('/login');
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ErrorBody;
     throw new ApiError(
@@ -57,6 +64,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       response.status,
       body.request_id
     );
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
   return response.json() as Promise<T>;
 }

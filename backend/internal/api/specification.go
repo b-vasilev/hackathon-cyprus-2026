@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
@@ -19,6 +20,7 @@ import (
 // Specification builds OpenAPI from the same Go contracts used by handlers and LLM generation.
 const (
 	methodGet     = "get"
+	methodPost    = "post"
 	schemaTypeKey = "type"
 	schemaKey     = "schema"
 )
@@ -35,7 +37,8 @@ func Specification() ([]byte, error) {
 		"Product": passport.Schema[product.Product], "ProductInput": passport.Schema[product.Input], "SourceInput": passport.Schema[source.Input],
 		"GenerationInput": passport.Schema[generation.Input], "Run": passport.Schema[generation.Run], "Revision": passport.Schema[generation.Revision], "RevisionInfo": passport.Schema[generation.RevisionInfo], "EvidenceView": passport.Schema[generation.EvidenceView],
 		"GenerationEvent": passport.Schema[generation.Event],
-		"Passport":        passport.Schema[passport.Passport], "ProductModel": passport.Schema[passport.Model], "ProductObject": passport.Schema[passport.Object], "Claim": passport.Schema[passport.Claim], "Evidence": passport.Schema[passport.Evidence], "Relation": passport.Schema[passport.Relation], "Scenario": passport.Schema[passport.Scenario], "Section": passport.Schema[passport.Section], "Diagram": passport.Schema[passport.Diagram],
+		"User":            passport.Schema[access.User], "Me": passport.Schema[access.Me], "Membership": passport.Schema[access.Membership], "Member": passport.Schema[access.Member], "Credentials": passport.Schema[access.Credentials], "MemberInput": passport.Schema[access.MemberInput], "RoleInput": passport.Schema[access.RoleInput],
+		"Passport": passport.Schema[passport.Passport], "ProductModel": passport.Schema[passport.Model], "ProductObject": passport.Schema[passport.Object], "Claim": passport.Schema[passport.Claim], "Evidence": passport.Schema[passport.Evidence], "Relation": passport.Schema[passport.Relation], "Scenario": passport.Schema[passport.Scenario], "Section": passport.Schema[passport.Section], "Diagram": passport.Schema[passport.Diagram],
 		"Problem": passport.Schema[Problem], "Probe": passport.Schema[Probe], "ProbeResult": passport.Schema[ProbeResult], "FactoryStatus": passport.Schema[FactoryStatus],
 	}
 	components := spec["components"].(map[string]any)
@@ -65,25 +68,35 @@ func Specification() ([]byte, error) {
 		status                          int
 		array                           bool
 	}{
+		{methodPost, "/api/auth/register", "register", "Credentials", "Me", 201, false},
+		{methodPost, "/api/auth/login", "login", "Credentials", "Me", 200, false},
+		{methodPost, "/api/auth/logout", "logout", "", "", 204, false},
+		{methodGet, "/api/auth/me", "getMe", "", "Me", 200, false},
+		{methodGet, "/api/users", "listUsers", "", "User", 200, true},
+		{"patch", "/api/users/{id}", "setUserRole", "RoleInput", "User", 200, false},
+		{"delete", "/api/users/{id}", "deleteUser", "", "", 204, false},
+		{methodGet, "/api/products/{id}/members", "listMembers", "", "Member", 200, true},
+		{"put", "/api/products/{id}/members", "setMember", "MemberInput", "Member", 200, false},
+		{"delete", "/api/products/{id}/members/{userId}", "removeMember", "", "", 204, false},
 		{methodGet, "/api/git-connection", "getGitHubConnection", "", "GitHubConnection", 200, false},
 		{"put", "/api/git-connection", "connectGitHubToken", "GitHubTokenInput", "GitHubConnection", 200, false},
 		{"delete", "/api/git-connection", "disconnectGitHub", "", "GitHubConnection", 200, false},
-		{"post", "/api/git-connection/oauth/start", "startGitHubOAuth", "", "OAuthURL", 200, false},
+		{methodPost, "/api/git-connection/oauth/start", "startGitHubOAuth", "", "OAuthURL", 200, false},
 		{methodGet, "/api/factory/status", "getFactoryStatus", "", "FactoryStatus", 200, false},
-		{"post", "/api/llm-connections/models", "listConnectionModels", "ModelDiscoveryInput", "AvailableModel", 200, true},
+		{methodPost, "/api/llm-connections/models", "listConnectionModels", "ModelDiscoveryInput", "AvailableModel", 200, true},
 		{methodGet, "/api/llm-connections", "listConnections", "", "Connection", 200, true},
-		{"post", "/api/llm-connections", "createConnection", "ConnectionConfig", "Connection", 201, false},
+		{methodPost, "/api/llm-connections", "createConnection", "ConnectionConfig", "Connection", 201, false},
 		{methodGet, "/api/llm-connections/{id}", "getConnection", "", "Connection", 200, false},
 		{"patch", "/api/llm-connections/{id}", "updateConnection", "ConnectionPatch", "Connection", 200, false},
 		{"delete", "/api/llm-connections/{id}", "deleteConnection", "", "Connection", 200, false},
-		{"post", "/api/llm-connections/{id}/test", "testConnection", "Probe", "ProbeResult", 200, false},
+		{methodPost, "/api/llm-connections/{id}/test", "testConnection", "Probe", "ProbeResult", 200, false},
 		{methodGet, "/api/products", "listProducts", "", "Product", 200, true},
-		{"post", "/api/products", "createProduct", "ProductInput", "Product", 201, false},
+		{methodPost, "/api/products", "createProduct", "ProductInput", "Product", 201, false},
 		{methodGet, "/api/products/{id}", "getProduct", "", "Product", 200, false},
 		{"delete", "/api/products/{id}", "deleteProduct", "", "Product", 200, false},
-		{"post", "/api/products/{id}/generations", "startGeneration", "GenerationInput", "Run", 202, false},
+		{methodPost, "/api/products/{id}/generations", "startGeneration", "GenerationInput", "Run", 202, false},
 		{methodGet, "/api/generations/{id}", "getGeneration", "", "Run", 200, false},
-		{"post", "/api/generations/{id}/cancel", "cancelGeneration", "", "Run", 200, false},
+		{methodPost, "/api/generations/{id}/cancel", "cancelGeneration", "", "Run", 200, false},
 		{methodGet, "/api/generations/{id}/events", "streamGeneration", "", "Run", 200, false},
 		{methodGet, "/api/products/{id}/passport", "getLatestPassport", "", "Revision", 200, false},
 		{methodGet, "/api/products/{id}/passport-revisions", "listRevisions", "", "RevisionInfo", 200, true},
@@ -94,7 +107,11 @@ func Specification() ([]byte, error) {
 		if route.array {
 			output = map[string]any{schemaTypeKey: "array", "items": output}
 		}
-		operation := map[string]any{"operationId": route.id, "responses": map[string]any{strconv.Itoa(route.status): map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{schemaKey: output}}}, "default": map[string]any{"description": "Request failed", "content": map[string]any{"application/json": map[string]any{schemaKey: map[string]any{"$ref": "#/components/schemas/Problem"}}}}}}
+		success := map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{schemaKey: output}}}
+		if route.output == "" {
+			success = map[string]any{"description": "No content"}
+		}
+		operation := map[string]any{"operationId": route.id, "responses": map[string]any{strconv.Itoa(route.status): success, "default": map[string]any{"description": "Request failed", "content": map[string]any{"application/json": map[string]any{schemaKey: map[string]any{"$ref": "#/components/schemas/Problem"}}}}}}
 		if route.id == "streamGeneration" {
 			operation["description"] = "SSE snapshot and update events contain a Run with events after Last-Event-ID. IDs are ordered and durable. Reconnects replay missed events. Terminal snapshots close the stream."
 			operation["responses"].(map[string]any)["200"] = map[string]any{"description": "Generation event stream", "content": map[string]any{"text/event-stream": map[string]any{schemaKey: map[string]any{schemaTypeKey: "string"}}}}

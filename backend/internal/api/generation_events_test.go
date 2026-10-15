@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
@@ -67,7 +68,9 @@ func TestGenerationStreamReplayAndCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(New(database, zerolog.Nop(), nil, &Factory{Service: service}))
+	users := &access.Store{DB: database}
+	admin := signInAdmin(t, users)
+	server := httptest.NewServer(New(database, zerolog.Nop(), nil, &Factory{Access: users, Service: service}))
 	defer server.Close()
 	url := server.URL + "/api/generations/" + run.ID + "/events"
 	requestStream := func(cursor string) *http.Response {
@@ -76,6 +79,7 @@ func TestGenerationStreamReplayAndCompletion(t *testing.T) {
 		if requestErr != nil {
 			t.Fatal(requestErr)
 		}
+		request.AddCookie(admin)
 		if cursor != "" {
 			request.Header.Set("Last-Event-ID", cursor)
 		}

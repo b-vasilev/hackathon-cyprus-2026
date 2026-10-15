@@ -6,10 +6,12 @@ import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { ProductIdentity } from '../components/ProductIdentity';
 import { Badge, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import { api, date, type Product, type ProductInput } from '../lib/api';
+import { isAdmin, useMe } from '../lib/auth';
 import { activeRun } from '../lib/generation';
 import { productCardTheme } from '../lib/productCardTheme';
 
 export function Products() {
+  const admin = isAdmin(useMe());
   const client = useQueryClient();
   const [deleting, setDeleting] = useState<Product | null>(null);
   const remove = useMutation({
@@ -35,10 +37,12 @@ export function Products() {
         title="Understanding starts here."
         description="Turn product sources into a shared, traceable picture of what you build."
         action={
-          <Link className="button primary" to="/products/new">
-            <Plus size={17} />
-            Add product
-          </Link>
+          admin && (
+            <Link className="button primary" to="/products/new">
+              <Plus size={17} />
+              Add product
+            </Link>
+          )
         }
       />
       <div className="intro-strip">
@@ -50,7 +54,12 @@ export function Products() {
       </div>
       {query.isPending && <Loading />}
       {query.isError && <ErrorNotice error={query.error} />}
-      {query.data?.length === 0 && (
+      {query.data?.length === 0 && !admin && (
+        <EmptyState title="No product spaces yet">
+          Ask an admin or a product lead to give you access to a product.
+        </EmptyState>
+      )}
+      {query.data?.length === 0 && admin && (
         <EmptyState
           title="Create your first product passport"
           action={
@@ -86,19 +95,21 @@ export function Products() {
             </Link>
             <div className="card-bottom">
               <span>{date(product.created_at)}</span>
-              <button
-                type="button"
-                className="text-button destructive"
-                disabled={activeRun(product.latest_run_status) || remove.isPending}
-                aria-label={`Delete passport for ${product.name}`}
-                onClick={() => {
-                  remove.reset();
-                  setDeleting(product);
-                }}
-              >
-                <Trash2 size={16} aria-hidden="true" />
-                Delete passport
-              </button>
+              {admin && (
+                <button
+                  type="button"
+                  className="text-button destructive"
+                  disabled={activeRun(product.latest_run_status) || remove.isPending}
+                  aria-label={`Delete passport for ${product.name}`}
+                  onClick={() => {
+                    remove.reset();
+                    setDeleting(product);
+                  }}
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                  Delete passport
+                </button>
+              )}
             </div>
           </article>
         ))}
