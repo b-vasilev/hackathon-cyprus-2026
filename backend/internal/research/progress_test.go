@@ -227,7 +227,7 @@ func TestNoEvidenceProgressStopsWithAnHonestPartialPlan(t *testing.T) {
 		var steps []fantasy.StepResult
 		for {
 			if _, _, err := call.PrepareStep(ctx, fantasy.PrepareStepFunctionOptions{StepNumber: len(steps), Steps: steps}); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("prepare research test step: %w", err)
 			}
 			steps = append(steps, scriptedStep(1, 1).Steps[0])
 			if call.StopWhen[0](steps) {

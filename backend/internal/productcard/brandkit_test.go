@@ -26,6 +26,7 @@ func TestResolveBrandkit(t *testing.T) {
 		{name: "mixed inputs", kit: &Brandkit{URL: "https://example.com/brand", FileName: "brand.txt", Text: "Brand"}, invalid: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			kit, err := ResolveBrandkit(t.Context(), test.kit)
 			if (err != nil) != test.invalid {
 				t.Fatalf("Resolve() error = %v", err)

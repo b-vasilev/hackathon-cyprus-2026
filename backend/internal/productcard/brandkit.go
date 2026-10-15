@@ -30,39 +30,44 @@ type Brandkit struct {
 // ResolveBrandkit validates an upload or downloads a public text/HTML brand guide once.
 func ResolveBrandkit(ctx context.Context, kit *Brandkit) (*Brandkit, error) {
 	if kit == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // Branding is optional; nil means no kit was supplied.
 	}
-	copy := *kit
-	copy.URL = strings.TrimSpace(copy.URL)
-	if copy.URL != "" {
-		if copy.FileName != "" || copy.Text != "" {
+	resolved := *kit
+	resolved.URL = strings.TrimSpace(resolved.URL)
+	if resolved.URL != "" {
+		if resolved.FileName != "" || resolved.Text != "" {
 			return nil, errors.New("provide a product card brand kit URL or a file, not both")
 		}
-		text, err := download(ctx, copy.URL)
+		text, err := download(ctx, resolved.URL)
 		if err != nil {
 			return nil, err
 		}
-		copy.Text = text
-	} else {
-		if len(copy.Text) > MaxBytes {
-			return nil, errors.New("product card brand kit files must be 100 KB or smaller")
-		}
-		switch strings.ToLower(filepath.Ext(copy.FileName)) {
-		case ".txt", ".md", ".json", ".css", ".html":
-		default:
-			return nil, errors.New("product card brand kit files must be TXT, Markdown, JSON, CSS or HTML")
-		}
-		if len(copy.FileName) > 255 {
-			return nil, errors.New("product card brand kit file name is too long")
-		}
-		if strings.EqualFold(filepath.Ext(copy.FileName), ".html") {
-			copy.Text = htmlText(copy.Text)
-		}
+		resolved.Text = text
+	} else if err := resolveBrandkitUpload(&resolved); err != nil {
+		return nil, err
 	}
-	if strings.TrimSpace(copy.Text) == "" || len(copy.Text) > MaxBytes || !utf8.ValidString(copy.Text) || strings.ContainsRune(copy.Text, 0) {
+	if strings.TrimSpace(resolved.Text) == "" || len(resolved.Text) > MaxBytes || !utf8.ValidString(resolved.Text) || strings.ContainsRune(resolved.Text, 0) {
 		return nil, errors.New("product card brand kit must contain 1–100000 bytes of UTF-8 text")
 	}
-	return &copy, nil
+	return &resolved, nil
+}
+
+func resolveBrandkitUpload(kit *Brandkit) error {
+	if len(kit.Text) > MaxBytes {
+		return errors.New("product card brand kit files must be 100 KB or smaller")
+	}
+	switch strings.ToLower(filepath.Ext(kit.FileName)) {
+	case ".txt", ".md", ".json", ".css", ".html":
+	default:
+		return errors.New("product card brand kit files must be TXT, Markdown, JSON, CSS or HTML")
+	}
+	if len(kit.FileName) > 255 {
+		return errors.New("product card brand kit file name is too long")
+	}
+	if strings.EqualFold(filepath.Ext(kit.FileName), ".html") {
+		kit.Text = htmlText(kit.Text)
+	}
+	return nil
 }
 
 func download(ctx context.Context, location string) (string, error) {
@@ -100,7 +105,7 @@ func fetchPublic(ctx context.Context, location string, limit int64) ([]byte, str
 		return nil, "", errors.New("product brand URL must use a public HTTPS hostname")
 	}
 	defer client.CloseIdleConnections()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, location, http.NoBody)
 	if err != nil {
 		return nil, "", fmt.Errorf("create product brand request: %w", err)
 	}
@@ -128,6 +133,8 @@ func htmlText(input string) string {
 		switch tokens.Next() {
 		case html.ErrorToken:
 			return text.String()
+		case html.CommentToken, html.DoctypeToken:
+			// Comments and declarations do not contribute brand guidance.
 		case html.StartTagToken, html.SelfClosingTagToken:
 			tag := tokens.Token()
 			if tag.Data == "script" {

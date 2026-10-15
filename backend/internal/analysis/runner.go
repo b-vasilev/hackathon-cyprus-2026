@@ -76,8 +76,8 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 	if store.Checkpoint().Finalized {
 		return result, nil
 	}
-	if err := store.prepareSynthesis(ctx, input.Tasks); err != nil {
-		return result, err
+	if prepareErr := store.prepareSynthesis(ctx, input.Tasks); prepareErr != nil {
+		return result, prepareErr
 	}
 	client, err := r.Policy.Client(config, r.Limiter)
 	if err != nil {
@@ -129,7 +129,7 @@ func runSynthesisPlan(ctx context.Context, tasks []Task, runTask func(context.Co
 		group.Go(func() error { return runTask(parallelCtx, task.ID) })
 	}
 	if err := group.Wait(); err != nil {
-		return err
+		return fmt.Errorf("run parallel analysis steps: %w", err)
 	}
 	return runTask(ctx, ReconciliationTaskID)
 }
@@ -191,18 +191,7 @@ func nextAnalysisTask(tasks []Task) (Task, bool) {
 }
 
 func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, config llmgateway.Config, modelID string, runner *Runner) error {
-	maxTurns := runner.MaxTurns
-	if maxTurns <= 0 {
-		maxTurns = 240
-	}
-	windowSteps := runner.WindowSteps
-	if windowSteps <= 0 {
-		windowSteps = 6
-	}
-	windowBytes := runner.MaxWindowBytes
-	if windowBytes <= 0 {
-		windowBytes = defaultWindowBytes
-	}
+	maxTurns, windowSteps, windowBytes := analysisWindowLimits(runner)
 	var recent []fantasy.Message
 	previousArea := ""
 	stalled := 0
@@ -211,35 +200,16 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 		if checkpoint.Finalized {
 			return nil
 		}
-		task, ok := nextAnalysisTask(checkpoint.Tasks)
-		if s.assignedTaskID != "" {
-			index := slices.IndexFunc(checkpoint.Tasks, func(task Task) bool { return task.ID == s.assignedTaskID })
-			if index < 0 {
-				return fmt.Errorf("analysis step %s is missing from the saved plan", s.assignedTaskID)
-			}
-			task, ok = checkpoint.Tasks[index], true
-			if task.Status == TaskDone && task.ID != ReconciliationTaskID {
-				return nil
-			}
+		task, err := s.selectTask(checkpoint)
+		if err != nil {
+			return err
 		}
-		if !ok {
-			return errors.New("analysis has no area to reconcile; saved model remains resumable")
+		if s.assignedTaskDone(task) {
+			return nil
 		}
-		if task.Status != TaskActive {
-			for _, old := range checkpoint.Tasks {
-				if s.assignedTaskID != "" {
-					break
-				}
-				if old.Status == TaskActive && old.ID != task.ID {
-					if err := s.store.SetTaskStatus(ctx, old.ID, TaskPending); err != nil {
-						return err
-					}
-				}
-			}
-			if err := s.store.SetTaskStatus(ctx, task.ID, TaskActive); err != nil {
-				return err
-			}
-			task.Status = TaskActive
+		task, err = s.activateTask(ctx, task, checkpoint.Tasks)
+		if err != nil {
+			return err
 		}
 		s.current = task
 		if previousArea != task.ID {
@@ -287,6 +257,42 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 		}
 	}
 	return errors.New("analysis attempt budget ended with unfinished areas; accepted parts and source reads are preserved for retry")
+}
+
+func (s *analysisSession) selectTask(checkpoint Checkpoint) (Task, error) {
+	task, ok := nextAnalysisTask(checkpoint.Tasks)
+	if s.assignedTaskID != "" {
+		index := slices.IndexFunc(checkpoint.Tasks, func(task Task) bool { return task.ID == s.assignedTaskID })
+		if index < 0 {
+			return Task{}, fmt.Errorf("analysis step %s is missing from the saved plan", s.assignedTaskID)
+		}
+		task, ok = checkpoint.Tasks[index], true
+	}
+	if !ok {
+		return Task{}, errors.New("analysis has no area to reconcile; saved model remains resumable")
+	}
+	return task, nil
+}
+
+func (s *analysisSession) activateTask(ctx context.Context, task Task, tasks []Task) (Task, error) {
+	if task.Status == TaskActive {
+		return task, nil
+	}
+	for _, old := range tasks {
+		if s.assignedTaskID != "" {
+			break
+		}
+		if old.Status == TaskActive && old.ID != task.ID {
+			if err := s.store.SetTaskStatus(ctx, old.ID, TaskPending); err != nil {
+				return task, fmt.Errorf("reset previous analysis task: %w", err)
+			}
+		}
+	}
+	if err := s.store.SetTaskStatus(ctx, task.ID, TaskActive); err != nil {
+		return task, fmt.Errorf("activate analysis task: %w", err)
+	}
+	task.Status = TaskActive
+	return task, nil
 }
 
 func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, config llmgateway.Config, modelID, prompt string, recent []fantasy.Message, maxSteps, maxBytes int) ([]fantasy.Message, error) {
@@ -358,8 +364,8 @@ func recentAnalysisMessages(previous []fantasy.Message, steps []fantasy.StepResu
 	// reread the same instructions, research batches and model indices.
 	steps = append([]fantasy.StepResult{{Messages: previous}}, steps...)
 	var recent []fantasy.Message
-	for i := len(steps) - 1; i >= 0; i-- {
-		candidate := append(slices.Clone(steps[i].Messages), recent...)
+	for _, step := range slices.Backward(steps) {
+		candidate := append(slices.Clone(step.Messages), recent...)
 		data, err := json.Marshal(candidate)
 		if err != nil || len(data) > recentHistoryBytes {
 			break
@@ -370,4 +376,24 @@ func recentAnalysisMessages(previous []fantasy.Message, steps []fantasy.StepResu
 		return recent
 	}
 	return []fantasy.Message{fantasy.NewUserMessage("The previous complete tool turn exceeded the carry-history budget. Accepted mutations and exact source read ranges are durably saved. Inspect saved entities or page only the relevant original ranges; no source text was clipped.")}
+}
+
+func analysisWindowLimits(runner *Runner) (int, int, int) {
+	maxTurns := runner.MaxTurns
+	if maxTurns <= 0 {
+		maxTurns = 240
+	}
+	windowSteps := runner.WindowSteps
+	if windowSteps <= 0 {
+		windowSteps = 6
+	}
+	windowBytes := runner.MaxWindowBytes
+	if windowBytes <= 0 {
+		windowBytes = defaultWindowBytes
+	}
+	return maxTurns, windowSteps, windowBytes
+}
+
+func (s *analysisSession) assignedTaskDone(task Task) bool {
+	return s.assignedTaskID != "" && task.Status == TaskDone && task.ID != ReconciliationTaskID
 }

@@ -49,8 +49,8 @@ export function SourceCoverage({ snapshot }: Readonly<{ snapshot: Snapshot }>) {
         </span>
         <DisclosureHint show="Browse files" hide="Hide files" />
       </summary>
-      {snapshot.coverage.note && <p className="field-help">{snapshot.coverage.note}</p>}
-      {snapshot.coverage.selection && (
+      {snapshot.coverage.note !== '' && <p className="field-help">{snapshot.coverage.note}</p>}
+      {snapshot.coverage.selection !== '' && (
         <p className="field-help">Selection: {snapshot.coverage.selection}</p>
       )}
       {files.length === 0 ? (

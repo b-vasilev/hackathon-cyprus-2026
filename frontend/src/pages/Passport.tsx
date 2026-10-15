@@ -125,7 +125,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
   const deletePassport = useMutation({
     mutationFn: () => api<Product>(`/products/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      void navigate('/');
+      void navigate('/products');
       queryClient.removeQueries({ queryKey: ['product', id] });
       queryClient.removeQueries({ queryKey: ['revisions', id] });
       for (const item of history.data ?? []) {
@@ -627,7 +627,7 @@ function PassportHeader({
 }>) {
   return (
     <>
-      <Link to={publishedView ? '/published' : '/'} className="back-link">
+      <Link to={publishedView ? '/published' : '/products'} className="back-link">
         ← {publishedView ? 'Published passports' : 'Product studio'}
       </Link>
       <div

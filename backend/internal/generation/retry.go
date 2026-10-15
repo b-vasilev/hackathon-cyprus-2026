@@ -29,17 +29,8 @@ func (s *Service) resume(ctx context.Context, productID string, input Input) (Ru
 	if err != nil {
 		return Run{}, fmt.Errorf("load generation to retry: %w", err)
 	}
-	if run.ProductID != productID {
-		return Run{}, fmt.Errorf("%w: generation does not belong to this product", llmgateway.ErrInvalid)
-	}
-	if run.Status != "failed" {
-		return Run{}, fmt.Errorf("%w: only failed generations can be retried", llmgateway.ErrInvalid)
-	}
-	if _, active := s.active.Load(run.ID); active {
-		return Run{}, ErrActive
-	}
-	if input.ConnectionID != run.ConnectionID || input.Model != run.Model {
-		return Run{}, fmt.Errorf("%w: retry must use the original connection and model", llmgateway.ErrInvalid)
+	if validateErr := s.validateRetry(run, productID, input); validateErr != nil {
+		return Run{}, validateErr
 	}
 	// Load the recorded revision, including its original model configuration.
 	// Current connection edits must never silently replace the frozen revision.
@@ -238,14 +229,36 @@ func (s *Service) collectOrLoadBrand(ctx context.Context, run Run, collection so
 		return brand, errors.New("saved product branding is missing; start a new generation rather than change this run's frozen branding")
 	}
 	var readAsset productcard.AssetReader
+	var findAssets productcard.AssetFinder
 	if collector, ok := s.Collector.(interface {
 		ReadBrandAsset(context.Context, source.Snapshot, string) ([]byte, error)
 	}); ok {
 		readAsset = collector.ReadBrandAsset
 	}
-	brand = productcard.Discover(ctx, collection, manual, readAsset)
+	if collector, ok := s.Collector.(interface {
+		FindBrandAssets(context.Context, source.Snapshot) ([]string, error)
+	}); ok {
+		findAssets = collector.FindBrandAssets
+	}
+	brand = productcard.Discover(ctx, collection, manual, readAsset, findAssets)
 	if _, checkErr := s.Content.WriteJSON(path, brand); checkErr != nil {
 		return brand, fmt.Errorf("save product brand sources: %w", checkErr)
 	}
 	return brand, s.event(ctx, run.ID, "brand_sources_collected", "collecting", fmt.Sprintf("Product branding: %d references, %d verified logos, %d unavailable resources.", len(brand.References), len(brand.Logos), len(brand.Notes)))
+}
+
+func (s *Service) validateRetry(run Run, productID string, input Input) error {
+	if run.ProductID != productID {
+		return fmt.Errorf("%w: generation does not belong to this product", llmgateway.ErrInvalid)
+	}
+	if run.Status != "failed" {
+		return fmt.Errorf("%w: only failed generations can be retried", llmgateway.ErrInvalid)
+	}
+	if _, active := s.active.Load(run.ID); active {
+		return ErrActive
+	}
+	if input.ConnectionID != run.ConnectionID || input.Model != run.Model {
+		return fmt.Errorf("%w: retry must use the original connection and model", llmgateway.ErrInvalid)
+	}
+	return nil
 }

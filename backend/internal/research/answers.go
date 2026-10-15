@@ -35,18 +35,9 @@ func (w *workspace) saveAnswer(input answerInput) error {
 			break
 		}
 	}
-	var refs *[]roleEvidence
-	switch input.Role {
-	case "implementation":
-		refs = &boundary.Implementation
-	case "callers":
-		refs = &boundary.Callers
-	case "contracts":
-		refs = &boundary.Contracts
-	case "validation":
-		refs = &boundary.Validation
-	default:
-		return errors.New("role must be implementation, callers, contracts or validation")
+	refs, roleErr := answerRole(&boundary, input.Role)
+	if roleErr != nil {
+		return roleErr
 	}
 	var notes strings.Builder
 	for _, ref := range input.Evidence {
@@ -64,23 +55,7 @@ func (w *workspace) saveAnswer(input answerInput) error {
 	}
 	boundary.Gaps = slices.DeleteFunc(slices.Clone(boundary.Gaps), func(g roleGap) bool { return g.Role == input.Role })
 	patch := planInput{Boundaries: []researchBoundary{boundary}}
-	for _, c := range w.inventory.Candidates {
-		if c.Repository != input.Repository || c.Kind == "repository_reference" || !boundaryTouches(boundary, c) || (w.task != nil && !w.task.ownsCandidate(c.ID)) {
-			continue
-		}
-		// Preserve other responsibilities already attached to this candidate.
-		d := candidateDisposition{CandidateID: c.ID, Class: "product_code", Disposition: "included", Reason: "Mapped to source-cited responsibility evidence"}
-		for _, old := range w.ledger.Plan.Candidates {
-			if old.CandidateID == c.ID && old.Disposition == "included" {
-				d = old
-				d.Boundaries = slices.Clone(old.Boundaries)
-			}
-		}
-		if !slices.Contains(d.Boundaries, boundary.Name) {
-			d.Boundaries = append(d.Boundaries, boundary.Name)
-		}
-		patch.Candidates = append(patch.Candidates, d)
-	}
+	patch.Candidates = w.answerCandidates(boundary, input.Repository)
 	if err := w.setPlanLocked(patch); err != nil {
 		return err
 	}
@@ -105,4 +80,43 @@ func (w *workspace) answerTool() fantasy.AgentTool {
 		}
 		return toolJSON(map[string]any{"saved": true, "responsibility": input.Responsibility, "role": input.Role})
 	})
+}
+
+func (w *workspace) answerCandidates(boundary researchBoundary, repository string) []candidateDisposition {
+	var candidates []candidateDisposition
+	for _, c := range w.inventory.Candidates {
+		if c.Repository != repository || c.Kind == "repository_reference" || !boundaryTouches(boundary, c) || (w.task != nil && !w.task.ownsCandidate(c.ID)) {
+			continue
+		}
+		// Preserve other responsibilities already attached to this candidate.
+		d := candidateDisposition{CandidateID: c.ID, Class: "product_code", Disposition: "included", Reason: "Mapped to source-cited responsibility evidence"}
+		for _, old := range w.ledger.Plan.Candidates {
+			if old.CandidateID == c.ID && old.Disposition == "included" {
+				d = old
+				d.Boundaries = slices.Clone(old.Boundaries)
+			}
+		}
+		if !slices.Contains(d.Boundaries, boundary.Name) {
+			d.Boundaries = append(d.Boundaries, boundary.Name)
+		}
+		candidates = append(candidates, d)
+	}
+	return candidates
+}
+
+func answerRole(boundary *researchBoundary, role string) (*[]roleEvidence, error) {
+	var refs *[]roleEvidence
+	switch role {
+	case "implementation":
+		refs = &boundary.Implementation
+	case "callers":
+		refs = &boundary.Callers
+	case "contracts":
+		refs = &boundary.Contracts
+	case "validation":
+		refs = &boundary.Validation
+	default:
+		return nil, errors.New("role must be implementation, callers, contracts or validation")
+	}
+	return refs, nil
 }

@@ -21,7 +21,7 @@ type State struct {
 	Activity   string           `json:"activity"`
 	LastResult string           `json:"last_result"`
 	Budget     BudgetProgress   `json:"budget"`
-	Parallel   ParallelProgress `json:"parallel,omitempty"`
+	Parallel   ParallelProgress `json:"parallel,omitzero"`
 }
 
 type ParallelProgress struct {
@@ -214,46 +214,7 @@ func (w *workspace) state() State {
 	}
 	// Discovery scopes stay visible until they are mapped to responsibilities.
 	// Exclusions have their own state and never count as checked product behavior.
-	dispositions := map[string]candidateDisposition{}
-	for _, d := range w.ledger.Plan.Candidates {
-		dispositions[d.CandidateID] = d
-	}
-	groups := map[string]*AreaProgress{}
-	for _, c := range w.inventory.Candidates {
-		d := dispositions[c.ID]
-		if !isResearchCandidate(c, d) {
-			continue
-		}
-		if d.Disposition == "included" {
-			continue
-		}
-		area := groups[c.Path]
-		if area == nil {
-			area = &AreaProgress{ID: "scope/" + c.Path, Name: strings.TrimPrefix(c.Path, c.Repository+"/"), Repository: c.Repository}
-			groups[c.Path] = area
-		}
-		q := QuestionProgress{ID: c.ID, Question: "Investigate " + strings.ReplaceAll(c.Kind, "_", " ") + ": " + c.Reason, Status: "pending", Result: d.Reason, Evidence: []ProgressEvidence{}}
-		if d.Disposition == "excluded" {
-			q.Status = "excluded"
-		} else if !w.availablePath(c.Path) {
-			q.Status = "blocked"
-			q.Result = "No readable indexed sources are available in this scope. " + q.Result
-		}
-		area.Questions = append(area.Questions, q)
-	}
-	for _, repo := range w.unresearchedRepositories() {
-		key := repo.ID + "/."
-		area := groups[key]
-		if area == nil {
-			area = &AreaProgress{ID: "scope/" + key, Name: "Repository overview", Repository: repo.ID}
-			groups[key] = area
-		}
-		status := "pending"
-		if !w.availablePath(repo.ID) {
-			status = "blocked"
-		}
-		area.Questions = append(area.Questions, QuestionProgress{ID: "repository/" + repo.ID, Question: "Which product responsibilities does this repository implement?", Status: status, Result: "No responsibility has been researched in this repository yet.", Evidence: []ProgressEvidence{}})
-	}
+	groups := w.discoveryAreaProgress()
 	for _, area := range groups {
 		area.Status = areaStatus(area.Questions)
 		state.Areas = append(state.Areas, *area)
@@ -302,4 +263,48 @@ func (w *workspace) focusTool() fantasy.AgentTool {
 		}
 		return toolJSON(map[string]bool{"updated": true})
 	})
+}
+
+func (w *workspace) discoveryAreaProgress() map[string]*AreaProgress {
+	dispositions := map[string]candidateDisposition{}
+	for _, d := range w.ledger.Plan.Candidates {
+		dispositions[d.CandidateID] = d
+	}
+	groups := map[string]*AreaProgress{}
+	for _, c := range w.inventory.Candidates {
+		d := dispositions[c.ID]
+		if !isResearchCandidate(c, d) {
+			continue
+		}
+		if d.Disposition == "included" {
+			continue
+		}
+		area := groups[c.Path]
+		if area == nil {
+			area = &AreaProgress{ID: "scope/" + c.Path, Name: strings.TrimPrefix(c.Path, c.Repository+"/"), Repository: c.Repository}
+			groups[c.Path] = area
+		}
+		q := QuestionProgress{ID: c.ID, Question: "Investigate " + strings.ReplaceAll(c.Kind, "_", " ") + ": " + c.Reason, Status: "pending", Result: d.Reason, Evidence: []ProgressEvidence{}}
+		if d.Disposition == "excluded" {
+			q.Status = "excluded"
+		} else if !w.availablePath(c.Path) {
+			q.Status = "blocked"
+			q.Result = "No readable indexed sources are available in this scope. " + q.Result
+		}
+		area.Questions = append(area.Questions, q)
+	}
+	for _, repo := range w.unresearchedRepositories() {
+		key := repo.ID + "/."
+		area := groups[key]
+		if area == nil {
+			area = &AreaProgress{ID: "scope/" + key, Name: "Repository overview", Repository: repo.ID}
+			groups[key] = area
+		}
+		status := "pending"
+		if !w.availablePath(repo.ID) {
+			status = "blocked"
+		}
+		area.Questions = append(area.Questions, QuestionProgress{ID: "repository/" + repo.ID, Question: "Which product responsibilities does this repository implement?", Status: status, Result: "No responsibility has been researched in this repository yet.", Evidence: []ProgressEvidence{}})
+	}
+	return groups
 }

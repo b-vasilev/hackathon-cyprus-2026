@@ -74,17 +74,22 @@ func TestLoad(t *testing.T) {
 				t.Errorf("factory directory override = %q", cfg.FactoryWorkDir)
 			}
 			if !tt.invalid {
-				wantWorkers := 3
-				switch tt.name {
-				case "workers override":
-					wantWorkers = 5
-				case "single worker":
-					wantWorkers = 1
-				}
-				if cfg.GenerationWorkers != wantWorkers {
-					t.Errorf("generation workers = %d, want %d", cfg.GenerationWorkers, wantWorkers)
-				}
+				assertGenerationWorkerConfig(t, tt.name, cfg)
 			}
 		})
+	}
+}
+
+func assertGenerationWorkerConfig(t *testing.T, name string, cfg Config) {
+	t.Helper()
+	wantWorkers := 3
+	switch name {
+	case "workers override":
+		wantWorkers = 5
+	case "single worker":
+		wantWorkers = 1
+	}
+	if cfg.GenerationWorkers != wantWorkers {
+		t.Errorf("generation workers = %d, want %d", cfg.GenerationWorkers, wantWorkers)
 	}
 }

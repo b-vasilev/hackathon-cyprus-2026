@@ -30,11 +30,7 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
           <Brand />
           <nav aria-label="Main navigation">
             <NavLink to="/published">Published passports</NavLink>
-            {studio && (
-              <NavLink to="/" end>
-                Product studio
-              </NavLink>
-            )}
+            {studio && <NavLink to="/products">Product studio</NavLink>}
             <NavLink to="/foundations">Foundations</NavLink>
             {admin && <NavLink to="/connections">Connections</NavLink>}
             {admin && <NavLink to="/access">People</NavLink>}
@@ -53,9 +49,10 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
       </header>
       <main className="main-content">
         <Routes>
-          <Route path="/" element={studio ? <Products /> : <Navigate to="/published" replace />} />
+          <Route path="/" element={<Navigate to="/published" replace />} />
           <Route path="/published" element={<PublishedPassports />} />
           <Route path="/published/:id" element={<PassportPage key="published" publishedView />} />
+          {studio && <Route path="/products" element={<Products />} />}
           {admin && <Route path="/products/new" element={<NewProduct />} />}
           {studio && <Route path="/products/:id" element={<StudioPassport />} />}
           <Route path="/foundations" element={<Foundations />} />

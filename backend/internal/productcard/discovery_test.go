@@ -1,8 +1,11 @@
 package productcard
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image"
+	"image/png"
 	"strings"
 	"testing"
 
@@ -178,8 +181,54 @@ func TestPrivateRepositoryLogoUsesSourceAccess(t *testing.T) {
 		}
 		return []byte(testLogo), nil
 	}
-	d := Discover(t.Context(), collection, nil, read)
+	d := Discover(t.Context(), collection, nil, read, nil)
 	if !called || len(d.Logos) != 1 || !strings.HasPrefix(d.Logos[0].DataURL, "data:image/svg+xml;") {
 		t.Fatal("private repository logo did not use the authenticated source reader")
+	}
+}
+
+func TestBrandkitLogoPreventsRepositoryFallback(t *testing.T) {
+	kit := &Brandkit{URL: "https://example.com/brand/guide", Text: "![Product logo](logo.svg)"}
+	fetch := func(_ context.Context, location string, _ int64) ([]byte, string, error) {
+		if location != "https://example.com/brand/logo.svg" {
+			t.Fatal("repository branding was fetched despite a brandkit logo", location)
+		}
+		return []byte(testLogo), "image/svg+xml", nil
+	}
+	d := discover(t.Context(), brandCollection(), kit, fetch)
+	if len(d.Logos) != 1 || d.Logos[0].URL != "https://example.com/brand/logo.svg" || len(d.References) != 1 {
+		t.Fatal("brandkit logo did not take priority over repository branding")
+	}
+}
+
+func TestRepositoryLogoFallbackOutsideCollectedText(t *testing.T) {
+	collection := brandCollection()
+	collection.Documents = nil
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	found, read := false, false
+	finder := func(_ context.Context, snapshot source.Snapshot) ([]string, error) {
+		found = true
+		if snapshot.Revision != collection.Snapshots[0].Revision {
+			t.Fatal("logo search escaped the analyzed revision")
+		}
+		return []string{"public/product-logo.png"}, nil
+	}
+	reader := func(_ context.Context, snapshot source.Snapshot, file string) ([]byte, error) {
+		read = true
+		if snapshot.Revision != collection.Snapshots[0].Revision || file != "public/product-logo.png" {
+			t.Fatal("logo read escaped the pinned candidate")
+		}
+		return data.Bytes(), nil
+	}
+	d := Discover(t.Context(), collection, &Brandkit{FileName: "brand.md", Text: "Primary #654321"}, reader, finder)
+	if !found || !read || len(d.Logos) != 1 || !strings.HasPrefix(d.Logos[0].DataURL, "data:image/png;base64,") {
+		t.Fatal("repository PNG fallback was not collected")
+	}
+	theme := d.Theme(&passport.ProductCardTheme{AccentColor: "#654321", LogoURL: d.Logos[0].URL})
+	if theme == nil || theme.AccentColor != "#654321" || theme.LogoURL == "" {
+		t.Fatal("fallback logo replaced the brandkit palette")
 	}
 }

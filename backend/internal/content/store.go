@@ -31,39 +31,42 @@ func (s *Store) SaveCheckpoint(path string, value any) error {
 	if !validPath(path) {
 		return errors.New("invalid checkpoint path")
 	}
-	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
-		return err
+	if mkdirErr := os.MkdirAll(s.Dir, 0o700); mkdirErr != nil {
+		return fmt.Errorf("create checkpoint directory: %w", mkdirErr)
 	}
 	root, err := os.OpenRoot(s.Dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("open checkpoint directory: %w", err)
 	}
 	defer root.Close()
-	if err := root.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
+	if mkdirErr := root.MkdirAll(filepath.Dir(path), 0o700); mkdirErr != nil {
+		return fmt.Errorf("create checkpoint folder: %w", mkdirErr)
 	}
 	temporary := filepath.Join(filepath.Dir(path), ".checkpoint-"+rand.Text())
 	file, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return err
+		return fmt.Errorf("create checkpoint file: %w", err)
 	}
 	defer func() { _ = root.Remove(temporary) }()
 	err = json.NewEncoder(file).Encode(value)
 	if err == nil {
 		err = file.Sync()
 	}
-	if err := errors.Join(err, file.Close()); err != nil {
-		return err
+	if writeErr := errors.Join(err, file.Close()); writeErr != nil {
+		return fmt.Errorf("write checkpoint: %w", writeErr)
 	}
-	if err := root.Rename(temporary, path); err != nil {
-		return err
+	if renameErr := root.Rename(temporary, path); renameErr != nil {
+		return fmt.Errorf("publish checkpoint: %w", renameErr)
 	}
 	directory, err := root.Open(filepath.Dir(path))
 	if err != nil {
-		return err
+		return fmt.Errorf("open checkpoint folder: %w", err)
 	}
 	defer directory.Close()
-	return directory.Sync()
+	if syncErr := directory.Sync(); syncErr != nil {
+		return fmt.Errorf("sync checkpoint folder: %w", syncErr)
+	}
+	return nil
 }
 
 // Write publishes a complete immutable file before its reference enters SQLite.

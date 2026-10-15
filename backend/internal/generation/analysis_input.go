@@ -20,15 +20,8 @@ import (
 // mergeAnalysisSources preserves every pinned body and adds verified research
 // reads. The research result intentionally contains only its read documents.
 func mergeAnalysisSources(full, researched source.Collection) (source.Collection, error) {
-	documents := make(map[string]source.Document, len(full.Documents))
-	for _, document := range full.Documents {
-		documents[document.ID] = document
-	}
-	for _, document := range researched.Documents {
-		original, ok := documents[document.ID]
-		if !ok || original.SnapshotID != document.SnapshotID || original.ContentHash != document.ContentHash || original.Path != document.Path || original.LineCount != document.LineCount {
-			return full, fmt.Errorf("researched source %s does not match the pinned collection", document.ID)
-		}
+	if err := verifyAnalysisDocuments(full, researched); err != nil {
+		return full, err
 	}
 	snapshots := make(map[string]int, len(full.Snapshots))
 	for index, snapshot := range full.Snapshots {
@@ -126,7 +119,7 @@ func splitFinding(title, notes string) []analysis.Finding {
 	const maxBytes = 6000
 	var findings []analysis.Finding
 	id := analysisAreaID("finding", title)
-	for part := 0; len(notes) > 0; part++ {
+	for part := 0; notes != ""; part++ {
 		end := min(len(notes), maxBytes)
 		for end < len(notes) && !utf8.RuneStart(notes[end]) {
 			end--
@@ -235,4 +228,18 @@ func synthesisBrief(checkpoint *research.Checkpoint, collection source.Collectio
 		}
 	}
 	return brief.String(), nil
+}
+
+func verifyAnalysisDocuments(full, researched source.Collection) error {
+	documents := make(map[string]source.Document, len(full.Documents))
+	for _, document := range full.Documents {
+		documents[document.ID] = document
+	}
+	for _, document := range researched.Documents {
+		original, ok := documents[document.ID]
+		if !ok || original.SnapshotID != document.SnapshotID || original.ContentHash != document.ContentHash || original.Path != document.Path || original.LineCount != document.LineCount {
+			return fmt.Errorf("researched source %s does not match the pinned collection", document.ID)
+		}
+	}
+	return nil
 }

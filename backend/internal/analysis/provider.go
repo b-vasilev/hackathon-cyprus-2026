@@ -1,4 +1,3 @@
-// Package analysis builds a source-backed canonical product model incrementally.
 package analysis
 
 import (

@@ -46,11 +46,11 @@ func TestWorkerPublishesAnswersBeforeFinishingAndCanCorrectThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	local.toolCalls, local.mcpReads = 7, 2
-	if err := local.setPlan(plan); err != nil {
-		t.Fatal(err)
+	if planErr := local.setPlan(plan); planErr != nil {
+		t.Fatal(planErr)
 	}
-	if err := local.saveFinding(researchFinding{Name: "execution", Notes: notes}); err != nil {
-		t.Fatal(err)
+	if saveErr := local.saveFinding(researchFinding{Name: "execution", Notes: notes}); saveErr != nil {
+		t.Fatal(saveErr)
 	}
 	snapshot, err := local.taskSnapshot()
 	if err != nil {
@@ -59,8 +59,8 @@ func TestWorkerPublishesAnswersBeforeFinishingAndCanCorrectThem(t *testing.T) {
 	if len(w.plan) != 0 {
 		t.Fatal("worker mutated the shared plan directly")
 	}
-	if err := w.mergeTask(snapshot); err != nil {
-		t.Fatal(err)
+	if mergeErr := w.mergeTask(snapshot); mergeErr != nil {
+		t.Fatal(mergeErr)
 	}
 	if w.state().Areas[0].Status != "checked" {
 		t.Fatal("answers were not visible while the worker was still active")
@@ -74,8 +74,8 @@ func TestWorkerPublishesAnswersBeforeFinishingAndCanCorrectThem(t *testing.T) {
 	}
 	corrected.Boundaries[0].Implementation[0].Finding = "Corrected implementation finding"
 	corrected.Reclassifications = []reclassification{{Boundary: "execution", Reason: "Refined interpretation of the same source"}}
-	if err := local.setPlan(corrected); err != nil {
-		t.Fatal(err)
+	if planErr := local.setPlan(corrected); planErr != nil {
+		t.Fatal(planErr)
 	}
 	if snapshot.plan[0].Implementation[0].Finding == corrected.Boundaries[0].Implementation[0].Finding {
 		t.Fatal("published snapshot changed with its worker")

@@ -27,8 +27,8 @@ func (s *Service) Publish(ctx context.Context, id, userID string) (Revision, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	var productID, approvedAt string
-	if err := tx.QueryRowContext(ctx, "SELECT product_id,approved_at FROM passport_revisions WHERE id=?", id).Scan(&productID, &approvedAt); err != nil {
-		return Revision{}, fmt.Errorf("read publication version: %w", err)
+	if readErr := tx.QueryRowContext(ctx, "SELECT product_id,approved_at FROM passport_revisions WHERE id=?", id).Scan(&productID, &approvedAt); readErr != nil {
+		return Revision{}, fmt.Errorf("read publication version: %w", readErr)
 	}
 	if approvedAt == "" {
 		return Revision{}, ErrApprovalRequired

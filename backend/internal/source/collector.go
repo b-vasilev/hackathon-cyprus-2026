@@ -388,9 +388,8 @@ type treeFile struct {
 	Size int    `json:"size"`
 }
 
-//nolint:gocyclo // File eligibility, user selection and model selection share one catalog boundary.
-func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, choose SelectFiles, budget int) ([]string, error) {
-	u, _ := url.Parse(input.Locator)
+func (c *Collector) repositoryTree(ctx context.Context, locator, sha string) ([]treeFile, error) {
+	u, _ := url.Parse(locator)
 	repo := strings.TrimSuffix(strings.Trim(u.Path, "/"), ".git")
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/"+repo+"/git/trees/"+sha+"?recursive=1", http.NoBody)
 	if err != nil {
@@ -419,44 +418,19 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 	if tree.Truncated {
 		return nil, errors.New("GitHub returned an incomplete file catalog; use a smaller repository source")
 	}
-	eligible := make(map[string]int)
-	aliases := make(map[string]string)
-	lastDirectory := ""
-	var catalog strings.Builder
-	for _, file := range tree.Tree {
-		if !eligibleFile(file) {
-			continue
-		}
-		matches := input.Include == ""
-		for pattern := range strings.SplitSeq(input.Include, ",") {
-			if pattern == "" {
-				continue
-			}
-			match, matchErr := doublestar.Match(strings.TrimSpace(pattern), file.Path)
-			if matchErr != nil {
-				return nil, errors.New("invalid source include pattern")
-			}
-			matches = matches || match
-		}
-		if !matches {
-			continue
-		}
-		if len(eligible) >= c.MaxFiles {
-			return nil, errors.New("repository exceeds the configured file safety ceiling; no partial catalog was used")
-		}
-		eligible[file.Path] = file.Size
-		id := fmt.Sprintf("f%d", len(eligible))
-		aliases[id] = file.Path
-		directory := filepath.Dir(file.Path)
-		if directory != lastDirectory {
-			fmt.Fprintf(&catalog, "\nDirectory: %s\n", directory)
-			lastDirectory = directory
-		}
-		fmt.Fprintf(&catalog, "%s %s %dB\n", id, filepath.Base(file.Path), file.Size)
+	return tree.Tree, nil
+}
+
+func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, choose SelectFiles, budget int) ([]string, error) {
+	tree, err := c.repositoryTree(ctx, input.Locator, sha)
+	if err != nil {
+		return nil, err
 	}
-	if len(eligible) == 0 {
-		return nil, errors.New("no eligible text/source files match this repository selection")
+	catalog, err := c.buildSourceCatalog(input, tree)
+	if err != nil {
+		return nil, err
 	}
+	eligible, aliases := catalog.files, catalog.aliases
 	if choose == nil {
 		paths := make([]string, 0, len(eligible))
 		for path := range eligible {
@@ -465,13 +439,12 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 		slices.Sort(paths)
 		return paths, nil
 	}
-	chosen, err := choose(ctx, fmt.Sprintf("Repository: %s\nCommit: %s\nFile budget: at most %d files and %d bytes. Catalog limit: 5000 eligible entries.\nCATALOG:\n%s", input.Locator, sha, min(c.MaxFiles, 80), budget, catalog.String()))
+	chosen, err := choose(ctx, fmt.Sprintf("Repository: %s\nCommit: %s\nFile budget: at most %d files and %d bytes. Catalog limit: 5000 eligible entries.\nCATALOG:\n%s", input.Locator, sha, min(c.MaxFiles, 80), budget, catalog.text))
 	if err != nil {
 		return nil, err
 	}
 	paths := make([]string, 0)
 	seen := make(map[string]bool)
-	bytes := 0
 	// Reserve a small part of the selection for identity files. Otherwise the
 	// technical file selector can omit the brand guide and original SVG logo.
 	brandPaths := make([]string, 0)
@@ -490,7 +463,7 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 		seen[path] = true
 		brandBytes += eligible[path]
 	}
-	bytes = brandBytes
+	bytes := brandBytes
 	for _, path := range chosen {
 		if resolved, ok := aliases[path]; ok {
 			path = resolved
@@ -554,4 +527,52 @@ func Context(collection Collection) string {
 		b.WriteString("</source_document>\n")
 	}
 	return b.String()
+}
+
+type repositoryCatalog struct {
+	files   map[string]int
+	aliases map[string]string
+	text    string
+}
+
+func (c *Collector) buildSourceCatalog(input Input, tree []treeFile) (repositoryCatalog, error) {
+	eligible := make(map[string]int)
+	aliases := make(map[string]string)
+	lastDirectory := ""
+	var catalog strings.Builder
+	for _, file := range tree {
+		if !eligibleFile(file) {
+			continue
+		}
+		matches := input.Include == ""
+		for pattern := range strings.SplitSeq(input.Include, ",") {
+			if pattern == "" {
+				continue
+			}
+			match, matchErr := doublestar.Match(strings.TrimSpace(pattern), file.Path)
+			if matchErr != nil {
+				return repositoryCatalog{}, errors.New("invalid source include pattern")
+			}
+			matches = matches || match
+		}
+		if !matches {
+			continue
+		}
+		if len(eligible) >= c.MaxFiles {
+			return repositoryCatalog{}, errors.New("repository exceeds the configured file safety ceiling; no partial catalog was used")
+		}
+		eligible[file.Path] = file.Size
+		id := fmt.Sprintf("f%d", len(eligible))
+		aliases[id] = file.Path
+		directory := filepath.Dir(file.Path)
+		if directory != lastDirectory {
+			fmt.Fprintf(&catalog, "\nDirectory: %s\n", directory)
+			lastDirectory = directory
+		}
+		fmt.Fprintf(&catalog, "%s %s %dB\n", id, filepath.Base(file.Path), file.Size)
+	}
+	if len(eligible) == 0 {
+		return repositoryCatalog{}, errors.New("no eligible text/source files match this repository selection")
+	}
+	return repositoryCatalog{files: eligible, aliases: aliases, text: catalog.String()}, nil
 }

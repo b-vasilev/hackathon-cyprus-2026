@@ -143,21 +143,7 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 	retryAttempt := 0
 	onRetry := func(provider *fantasy.ProviderError, delay time.Duration) {
 		retryAttempt++
-		reason := "temporary provider failure"
-		if provider != nil {
-			reason = provider.Error()
-			if provider.StatusCode > 0 {
-				reason = fmt.Sprintf("HTTP %d: %s", provider.StatusCode, reason)
-			}
-		}
-		w.activity = fmt.Sprintf("Research model turn %d: retry %d/%d in %s. Reason: %s", w.turn, retryAttempt, maxRetries, delay, reason)
-		if w.limiter != nil {
-			if pool, ok := w.limiter.ConnectionStatus(config); ok {
-				cooldown := max(time.Duration(0), time.Until(pool.CooldownUntil)).Round(time.Second)
-				w.activity += fmt.Sprintf(" Gateway: request limit %d/%d; active %d; waiting %d; cooldown %s.",
-					pool.EffectiveLimit, config.MaxConcurrent, pool.Active, pool.Waiting, cooldown)
-			}
-		}
+		w.activity = w.researchRetryMessage(provider, retryAttempt, maxRetries, delay, config)
 		state := w.state()
 		_ = progress(Progress{Message: w.activity, State: &state, Retry: true})
 	}
@@ -184,16 +170,7 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 		w.execution = "requesting"
 		w.turn = base + options.StepNumber + 1
 		stepStarted = time.Now()
-		hint := fmt.Sprintf("Attempt budget: turn %d; current allowance %d; hard limit %d. Extensions require new read-and-cited evidence AND fewer open questions. Close existing questions before adding scope. Save findings and plan evidence incrementally. Update set_research_focus before changing areas or questions.", w.turn, w.activeLimit(), w.turnBudget)
-		if w.turnBudget == 0 {
-			hint = fmt.Sprintf("Attempt turn %d; current allowance %d. Extensions require new verified evidence AND fewer open questions. Close existing questions before adding scope. Save findings and plan evidence incrementally.", w.turn, w.activeLimit())
-		}
-		if w.task != nil {
-			hint = fmt.Sprintf("Assigned task turn %d/%d. Use save_research_answer as soon as one role is verified. Do not wait for all four roles. With three turns left, save the evidence already read before more discovery. Your conversation and accepted answers survive the next task window. Do not review the inventory or other tasks.", w.turn, w.turnBudget)
-		}
-		if w.budget != nil && len(w.budget.decisions) > 0 {
-			hint += "\nBudget decision: " + w.budget.decisions[len(w.budget.decisions)-1].Reason
-		}
+		hint := w.researchBudgetHint()
 		budgetHint := fantasy.NewUserMessage(hint)
 		messages := slices.Clone(options.Messages)
 		messages = append(messages, budgetHint)
@@ -210,4 +187,37 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 		return fmt.Errorf("%s: %w", message, err)
 	}
 	return report(response.Steps)
+}
+
+func (w *workspace) researchRetryMessage(provider *fantasy.ProviderError, attempt, maxRetries int, delay time.Duration, config llmgateway.Config) string {
+	reason := "temporary provider failure"
+	if provider != nil {
+		reason = provider.Error()
+		if provider.StatusCode > 0 {
+			reason = fmt.Sprintf("HTTP %d: %s", provider.StatusCode, reason)
+		}
+	}
+	message := fmt.Sprintf("Research model turn %d: retry %d/%d in %s. Reason: %s", w.turn, attempt, maxRetries, delay, reason)
+	if w.limiter != nil {
+		if pool, ok := w.limiter.ConnectionStatus(config); ok {
+			cooldown := max(time.Duration(0), time.Until(pool.CooldownUntil)).Round(time.Second)
+			message += fmt.Sprintf(" Gateway: request limit %d/%d; active %d; waiting %d; cooldown %s.",
+				pool.EffectiveLimit, config.MaxConcurrent, pool.Active, pool.Waiting, cooldown)
+		}
+	}
+	return message
+}
+
+func (w *workspace) researchBudgetHint() string {
+	hint := fmt.Sprintf("Attempt budget: turn %d; current allowance %d; hard limit %d. Extensions require new read-and-cited evidence AND fewer open questions. Close existing questions before adding scope. Save findings and plan evidence incrementally. Update set_research_focus before changing areas or questions.", w.turn, w.activeLimit(), w.turnBudget)
+	if w.turnBudget == 0 {
+		hint = fmt.Sprintf("Attempt turn %d; current allowance %d. Extensions require new verified evidence AND fewer open questions. Close existing questions before adding scope. Save findings and plan evidence incrementally.", w.turn, w.activeLimit())
+	}
+	if w.task != nil {
+		hint = fmt.Sprintf("Assigned task turn %d/%d. Use save_research_answer as soon as one role is verified. Do not wait for all four roles. With three turns left, save the evidence already read before more discovery. Your conversation and accepted answers survive the next task window. Do not review the inventory or other tasks.", w.turn, w.turnBudget)
+	}
+	if w.budget != nil && len(w.budget.decisions) > 0 {
+		hint += "\nBudget decision: " + w.budget.decisions[len(w.budget.decisions)-1].Reason
+	}
+	return hint
 }

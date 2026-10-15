@@ -120,8 +120,8 @@ func (s *Service) analyzeIncrementally(ctx context.Context, run Run, researched 
 		accepted := checkpointAnalysisState(next, state)
 		accepted.Action = "Saved analysis checkpoint."
 		accepted.LastSavedAt = time.Now().UTC().Format(time.RFC3339Nano)
-		if err := s.saveAnalysisCheckpoint(persistCtx, run.ID, next, accepted); err != nil {
-			return err
+		if saveErr := s.saveAnalysisCheckpoint(persistCtx, run.ID, next, accepted); saveErr != nil {
+			return saveErr
 		}
 		state = accepted
 		for _, task := range next.Tasks {
@@ -146,15 +146,12 @@ func (s *Service) analyzeIncrementally(ctx context.Context, run Run, researched 
 		}
 		if update.AreaID != "" {
 			state.AreaID = update.AreaID
-			state.AreaTitle = areaTitles[update.AreaID]
-			if state.AreaTitle == "" {
-				state.AreaTitle = update.AreaID
-			}
+			state.AreaTitle = analysisAreaTitle(update.AreaID, areaTitles)
 		}
 		// Counts come only from Persist, never from a pending tool mutation.
-		usage := update.Step > 0 && !recordedUsage[update.Step] && (update.InputTokens > 0 || update.OutputTokens > 0 || update.DurationMS > 0)
-		if err := s.recordAnalysisProgress(runCtx, run.ID, state, update, usage); err != nil {
-			progressErr = err
+		usage := hasAnalysisUsage(update, recordedUsage)
+		if recordErr := s.recordAnalysisProgress(runCtx, run.ID, state, update, usage); recordErr != nil {
+			progressErr = recordErr
 			cancel()
 			return
 		}
@@ -192,7 +189,7 @@ func (s *Service) recordAnalysisProgress(ctx context.Context, runID string, stat
 	if checkErr := tx.QueryRowContext(ctx, "SELECT status FROM generation_runs WHERE id=?", runID).Scan(&status); checkErr != nil {
 		return fmt.Errorf("read generation before analysis progress: %w", checkErr)
 	}
-	if status != "queued" && status != "running" {
+	if status != runStatusQueued && status != "running" {
 		return context.Canceled
 	}
 	if usage {
@@ -207,4 +204,15 @@ func (s *Service) recordAnalysisProgress(ctx context.Context, runID string, stat
 		return fmt.Errorf("commit analysis progress: %w", err)
 	}
 	return nil
+}
+
+func hasAnalysisUsage(progress analysis.Progress, recorded map[int]bool) bool {
+	return progress.Step > 0 && !recorded[progress.Step] && (progress.InputTokens > 0 || progress.OutputTokens > 0 || progress.DurationMS > 0)
+}
+
+func analysisAreaTitle(id string, titles map[string]string) string {
+	if title := titles[id]; title != "" {
+		return title
+	}
+	return id
 }

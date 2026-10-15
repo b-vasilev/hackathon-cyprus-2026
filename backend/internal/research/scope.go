@@ -7,7 +7,7 @@ import (
 )
 
 func isArchivePath(file string) bool {
-	for _, part := range strings.Split(strings.ToLower(file), "/") {
+	for part := range strings.SplitSeq(strings.ToLower(file), "/") {
 		if part == "archive" || part == "archived" || strings.HasPrefix(part, "_archive") {
 			return true
 		}
@@ -43,7 +43,7 @@ func isArchitectureScope(c Candidate) bool {
 	if isArchivePath(file) {
 		return false
 	}
-	for _, part := range strings.Split(strings.ToLower(file), "/") {
+	for part := range strings.SplitSeq(strings.ToLower(file), "/") {
 		if slices.Contains([]string{".github", ".agents", ".claude", ".codex", "docs", "doc", "tests", "test", "tools", "scripts", "examples", "fixtures", "benchmarks", "vendor", "generated"}, part) {
 			return false
 		}
@@ -60,8 +60,8 @@ func isResearchCandidate(c Candidate, d candidateDisposition) bool {
 // These conventional instruction locations are available as evidence, but do
 // not need independent research unless product code actually uses them.
 func isDevelopmentGuidance(file string) bool {
-	parts := strings.Split(strings.ToLower(file), "/")
-	for _, part := range parts {
+	parts := strings.SplitSeq(strings.ToLower(file), "/")
+	for part := range parts {
 		if slices.Contains([]string{".agents", ".claude", ".codex", "agents.md", "claude.md"}, part) {
 			return true
 		}

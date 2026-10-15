@@ -3,6 +3,7 @@ package generation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,28 +16,28 @@ func TestCancelQueuedGeneration(t *testing.T) {
 	t.Parallel()
 	f := newRetryFixture(t)
 	ctx := t.Context()
-	cancelled, err := f.service.Cancel(ctx, f.run.ID)
+	canceled, err := f.service.Cancel(ctx, f.run.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cancelled.Status != "failed" || cancelled.ErrorCode != "cancelled" || cancelled.FinishedAt == "" || cancelled.StartedAt != "" {
-		t.Fatalf("unexpected cancellation: %+v", cancelled)
+	if canceled.Status != "failed" || canceled.ErrorCode != canceledErrorCode || canceled.FinishedAt == "" || canceled.StartedAt != "" {
+		t.Fatalf("unexpected cancellation: %+v", canceled)
 	}
-	if cancelled.Events[len(cancelled.Events)-1].Type != "run_cancelled" {
+	if canceled.Events[len(canceled.Events)-1].Type != "run_cancelled" { //nolint:misspell // Assert compatibility with existing event consumers.
 		t.Fatal("missing cancellation event")
 	}
 	repeated, err := f.service.Cancel(ctx, f.run.ID)
-	if err != nil || len(repeated.Events) != len(cancelled.Events) {
+	if err != nil || len(repeated.Events) != len(canceled.Events) {
 		t.Fatalf("cancellation is not idempotent: %v", err)
 	}
 	if claimed, err := f.service.claimRun(ctx, f.run.ID); err != nil || claimed {
-		t.Fatalf("cancelled generation was claimed: %v", err)
+		t.Fatalf("canceled generation was claimed: %v", err)
 	}
 	if err := f.service.stage(ctx, f.run.ID, "collecting"); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled generation was restarted: %v", err)
+		t.Fatalf("canceled generation was restarted: %v", err)
 	}
 	if err := f.service.saveRevision(ctx, f.run, passport.Passport{}); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled generation saved a revision: %v", err)
+		t.Fatalf("canceled generation saved a revision: %v", err)
 	}
 	if _, err := f.service.Start(ctx, f.run.ProductID, Input{ConnectionID: f.run.ConnectionID, Model: f.run.Model}); err != nil {
 		t.Fatalf("cancellation did not free the product: %v", err)
@@ -52,7 +53,7 @@ func (g *cancelledGenerator) Generate(ctx context.Context, _ llmgateway.Config, 
 	close(g.started)
 	<-ctx.Done()
 	close(g.stopped)
-	return llm.Result{}, ctx.Err()
+	return llm.Result{}, fmt.Errorf("generation canceled: %w", ctx.Err())
 }
 
 func TestCancelRunningGeneration(t *testing.T) {
@@ -69,8 +70,8 @@ func TestCancelRunningGeneration(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("model request did not start")
 	}
-	cancelled, err := f.service.Cancel(t.Context(), f.run.ID)
-	if err != nil || cancelled.ErrorCode != "cancelled" {
+	canceled, err := f.service.Cancel(t.Context(), f.run.ID)
+	if err != nil || canceled.ErrorCode != canceledErrorCode {
 		t.Fatalf("cancel running generation: %v", err)
 	}
 	select {
@@ -81,12 +82,12 @@ func TestCancelRunningGeneration(t *testing.T) {
 	stop()
 	<-done
 	current, err := f.service.GetRun(t.Context(), f.run.ID)
-	if err != nil || current.ErrorCode != "cancelled" || current.Status != "failed" {
+	if err != nil || current.ErrorCode != canceledErrorCode || current.Status != "failed" {
 		t.Fatalf("worker overwrote cancellation: %+v, %v", current, err)
 	}
 	history, err := f.service.History(t.Context(), f.run.ProductID)
 	if err != nil || len(history) != 0 {
-		t.Fatalf("cancelled run published a passport: %v", err)
+		t.Fatalf("canceled run published a passport: %v", err)
 	}
 }
 

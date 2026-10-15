@@ -25,7 +25,7 @@ func TestFrontendServesClientRoutes(t *testing.T) {
 	}
 	for route, want := range cases {
 		recorder := httptest.NewRecorder()
-		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, route, nil))
+		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, route, http.NoBody))
 		if recorder.Code != want {
 			t.Errorf("%s: got %d, want %d", route, recorder.Code, want)
 		}
