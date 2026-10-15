@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
-import { Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom';
+import { Link, Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom';
 import { AchievementCenter } from './components/Achievements';
 import { Badge, Brand, ErrorNotice, Loading } from './components/ui';
 import { api, ApiError, type Me } from './lib/api';
@@ -8,6 +8,8 @@ import { canManage, canUseStudio, isAdmin, MeContext, useMe } from './lib/auth';
 import { AuthPage } from './pages/Auth';
 import { Connections } from './pages/Connections';
 import { FoundationAchievements, FoundationModulePage, Foundations } from './pages/Foundations';
+import { Home } from './pages/Home';
+import { Landing } from './pages/Landing';
 import { NotFound } from './pages/NotFound';
 import { PassportPage } from './pages/Passport';
 import { People } from './pages/People';
@@ -49,7 +51,7 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
       </header>
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<Navigate to="/published" replace />} />
+          <Route path="/" element={<Home />} />
           <Route path="/published" element={<PublishedPassports />} />
           <Route path="/published/:id" element={<PassportPage key="published" publishedView />} />
           {studio && <Route path="/products" element={<Products />} />}
@@ -94,11 +96,19 @@ export function App() {
       <header className="site-header">
         <div className="header-inner">
           <Brand />
-          <span className="header-caption">Know the product. Find your way.</span>
+          <div className="header-account">
+            <Link className="button quiet" to="/login">
+              Sign in
+            </Link>
+            <Link className="button secondary" to="/register">
+              Create account
+            </Link>
+          </div>
         </div>
       </header>
       <main className="main-content">
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/register" element={<AuthPage mode="register" />} />
           <Route path="*" element={<AuthPage mode="login" />} />
         </Routes>
