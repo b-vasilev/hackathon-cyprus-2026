@@ -1,5 +1,15 @@
 # Working Rules
 
+## Engineering Principles
+
+- KISS: choose the simplest solution that satisfies the requirements.
+- YAGNI: avoid speculative features, but implement required behavior for the general case across supported options and variants.
+- DRY: avoid duplication, but don't abstract until duplication is meaningful.
+- SOLID: use when it improves maintainability; don't over-engineer.
+- Prefer composition over inheritance.
+- Optimize for readability and maintainability.
+- Keep modules loosely coupled and highly cohesive.
+
 ## Deliver a working result quickly
 - Prioritize completing the task and getting it working.
 - Keep changes focused. Avoid unrelated refactoring.
@@ -18,3 +28,8 @@
 - Fix any issues found. Do not stop at a partial solution.
 - Report what changed, what was verified, and any remaining limitations.
 - Never claim success without evidence.
+
+## Portal brandkit
+
+- Before creating or changing portal UI, styles, components, layouts, visual assets, or product themes, read and follow [the brandkit](.agents/skills/brandkit.md).
+- Treat it as the source of truth for the portal's visual identity. Keep product branding within the scope defined there. Change the agreed identity only when the user explicitly requests it.
