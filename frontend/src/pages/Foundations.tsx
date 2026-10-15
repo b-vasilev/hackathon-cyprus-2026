@@ -1,6 +1,6 @@
 import { ArrowRight, Award, Check, Clock, GraduationCap, ListChecks } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link, NavLink, useParams } from 'react-router-dom';
+import { Link, NavLink, useParams, useSearchParams } from 'react-router-dom';
 import {
   AchievementGallery,
   AchievementSummary,
@@ -133,7 +133,15 @@ export function FoundationModulePage() {
 
 function ModuleView({ id }: Readonly<{ id: string }>) {
   const module = findModule(id);
-  const [step, setStep] = useState(module?.lessons.at(0)?.id ?? quizStep);
+  const [searchParams] = useSearchParams();
+  // Links such as the home page's next mission can open a lesson or the quiz directly.
+  const [step, setStep] = useState(() => {
+    const wanted = searchParams.get('step') === quizStep ? quizStep : searchParams.get('lesson');
+    if (wanted === quizStep || module?.lessons.some((lesson) => lesson.id === wanted) === true) {
+      return wanted ?? quizStep;
+    }
+    return module?.lessons.at(0)?.id ?? quizStep;
+  });
   const [progress, setProgress] = useState(loadProgress);
   const [zeroQuiz, setZeroQuiz] = useState<number>();
 

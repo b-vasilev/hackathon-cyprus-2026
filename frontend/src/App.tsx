@@ -8,6 +8,7 @@ import { canManage, canUseStudio, isAdmin, MeContext, useMe } from './lib/auth';
 import { AuthPage } from './pages/Auth';
 import { Connections } from './pages/Connections';
 import { FoundationAchievements, FoundationModulePage, Foundations } from './pages/Foundations';
+import { Home } from './pages/Home';
 import { Landing } from './pages/Landing';
 import { NotFound } from './pages/NotFound';
 import { PassportPage } from './pages/Passport';
@@ -50,7 +51,7 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
       </header>
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<Navigate to="/published" replace />} />
+          <Route path="/" element={<Home />} />
           <Route path="/published" element={<PublishedPassports />} />
           <Route path="/published/:id" element={<PassportPage key="published" publishedView />} />
           {studio && <Route path="/products" element={<Products />} />}

@@ -5015,3 +5015,228 @@ details[open] > summary .disclosure-chevron {
     display: none;
   }
 }
+/* Signed-in home */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+.home-heading h1 {
+  font-size: 49px;
+  line-height: 1.12;
+  letter-spacing: -0.06em;
+}
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: stretch;
+  margin-top: -24px;
+}
+.home-mission {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 36px;
+  border-radius: 18px;
+  border: 1px solid var(--of-border);
+  background: var(--of-surface);
+}
+.home-mission h2 {
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.home-outcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0 28px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--of-muted);
+}
+.home-outcome svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--of-brand);
+}
+.home-outcome strong {
+  font-weight: 500;
+  color: var(--of-ink);
+}
+.home-mission .button {
+  min-height: 46px;
+  padding: 10px 20px;
+  font-size: 14px;
+}
+.home-route .route-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.home-route .route-dot.completed {
+  background: var(--of-brand);
+  border-color: var(--of-brand);
+  color: var(--of-on-brand);
+}
+.home-route .route-dot.in-progress {
+  border-color: var(--of-brand);
+  background: var(--of-brand-soft);
+}
+.home-route li.current .route-label {
+  color: var(--of-brand-strong);
+}
+.home-route .route-steps button {
+  min-height: 42px;
+  font-size: 13px;
+}
+.home-route .route-detail {
+  min-height: 0;
+}
+.home-route-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.home-route-meta .text-link {
+  min-height: 0;
+  padding: 0;
+}
+.home-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.home-section-heading h2,
+.home-panel h2 {
+  font-size: 22px;
+}
+.home-empty {
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px dashed var(--of-control-border);
+  color: var(--of-muted);
+  font-size: 14px;
+}
+.home-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+.home-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 14px;
+  border: 1px solid var(--of-border);
+  background: var(--of-surface);
+}
+.home-panel p {
+  font-size: 14px;
+  color: var(--of-muted);
+}
+.home-panel .achievement-summary {
+  align-self: stretch;
+}
+.home-panel .achievement-icon svg {
+  color: inherit;
+  margin: 0;
+}
+@media (max-width: 1000px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 680px) {
+  .home-heading h1 {
+    font-size: 36px;
+  }
+  .home-mission {
+    padding: 24px;
+  }
+  .home-mission h2 {
+    font-size: 24px;
+  }
+}
+@media (max-width: 680px) {
+  .header-inner {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .header-inner nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    gap: 18px;
+  }
+  .header-inner nav a {
+    white-space: nowrap;
+  }
+  .header-inner nav a.active::after {
+    bottom: 0;
+  }
+  .header-account {
+    margin-left: auto;
+  }
+  .account-email {
+    display: none;
+  }
+}
+.home-lessons {
+  align-self: stretch;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--of-border);
+}
+.home-lessons ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.home-lessons li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+}
+.home-lessons li a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--of-ink);
+}
+.home-lessons li a:hover {
+  color: var(--of-brand);
+}
+.home-lessons li.done a {
+  color: var(--of-muted);
+}
+.home-lesson-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--of-control-border);
+}
+.home-lessons li.done .home-lesson-mark {
+  background: var(--of-brand);
+  border-color: var(--of-brand);
+  color: var(--of-on-brand);
+}
+.home-mission {
+  justify-content: flex-start;
+}
