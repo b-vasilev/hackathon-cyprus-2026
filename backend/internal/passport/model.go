@@ -132,6 +132,33 @@ func Schema[T any]() (*jsonschema.Schema, error) {
 	return schema, nil
 }
 
+// OutputSchema is Schema with non-nullable arrays. Nullable unions inflate the
+// grammar compiled by strict structured-output modes beyond provider limits.
+func OutputSchema[T any]() (*jsonschema.Schema, error) {
+	schema, err := Schema[T]()
+	if err != nil {
+		return nil, err
+	}
+	var visit func(*jsonschema.Schema)
+	visit = func(s *jsonschema.Schema) {
+		if s == nil {
+			return
+		}
+		if slices.Equal(s.Types, []string{"null", "array"}) {
+			s.Type, s.Types = "array", nil
+		}
+		visit(s.Items)
+		for _, child := range s.Properties {
+			visit(child)
+		}
+		for _, child := range s.Defs {
+			visit(child)
+		}
+	}
+	visit(schema)
+	return schema, nil
+}
+
 // CheckJSON validates the original response, including unknown and missing fields.
 func CheckJSON[T any](data []byte) (T, error) {
 	var result T

@@ -286,8 +286,15 @@ func (s *Service) process(ctx context.Context, run Run) error {
 		documents[doc.ID] = doc.LineCount
 	}
 	if validationErr := passport.Validate(p, documents); validationErr != nil {
+		// Repair model and views separately: the combined schema exceeds strict-output grammar limits.
 		encoded, _ := json.Marshal(p)
-		p, err = generate[passport.Passport](ctx, s, run, "repairing", "Repair this passport using the validator diagnostics. Keep all 12 section IDs and exact source IDs. Return a complete passport with model and views.\nERROR:\n"+validationErr.Error()+"\nPASSPORT:\n"+string(encoded)+"\nSOURCES:\n"+contextText)
+		p.Model, err = generate[passport.Model](ctx, s, run, "repairing", "Repair the model of this passport using the validator diagnostics. Keep exact source IDs and anchors. Return the complete product model.\nERROR:\n"+validationErr.Error()+"\nPASSPORT:\n"+string(encoded)+"\nSOURCES:\n"+contextText)
+		if err != nil {
+			return err
+		}
+		repairedModel, _ := json.Marshal(p.Model)
+		viewsJSON, _ := json.Marshal(p.Views)
+		p.Views, err = generate[passport.Views](ctx, s, run, "repairing", "Repair these passport views using the validator diagnostics so they reference only IDs in the repaired model. Keep all 12 section IDs in order. Return the complete views.\nERROR:\n"+validationErr.Error()+"\nMODEL:\n"+string(repairedModel)+"\nVIEWS:\n"+string(viewsJSON))
 		if err != nil {
 			return err
 		}
@@ -300,7 +307,7 @@ func (s *Service) process(ctx context.Context, run Run) error {
 
 func generate[T any](ctx context.Context, s *Service, run Run, stage, input string) (T, error) {
 	var empty T
-	schema, err := passport.Schema[T]()
+	schema, err := passport.OutputSchema[T]()
 	if err != nil {
 		return empty, err
 	}

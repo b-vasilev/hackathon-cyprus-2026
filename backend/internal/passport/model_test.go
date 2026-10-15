@@ -1,6 +1,8 @@
 package passport
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -41,5 +43,17 @@ func TestSchemaRejectsUnknownAndMissingFields(t *testing.T) {
 		if _, err := CheckJSON[Views]([]byte(input)); err == nil {
 			t.Fatal("invalid content accepted")
 		}
+	}
+}
+
+func TestOutputSchemaHasNoNullableArrays(t *testing.T) {
+	t.Parallel()
+	schema, err := OutputSchema[Passport]()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(schema)
+	if strings.Contains(string(data), `"null"`) {
+		t.Fatal("output schema contains nullable types that inflate strict grammars")
 	}
 }
