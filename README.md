@@ -73,6 +73,19 @@ docker compose up --build
 Compose binds to localhost and keeps SQLite in the `onboarding-data` volume.
 The image runs as a non-root user and contains no Node runtime or Antares binaries.
 
+### Optional LLM sidecar
+
+[`services/llm-proxy`](services/llm-proxy/README.md) is a separate Codex OAuth proxy
+with its own Go module and Docker image. Follow its setup instructions, then run:
+
+```sh
+docker compose up --build -d llm-proxy
+```
+
+It listens on `http://127.0.0.1:8317/v1` with bearer-key authentication.
+Other Compose containers can use `http://llm-proxy:8317/v1`.
+Plain `docker compose up` leaves the sidecar off. The main app does not call it.
+
 ### Layout
 
 ```text

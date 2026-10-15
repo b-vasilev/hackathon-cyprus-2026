@@ -1,0 +1,4 @@
+/bin/
+/auth/
+/config.yaml
+/*.local.yaml

@@ -2,6 +2,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 mod backend
 mod frontend
+mod proxy 'services/llm-proxy'
 
 default:
     @just --list --list-submodules

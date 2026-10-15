@@ -1,0 +1,25 @@
+default:
+    @just --list
+
+build:
+    mkdir -p bin
+    go build -o bin/llm-proxy ./cmd/llm-proxy
+
+test:
+    go test ./...
+
+fmt:
+    go fmt ./...
+
+fmt-check:
+    test -z "$(gofmt -l .)"
+
+lint:
+    go vet ./...
+
+check: fmt-check lint
+
+audit:
+    @proxy_bin_dir="$(go env GOBIN)"; \
+        if [ -z "$proxy_bin_dir" ]; then proxy_bin_dir="$(go env GOPATH)/bin"; fi; \
+        "$proxy_bin_dir/govulncheck" ./...

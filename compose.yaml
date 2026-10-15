@@ -1,4 +1,23 @@
 services:
+  llm-proxy:
+    profiles: ["llm-proxy"]
+    build:
+      context: ./services/llm-proxy
+    ports:
+      - "127.0.0.1:${LLM_SUBSCRIPTION_PORT:-8317}:8317"
+    environment:
+      LLM_SUBSCRIPTION_KEY: "${LLM_SUBSCRIPTION_KEY:-}"
+      LLM_SUBSCRIPTION_AUTH_DIR: /data/auth
+    volumes:
+      - type: bind
+        source: ${LLM_SUBSCRIPTION_AUTH_HOST_DIR:-./services/llm-proxy/auth}
+        target: /data/auth
+        bind:
+          create_host_path: false
+    init: true
+    stop_grace_period: 15s
+    restart: unless-stopped
+
   api:
     build: .
     ports:
