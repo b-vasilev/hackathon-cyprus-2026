@@ -9,6 +9,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
@@ -31,7 +32,7 @@ func Specification() ([]byte, error) {
 		return nil, fmt.Errorf("read base OpenAPI: %w", err)
 	}
 	types := map[string]func() (*jsonschema.Schema, error){
-		"GitHubConnection": passport.Schema[githubconnection.Status], "GitHubTokenInput": passport.Schema[githubconnection.TokenInput], "OAuthURL": passport.Schema[OAuthURL],
+		"GitHubConnection": passport.Schema[githubconnection.Status], "GitHubTokenInput": passport.Schema[githubconnection.TokenInput], "OAuthURL": passport.Schema[OAuthURL], "LearningState": passport.Schema[learning.State],
 		"AvailableModel": passport.Schema[llm.AvailableModel], "ModelDiscoveryInput": passport.Schema[ModelDiscoveryInput],
 		"Connection": passport.Schema[llmgateway.Connection], "ConnectionConfig": passport.Schema[llmgateway.Config], "Model": passport.Schema[llmgateway.Model], "Parameter": passport.Schema[llmgateway.Parameter],
 		"Product": passport.Schema[product.Product], "ProductInput": passport.Schema[product.Input], "SourceInput": passport.Schema[source.Input],
@@ -72,6 +73,8 @@ func Specification() ([]byte, error) {
 		{methodPost, "/api/auth/login", "login", "Credentials", "Me", 200, false},
 		{methodPost, "/api/auth/logout", "logout", "", "", 204, false},
 		{methodGet, "/api/auth/me", "getMe", "", "Me", 200, false},
+		{methodGet, "/api/me/learning", "getLearningProgress", "", "LearningState", 200, false},
+		{"put", "/api/me/learning", "saveLearningProgress", "LearningState", "LearningState", 200, false},
 		{methodGet, "/api/users", "listUsers", "", "User", 200, true},
 		{"patch", "/api/users/{id}", "setUserRole", "RoleInput", "User", 200, false},
 		{"delete", "/api/users/{id}", "deleteUser", "", "", 204, false},

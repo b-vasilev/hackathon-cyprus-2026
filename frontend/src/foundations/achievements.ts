@@ -1,4 +1,4 @@
-import { foundationModules, loadProgress, moduleStatus, type Progress } from '.';
+import { foundationModules, learningChanged, loadProgress, moduleStatus, type Progress } from '.';
 
 // One line of the small terminal-style picture shown for an unlocked achievement.
 export interface PictureLine {
@@ -220,8 +220,26 @@ export function setFlag(flag: Flag) {
     try {
       localStorage.setItem(flagsKey, JSON.stringify([...flags, flag]));
     } catch {
-      // Storage can be unavailable; easter eggs are a convenience only.
+      // Storage can be unavailable; the account copy is the durable one.
     }
+    globalThis.dispatchEvent(new Event(learningChanged));
+  }
+}
+
+// Replace the local copies with what the account holds, without announcing a change.
+export function replaceFlags(flags: string[]) {
+  try {
+    localStorage.setItem(flagsKey, JSON.stringify(flags));
+  } catch {
+    // Storage can be unavailable.
+  }
+}
+
+export function replaceUnlockDates(dates: Partial<Record<string, string>>) {
+  try {
+    localStorage.setItem(unlockedKey, JSON.stringify(dates));
+  } catch {
+    // Storage can be unavailable.
   }
 }
 
@@ -257,8 +275,9 @@ export function syncUnlockDates(state: Snapshot) {
     try {
       localStorage.setItem(unlockedKey, JSON.stringify(dates));
     } catch {
-      // Storage can be unavailable; dates are a convenience only.
+      // Storage can be unavailable; the account copy is the durable one.
     }
+    globalThis.dispatchEvent(new Event(learningChanged));
   }
   return dates;
 }

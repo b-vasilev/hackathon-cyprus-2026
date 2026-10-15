@@ -89,7 +89,7 @@ export function Foundations() {
         <GraduationCap size={19} aria-hidden="true" />
         <p>
           You have completed {completed} of {foundationModules.length} modules. A module is complete
-          when you finish every lesson and pass its quiz. Progress is saved in this browser only.
+          when you finish every lesson and pass its quiz. Your progress is saved to your account.
         </p>
         <AchievementSummary state={snapshot()} />
       </div>
@@ -292,7 +292,7 @@ export function FoundationAchievements() {
         <Award size={19} aria-hidden="true" />
         <p>
           You have unlocked {unlocked} of {achievements.length} achievements. Each one shows its
-          picture when you unlock it. Achievements are saved in this browser only.
+          picture when you unlock it. Achievements are saved to your account.
         </p>
       </div>
       <AchievementGallery state={state} />

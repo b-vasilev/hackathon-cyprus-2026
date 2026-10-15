@@ -52,7 +52,7 @@ function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [];
 }
 
-// Progress is kept in this browser only until learner accounts exist.
+// The browser keeps a copy for instant rendering; foundations/sync.ts saves it to the account.
 export function loadProgress(): Progress {
   const progress: Progress = {};
   try {
@@ -79,12 +79,26 @@ export function loadProgress(): Progress {
   return progress;
 }
 
-function save(progress: Progress) {
+// Announced after every local change so the account copy can be updated.
+export const learningChanged = 'wayfinder:learning-changed';
+
+function write(progress: Progress) {
   try {
     localStorage.setItem(storageKey, JSON.stringify(progress));
+    localStorage.removeItem(legacyPassedKey);
   } catch {
-    // Storage can be unavailable; progress is a convenience only.
+    // Storage can be unavailable; the account copy is the durable one.
   }
+}
+
+function save(progress: Progress) {
+  write(progress);
+  globalThis.dispatchEvent(new Event(learningChanged));
+}
+
+// Replaces the local copy with progress loaded from the account, without announcing a change.
+export function replaceProgress(progress: Progress) {
+  write(progress);
 }
 
 function update(moduleId: string, change: (current: ModuleProgress) => ModuleProgress): Progress {
