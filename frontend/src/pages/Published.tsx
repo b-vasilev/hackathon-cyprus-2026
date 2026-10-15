@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ProductIdentity } from '../components/ProductIdentity';
 import { EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
@@ -26,19 +25,18 @@ export function PublishedPassports() {
           Published passports for your products will appear here.
         </EmptyState>
       )}
-      <div className="product-grid">
+      <div className="published-grid">
         {products.data?.map((product) => (
           <Link
-            className={`product-card published-card${product.card_theme ? ' product-branded' : ''}`}
+            className="published-tile"
             style={productCardTheme(product.card_theme)}
             key={product.id}
             to={`/published/${product.id}`}
           >
-            <div className="product-card-content">
+            <span className="published-tile-icon">
               <ProductIdentity name={product.name} theme={product.card_theme} />
-              <h2>{product.name}</h2>
-              <ArrowUpRight size={20} aria-hidden="true" />
-            </div>
+            </span>
+            <h2>{product.name}</h2>
           </Link>
         ))}
       </div>

@@ -280,22 +280,69 @@ code {
 .product-card-content {
   display: block;
 }
-.published-card .product-card-content {
+.published-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 120px);
+  gap: 32px 24px;
+}
+.published-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  border-radius: 12px;
+  text-align: center;
+}
+.published-tile-icon {
   display: flex;
   align-items: center;
-  gap: 20px;
-  min-height: 44px;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  padding: 16px;
+  background: var(--product-card-background, var(--of-surface));
+  border: 1px solid var(--of-border);
+  border-radius: 24px;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--of-ink) 6%, transparent);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
-.published-card .product-card-content h2 {
-  flex: 1;
+.published-tile:hover .published-tile-icon,
+.published-tile:focus-visible .published-tile-icon {
+  border-color: var(--of-brand);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--of-ink) 9%, transparent);
+}
+.published-tile h2 {
   min-width: 0;
+  max-width: 100%;
   margin: 0;
+  font-size: 16px;
   overflow-wrap: anywhere;
 }
-.published-card .product-card-content > svg,
-.published-card .product-initial,
-.published-card .product-logo {
-  flex-shrink: 0;
+.published-tile .product-logo,
+.published-tile .product-initial {
+  width: 100%;
+  height: 100%;
+}
+.published-tile .product-logo img {
+  object-position: center;
+}
+.published-tile .product-initial {
+  background: transparent;
+  color: var(--product-card-link, var(--of-brand));
+  font-size: 36px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .published-tile-icon {
+    transition:
+      transform 0.15s,
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .published-tile:hover .published-tile-icon {
+    transform: translateY(-3px);
+  }
 }
 .product-branded {
   background: var(--product-card-background, var(--of-surface));
