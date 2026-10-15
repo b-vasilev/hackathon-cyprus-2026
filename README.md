@@ -31,10 +31,10 @@ mise install
 mise exec -- just setup
 # Generate once; keep this key stable across restarts.
 export LLM_MASTER_KEY="$(openssl rand -hex 32)"
-mise exec -- just backend::run
-# In another terminal:
-mise exec -- just frontend::dev
+mise exec -- just dev
 ```
+
+Both services run together; Ctrl+C stops both.
 
 Open [the portal](http://127.0.0.1:5173). Add a connection, check its model,
 register a product with GitHub URLs or context, then generate its passport.

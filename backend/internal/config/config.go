@@ -52,7 +52,6 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		LogFormat:          get("LOG_FORMAT", "console"),
 		LLMMasterKey:       get("LLM_MASTER_KEY", ""),
 		LLMPrivateOrigins:  get("LLM_ALLOWED_PRIVATE_ORIGINS", ""),
-		FactoryWorkDir:     get("FACTORY_WORK_DIR", "/Volumes/Workspace/tmp/onboarding-factory"),
 		RepomixBin:         get("REPOMIX_BIN", "repomix"),
 		GitHubToken:        get("GITHUB_TOKEN", ""),
 		GitHubClientID:     get("GITHUB_OAUTH_CLIENT_ID", ""),
@@ -67,6 +66,11 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	if err := validate(cfg); err != nil {
 		return Config{}, err
 	}
+	workDir, err := filepath.Abs(filepath.Join(filepath.Dir(cfg.DatabasePath), "wayfinder"))
+	if err != nil {
+		return Config{}, fmt.Errorf("resolve factory work directory: %w", err)
+	}
+	cfg.FactoryWorkDir = get("FACTORY_WORK_DIR", workDir)
 	timeout, err := time.ParseDuration(get("SHUTDOWN_TIMEOUT", "10s"))
 	if err != nil || timeout <= 0 {
 		return Config{}, errors.New("SHUTDOWN_TIMEOUT must be a positive duration")
