@@ -1,18 +1,32 @@
-import { ArrowRight, Check, Clock, GraduationCap, ListChecks } from 'lucide-react';
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { ArrowRight, Award, Check, Clock, GraduationCap, ListChecks } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, NavLink, useParams } from 'react-router-dom';
+import {
+  AchievementGallery,
+  AchievementSummary,
+  BoldStrategyDialog,
+} from '../components/Achievements';
 import { LessonBlocks } from '../components/LessonContent';
 import { Quiz, passRatio } from '../components/Quiz';
-import { Badge, EmptyState, PageHeading } from '../components/ui';
+import { Badge, PageHeading } from '../components/ui';
 import {
   findModule,
   foundationModules,
   loadProgress,
   markLessonDone,
-  markQuizPassed,
+  markVisited,
   moduleStatus,
+  recordQuiz,
   type ModuleState,
 } from '../foundations';
+import {
+  achievements,
+  setFlag,
+  snapshot,
+  withAchievements,
+  type Snapshot,
+} from '../foundations/achievements';
+import { NotFound } from './NotFound';
 
 const quizStep = 'quiz';
 
@@ -35,6 +49,33 @@ function ProgressBar({ done, total }: Readonly<{ done: number; total: number }>)
   );
 }
 
+function FoundationsTabs({ state }: Readonly<{ state: Snapshot }>) {
+  const unlocked = achievements.filter((item) => item.unlocked(state)).length;
+  return (
+    <nav className="foundations-tabs" aria-label="Foundations sections">
+      <NavLink to="/foundations" end>
+        Modules
+      </NavLink>
+      <NavLink to="/foundations/achievements">
+        Achievements
+        <span className="foundations-tab-count">
+          {unlocked}/{achievements.length}
+        </span>
+      </NavLink>
+    </nav>
+  );
+}
+
+function FoundationsHeading() {
+  return (
+    <PageHeading
+      eyebrow="Foundations"
+      title="Engineering basics for every product."
+      description="Short lessons on how we work: Git and pull requests, code quality, CI, testing, releases, APIs and AI assistants. Each module ends with a quiz."
+    />
+  );
+}
+
 export function Foundations() {
   const progress = loadProgress();
   const completed = foundationModules.filter(
@@ -42,17 +83,15 @@ export function Foundations() {
   ).length;
   return (
     <>
-      <PageHeading
-        eyebrow="Foundations"
-        title="Engineering basics for every product."
-        description="Short lessons on how we work: Git and pull requests, code quality, CI, testing, releases, APIs and AI assistants. Each module ends with a quiz."
-      />
-      <div className="intro-strip">
+      <FoundationsHeading />
+      <FoundationsTabs state={snapshot()} />
+      <div className="intro-strip foundations-strip">
         <GraduationCap size={19} aria-hidden="true" />
         <p>
           You have completed {completed} of {foundationModules.length} modules. A module is complete
           when you finish every lesson and pass its quiz. Progress is saved in this browser only.
         </p>
+        <AchievementSummary state={snapshot()} />
       </div>
       <ol className="foundation-grid">
         {foundationModules.map((module, index) => {
@@ -96,20 +135,23 @@ function ModuleView({ id }: Readonly<{ id: string }>) {
   const module = findModule(id);
   const [step, setStep] = useState(module?.lessons.at(0)?.id ?? quizStep);
   const [progress, setProgress] = useState(loadProgress);
+  const [zeroQuiz, setZeroQuiz] = useState<number>();
+
+  // Saves progress; any achievement it unlocks is announced app-wide.
+  const apply = useCallback((change: () => void) => {
+    withAchievements(change);
+    setProgress(loadProgress());
+  }, []);
+
+  useEffect(() => {
+    if (findModule(id) !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs from browser storage once per module visit
+      apply(() => markVisited(id));
+    }
+  }, [id, apply]);
 
   if (module === undefined) {
-    return (
-      <EmptyState
-        title="Module not found"
-        action={
-          <Link className="button primary" to="/foundations">
-            All foundations
-          </Link>
-        }
-      >
-        This Foundations module does not exist.
-      </EmptyState>
-    );
+    return <NotFound />;
   }
 
   const status = moduleStatus(module, progress);
@@ -124,14 +166,22 @@ function ModuleView({ id }: Readonly<{ id: string }>) {
 
   function finishLesson(lessonId: string) {
     if (module !== undefined) {
-      setProgress(markLessonDone(module.id, lessonId));
+      apply(() => markLessonDone(module.id, lessonId));
     }
     go(next?.id ?? quizStep);
   }
 
   function finishQuiz(score: number, total: number) {
-    if (module !== undefined && score / total >= passRatio) {
-      setProgress(markQuizPassed(module.id));
+    if (module !== undefined) {
+      apply(() => {
+        recordQuiz(module.id, score, total, passRatio);
+        if (score === 0) {
+          setFlag('bold-strategy');
+        }
+      });
+    }
+    if (score === 0) {
+      setZeroQuiz(total);
     }
   }
 
@@ -216,6 +266,28 @@ function ModuleView({ id }: Readonly<{ id: string }>) {
           </article>
         )}
       </div>
+      {zeroQuiz !== undefined && (
+        <BoldStrategyDialog total={zeroQuiz} onClose={() => setZeroQuiz(undefined)} />
+      )}
+    </>
+  );
+}
+
+export function FoundationAchievements() {
+  const state = snapshot();
+  const unlocked = achievements.filter((item) => item.unlocked(state)).length;
+  return (
+    <>
+      <FoundationsHeading />
+      <FoundationsTabs state={snapshot()} />
+      <div className="intro-strip">
+        <Award size={19} aria-hidden="true" />
+        <p>
+          You have unlocked {unlocked} of {achievements.length} achievements. Each one shows its
+          picture when you unlock it. Achievements are saved in this browser only.
+        </p>
+      </div>
+      <AchievementGallery state={state} />
     </>
   );
 }

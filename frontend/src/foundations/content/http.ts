@@ -168,7 +168,7 @@ export const http: FoundationModule = {
           type: 'callout',
           tone: 'tip',
           title: 'Open the network tab',
-          text: 'In Chrome or Firefox, press F12 to open DevTools, the developer tools of the browser. Go to the Network tab. Click any request to see its method, headers, body and response. This is the fastest way to see what an app really does.',
+          text: 'Open DevTools, the developer tools of the browser. On Windows or Linux press F12 or Ctrl+Shift+I. On a Mac press Cmd+Option+I (⌘⌥I). Go to the Network tab. Click any request to see its method, headers, body and response. This is the fastest way to see what an app really does. Try it on this page. The Console tab may have a message for you.',
         },
       ],
     },

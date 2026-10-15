@@ -1,5 +1,6 @@
 import { Check, Play, RotateCcw, User, Wrench } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { setFlag, withAchievements } from '../foundations/achievements';
 import { Inline } from './Inline';
 import type { CodeToolsBlock } from '../foundations/types';
 
@@ -92,9 +93,15 @@ export function CodeTools({ block }: Readonly<{ block: CodeToolsBlock }>) {
     setView(name);
   }
 
+  const resets = useRef(0);
+
   function reset() {
     setApplied([]);
     setView(undefined);
+    resets.current += 1;
+    if (resets.current === 5) {
+      withAchievements(() => setFlag('perfectionist'));
+    }
   }
 
   const findings = (statement: number) =>

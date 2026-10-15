@@ -28,9 +28,25 @@ const legacyPassedKey = 'of.foundations.passed';
 export interface ModuleProgress {
   lessons: string[];
   quizPassed: boolean;
+  visited: boolean;
+  // Best quiz result as a share of correct answers, 0 to 1.
+  bestScore: number;
+  // A quiz attempt below the pass mark happened.
+  failedQuiz: boolean;
+  // The quiz was passed after an earlier failed attempt.
+  comeback: boolean;
 }
 
 export type Progress = Partial<Record<string, ModuleProgress>>;
+
+const empty: ModuleProgress = {
+  lessons: [],
+  quizPassed: false,
+  visited: false,
+  bestScore: 0,
+  failedQuiz: false,
+  comeback: false,
+};
 
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [];
@@ -44,11 +60,18 @@ export function loadProgress(): Progress {
     if (typeof stored === 'object' && stored !== null) {
       for (const [id, value] of Object.entries(stored as Record<string, unknown>)) {
         const item = (value ?? {}) as Partial<Record<keyof ModuleProgress, unknown>>;
-        progress[id] = { lessons: strings(item.lessons), quizPassed: item.quizPassed === true };
+        progress[id] = {
+          lessons: strings(item.lessons),
+          quizPassed: item.quizPassed === true,
+          visited: item.visited === true,
+          bestScore: typeof item.bestScore === 'number' ? item.bestScore : 0,
+          failedQuiz: item.failedQuiz === true,
+          comeback: item.comeback === true,
+        };
       }
     }
     for (const id of strings(JSON.parse(localStorage.getItem(legacyPassedKey) ?? '[]'))) {
-      progress[id] = { lessons: progress[id]?.lessons ?? [], quizPassed: true };
+      progress[id] = { ...empty, ...progress[id], quizPassed: true };
     }
   } catch {
     // Storage can be unavailable or corrupted; start empty.
@@ -64,21 +87,35 @@ function save(progress: Progress) {
   }
 }
 
-export function markLessonDone(moduleId: string, lessonId: string): Progress {
+function update(moduleId: string, change: (current: ModuleProgress) => ModuleProgress): Progress {
   const progress = loadProgress();
-  const current = progress[moduleId] ?? { lessons: [], quizPassed: false };
-  if (!current.lessons.includes(lessonId)) {
-    progress[moduleId] = { ...current, lessons: [...current.lessons, lessonId] };
-    save(progress);
-  }
+  progress[moduleId] = change(progress[moduleId] ?? empty);
+  save(progress);
   return progress;
 }
 
-export function markQuizPassed(moduleId: string): Progress {
-  const progress = loadProgress();
-  progress[moduleId] = { lessons: progress[moduleId]?.lessons ?? [], quizPassed: true };
-  save(progress);
-  return progress;
+export function markVisited(moduleId: string): Progress {
+  return update(moduleId, (current) => ({ ...current, visited: true }));
+}
+
+export function markLessonDone(moduleId: string, lessonId: string): Progress {
+  return update(moduleId, (current) =>
+    current.lessons.includes(lessonId)
+      ? current
+      : { ...current, lessons: [...current.lessons, lessonId] }
+  );
+}
+
+export function recordQuiz(moduleId: string, score: number, total: number, passRatio: number) {
+  const share = total === 0 ? 0 : score / total;
+  const passed = share >= passRatio;
+  return update(moduleId, (current) => ({
+    ...current,
+    quizPassed: current.quizPassed || passed,
+    bestScore: Math.max(current.bestScore, share),
+    failedQuiz: current.failedQuiz || !passed,
+    comeback: current.comeback || (passed && current.failedQuiz),
+  }));
 }
 
 export type ModuleState = 'not-started' | 'in-progress' | 'completed';

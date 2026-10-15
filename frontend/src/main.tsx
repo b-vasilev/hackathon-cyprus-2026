@@ -2,9 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { AchievementCenter } from './components/Achievements';
 import { Brand } from './components/ui';
+import { installConsoleEgg } from './foundations/consoleEgg';
 import { Connections } from './pages/Connections';
-import { FoundationModulePage, Foundations } from './pages/Foundations';
+import { FoundationAchievements, FoundationModulePage, Foundations } from './pages/Foundations';
+import { NotFound } from './pages/NotFound';
 import { PassportPage } from './pages/Passport';
 import { NewProduct, Products } from './pages/Products';
 import '@fontsource/geist/400.css';
@@ -17,6 +20,8 @@ const root = document.querySelector('#root');
 if (!root) {
   throw new Error('Missing root element');
 }
+
+installConsoleEgg();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: 5000 } },
@@ -45,11 +50,13 @@ createRoot(root).render(
             <Route path="/products/new" element={<NewProduct />} />
             <Route path="/products/:id" element={<PassportPage />} />
             <Route path="/foundations" element={<Foundations />} />
+            <Route path="/foundations/achievements" element={<FoundationAchievements />} />
             <Route path="/foundations/:id" element={<FoundationModulePage />} />
             <Route path="/connections" element={<Connections />} />
-            <Route path="*" element={<Products />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
+        <AchievementCenter />
         <footer className="site-footer">
           <span>Wayfinder</span>
           <span>Source-backed drafts. Human understanding.</span>
