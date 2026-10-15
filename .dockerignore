@@ -4,6 +4,8 @@
 **/node_modules
 **/bin
 **/data
-**/coverage*
+**/coverage.out
+**/coverage.html
+**/coverage/
 **/dist
 services
