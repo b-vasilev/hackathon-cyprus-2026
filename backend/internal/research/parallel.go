@@ -308,6 +308,7 @@ func (w *workspace) forkTask(task researchTask, turns int) (*workspace, error) {
 	task.base = base
 	task.historyStart = len(ledger.History)
 	local := &workspace{
+		limiter:   w.limiter,
 		documents: w.documents, paths: w.paths, inventory: w.inventory,
 		sources: w.sourceIndex(),
 		reads:   map[string][]source.LineRange{}, readFailures: map[string]string{},

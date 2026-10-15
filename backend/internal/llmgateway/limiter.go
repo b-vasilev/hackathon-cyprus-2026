@@ -166,7 +166,7 @@ func WithQueueWait(ctx context.Context) context.Context {
 
 func NewLimiter(globalMax, globalQueue, apiMax, apiQueue int) *Limiter {
 	return &Limiter{changed: make(chan struct{}), globalMax: globalMax,
-		globalQueue: globalQueue, globalWait: time.Minute, apiMax: apiMax, apiQueue: apiQueue,
+		globalQueue: globalQueue, globalWait: 5 * time.Minute, apiMax: apiMax, apiQueue: apiQueue,
 		targets: make(map[string]*targetLimit)}
 }
 
@@ -505,6 +505,17 @@ func (l *Limiter) cooldown(t *targetLimit, headers http.Header, now time.Time) {
 func (l *Limiter) signal() {
 	close(l.changed)
 	l.changed = make(chan struct{})
+}
+
+// ConnectionStatus reports the same shared pool used by the HTTP transport.
+func (l *Limiter) ConnectionStatus(config Config) (PoolStatus, bool) {
+	key := connectionPoolKey(config)
+	for _, pool := range l.Snapshot().Pools {
+		if pool.PoolKey == key {
+			return pool, true
+		}
+	}
+	return PoolStatus{}, false
 }
 
 func (l *Limiter) Snapshot() Status {

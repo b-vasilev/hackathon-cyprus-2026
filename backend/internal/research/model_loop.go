@@ -151,6 +151,13 @@ func (w *workspace) modelPass(ctx context.Context, agent fantasy.Agent, config l
 			}
 		}
 		w.activity = fmt.Sprintf("Research model turn %d: retry %d/%d in %s. Reason: %s", w.turn, retryAttempt, maxRetries, delay, reason)
+		if w.limiter != nil {
+			if pool, ok := w.limiter.ConnectionStatus(config); ok {
+				cooldown := max(time.Duration(0), time.Until(pool.CooldownUntil)).Round(time.Second)
+				w.activity += fmt.Sprintf(" Gateway: request limit %d/%d; active %d; waiting %d; cooldown %s.",
+					pool.EffectiveLimit, config.MaxConcurrent, pool.Active, pool.Waiting, cooldown)
+			}
+		}
 		state := w.state()
 		_ = progress(Progress{Message: w.activity, State: &state, Retry: true})
 	}

@@ -23,7 +23,7 @@ import (
 var prompt string
 
 const (
-	defaultParallelism = llmgateway.MaxConcurrentRequests
+	defaultParallelism = 20
 	attemptTimeout     = 60 * time.Minute
 )
 
@@ -33,7 +33,7 @@ type Runner struct {
 	WorkDir, RepomixBin string
 	// MaxTurns optionally caps an attempt; zero means no turn cap.
 	MaxTurns int
-	// Parallelism is the worker pool size; zero uses 30 workers.
+	// Parallelism is the worker pool size; zero uses 20 workers.
 	Parallelism int
 }
 
@@ -88,6 +88,7 @@ type workspace struct {
 	sessions            map[string]taskSession
 	conversation        taskSession
 	execution           string
+	limiter             *llmgateway.Limiter
 }
 
 // run gives the model access to pinned source files with bounded paged tools.
@@ -115,7 +116,7 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 		if p.State != nil {
 			if !changed && now.Sub(lastState) < time.Second {
 				p.State = nil
-				if p.Step == 0 && p.Checkpoint == nil {
+				if p.Step == 0 && p.Checkpoint == nil && !p.Retry {
 					return nil
 				}
 			} else {
@@ -139,6 +140,7 @@ func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID stri
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 	w = &workspace{documents: map[string]source.Document{}, reads: map[string][]source.LineRange{}, readFailures: map[string]string{}, event: event, turnBudget: r.MaxTurns}
+	w.limiter = r.Limiter
 	w.turnBudget = max(w.turnBudget, 0)
 	w.deadline, _ = ctx.Deadline()
 	for _, doc := range collection.Documents {
