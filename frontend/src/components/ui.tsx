@@ -2,6 +2,7 @@ import { AlertCircle, ArrowUpRight, ChevronDown, Route, X } from 'lucide-react';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { message } from '../lib/api';
+import { generationMessage } from '../lib/generationMessages';
 
 export function Brand() {
   return (
@@ -41,7 +42,7 @@ export function ErrorNotice({ error }: Readonly<{ error: unknown }>) {
   return (
     <div className="notice error" role="alert">
       <AlertCircle size={18} aria-hidden="true" />
-      <span>{message(error)}</span>
+      <span>{generationMessage(message(error))}</span>
     </div>
   );
 }

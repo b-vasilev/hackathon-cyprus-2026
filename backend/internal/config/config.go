@@ -25,6 +25,7 @@ type Config struct {
 	ConnectionMasterKey string
 	LLMPrivateOrigins   string
 	FactoryWorkDir      string
+	GenerationWorkers   int
 	RepomixBin          string
 	GitHubToken         string
 	GitHubClientID      string
@@ -71,6 +72,11 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return Config{}, fmt.Errorf("resolve factory work directory: %w", err)
 	}
 	cfg.FactoryWorkDir = get("FACTORY_WORK_DIR", workDir)
+	workers, err := strconv.Atoi(get("GENERATION_WORKERS", "3"))
+	if err != nil || workers < 1 {
+		return Config{}, errors.New("GENERATION_WORKERS must be a positive integer")
+	}
+	cfg.GenerationWorkers = workers
 	timeout, err := time.ParseDuration(get("SHUTDOWN_TIMEOUT", "10s"))
 	if err != nil || timeout <= 0 {
 		return Config{}, errors.New("SHUTDOWN_TIMEOUT must be a positive duration")

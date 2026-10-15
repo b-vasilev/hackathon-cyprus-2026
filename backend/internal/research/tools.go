@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"charm.land/fantasy"
@@ -50,6 +51,8 @@ func toolJSON(value any) (fantasy.ToolResponse, error) {
 func (w *workspace) tick(message string) error {
 	w.mu.Lock()
 	w.toolCalls++
+	w.activity = message
+	w.execution = "working"
 	w.mu.Unlock()
 	return w.event(message)
 }
@@ -91,11 +94,11 @@ func (w *workspace) tools(session *mcp.ClientSession) []fantasy.AgentTool {
 			}
 			return toolJSON(results)
 		}),
-		fantasy.NewParallelAgentTool("read_files", "Read original source ranges through sandboxed Repomix MCP. Batch independent file ranges. Use 1-based original lines; at most 250 lines per range. Another page can always be requested. Returns exact document IDs for evidence citations.", func(ctx context.Context, input readInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
+		fantasy.NewParallelAgentTool("read_files", "Read original source ranges from the verified source workspace. Batch independent file ranges. Use 1-based original lines; at most 250 lines per range. Another page can always be requested. Returns exact document IDs for evidence citations.", func(ctx context.Context, input readInput, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if len(input.Reads) > 24 {
 				return fantasy.NewTextResponse("Use at most 24 file ranges per batch"), nil
 			}
-			if err := w.tick(fmt.Sprintf("Reading source code through Repomix MCP (%d ranges).", len(input.Reads))); err != nil {
+			if err := w.tick(fmt.Sprintf("Reading source code (%d ranges).", len(input.Reads))); err != nil {
 				return fantasy.ToolResponse{}, err
 			}
 			results := []any{}
@@ -114,6 +117,11 @@ func (w *workspace) search(query searchQuery) any {
 	re, err := regexp.Compile(query.Pattern)
 	if err != nil {
 		return map[string]string{toolErrorKey: "Invalid regular expression"}
+	}
+	if query.Glob != "" {
+		if _, err := doublestar.Match(query.Glob, ""); err != nil {
+			return map[string]string{toolErrorKey: "Invalid glob pattern"}
+		}
 	}
 	type match struct {
 		Path string `json:"path"`
@@ -144,7 +152,14 @@ func (w *workspace) search(query searchQuery) any {
 			}
 		}
 	}
-	return map[string]any{"pattern": query.Pattern, "matches": matches, "total": total, "next_offset": offset + len(matches), "has_more": offset+len(matches) < total}
+	w.mu.Lock()
+	scope := searchedScope{Pattern: query.Pattern, Glob: query.Glob}
+	if !slices.Contains(w.searches, scope) {
+		w.searches = append(w.searches, scope)
+		w.ledger.Searches = append(w.ledger.Searches, searchRecord{Pattern: query.Pattern, Glob: query.Glob, Matches: total})
+	}
+	w.mu.Unlock()
+	return map[string]any{"pattern": query.Pattern, "glob": query.Glob, "matches": matches, "total": total, "next_offset": offset + len(matches), "has_more": offset+len(matches) < total}
 }
 
 func (w *workspace) read(ctx context.Context, session *mcp.ClientSession, spec readSpec) any {
@@ -156,6 +171,12 @@ func (w *workspace) read(ctx context.Context, session *mcp.ClientSession, spec r
 		Content string `json:"content"`
 	}
 	if err := callMCP(ctx, session, "file_system_read_file", map[string]any{"path": spec.Path}, &view); err != nil {
+		w.mu.Lock()
+		if w.readFailures == nil {
+			w.readFailures = map[string]string{}
+		}
+		w.readFailures[spec.Path] = err.Error()
+		w.mu.Unlock()
 		return map[string]string{"path": spec.Path, toolErrorKey: err.Error()}
 	}
 	if view.Content != doc.Content {
@@ -180,6 +201,7 @@ func (w *workspace) read(ctx context.Context, session *mcp.ClientSession, spec r
 		fmt.Fprintf(&text, "%d: %s\n", i+1, lines[i])
 	}
 	w.mu.Lock()
+	delete(w.readFailures, spec.Path)
 	w.mcpReads++
 	w.reads[doc.ID] = append(w.reads[doc.ID], source.LineRange{StartLine: start, EndLine: end})
 	w.mu.Unlock()

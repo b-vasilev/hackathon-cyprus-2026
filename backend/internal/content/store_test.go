@@ -36,6 +36,24 @@ func TestImmutableContentAndChecksum(t *testing.T) {
 	}
 }
 
+func TestRemoveAllConfinesDeletion(t *testing.T) {
+	t.Parallel()
+	files := &Store{Dir: filepath.Join(t.TempDir(), "content")}
+	path := "products/keep/passport.json"
+	hash, err := files.WriteJSON(path, map[string]string{"title": "Keep"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, invalid := range []string{".", "..", "../content/products", "/products", "products/../products"} {
+		if err := files.RemoveAll(invalid); err == nil {
+			t.Fatalf("accepted unsafe deletion path %q", invalid)
+		}
+	}
+	if _, err := files.Read(path, hash); err != nil {
+		t.Fatalf("unsafe deletion removed content: %v", err)
+	}
+}
+
 func TestLegacyExportIsRecoverableAndIdempotent(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()

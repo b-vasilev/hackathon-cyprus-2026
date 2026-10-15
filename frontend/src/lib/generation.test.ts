@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { duration, mergeRun, stageProgress } from './generation.ts';
+import { cancelledRun, duration, mergeRun, stageProgress } from './generation.ts';
 import type { Run } from './api';
 
 const timestamp = (second: number) => new Date(Date.UTC(2026, 9, 15, 12, 0, second)).toISOString();
@@ -16,6 +16,7 @@ function run(overrides: Partial<Run> = {}): Run {
     connection_id: 'connection-one',
     connection_revision: 1,
     model: 'fixture',
+    request_timeout_seconds: 60,
     status: 'queued',
     stage: 'queued',
     error_code: '',
@@ -52,6 +53,23 @@ test('terminal runs cannot be replaced by a delayed active snapshot', () => {
   const finished = run({ status: 'failed', finished_at: timestamp(3) });
   assert.equal(mergeRun(finished, run({ status: 'running' })), finished);
   assert.equal(mergeRun(finished, run({ id: 'run-two' })).id, 'run-two');
+});
+
+test('cancellation stops stage timing and remains terminal after delayed updates', () => {
+  const cancelled = run({
+    status: 'failed',
+    error_code: 'cancelled',
+    stage: 'analyzing',
+    finished_at: timestamp(5),
+    events: [event(1, 'stage_started', 'analyzing', 1), event(2, 'run_cancelled', 'analyzing', 5)],
+  });
+  assert.equal(cancelledRun(cancelled), true);
+  assert.equal(cancelledRun(run({ status: 'failed', error_code: 'provider_error' })), false);
+  assert.deepEqual(stageProgress(cancelled, 'analyzing', Date.parse(timestamp(20))), {
+    status: 'Cancelled',
+    timing: '4s',
+  });
+  assert.equal(mergeRun(cancelled, run({ status: 'running' })), cancelled);
 });
 
 test('queued and skipped stages do not imply completed work', () => {

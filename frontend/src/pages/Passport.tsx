@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, FileCode2, GitBranch, Play, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { ArrowRight, FileCode2, GitBranch, Play, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { DeleteConfirmation } from '../components/DeleteConfirmation';
+import { DocumentContent } from '../components/DocumentContent';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
+import { PartialResearchNotice } from '../components/PartialResearchNotice';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
 import { ProductAccess } from '../components/ProductAccess';
+import { ProductBrandSources, ProductIdentity } from '../components/ProductIdentity';
 import { SourceCoverage } from '../components/SourceCoverage';
 import { DisclosureHint, EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
 import {
@@ -20,12 +24,17 @@ import {
   type Run,
 } from '../lib/api';
 import { canManage, isAdmin, useMe } from '../lib/auth';
-import { activeRun, stageLabels } from '../lib/generation';
+import { activeRun, cancelledRun, mergeRun, stageLabels } from '../lib/generation';
+import { generationMessage } from '../lib/generationMessages';
+import { documentChapters, legacySections } from '../lib/passportDocument';
+import { sectionTitles } from '../lib/passportSections';
 import { productCardTheme } from '../lib/productCardTheme';
 import { useGeneration } from '../lib/useGeneration';
 
 export function PassportPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const queryClient = useQueryClient();
   const me = useMe();
   const manage = canManage(me, id);
@@ -49,7 +58,15 @@ export function PassportPage() {
   const [connectionId, setConnectionId] = useState('');
   const [modelId, setModelId] = useState('');
   const [selectedRevision, setSelectedRevision] = useState('');
-  const [sectionId, setSectionId] = useState('overview');
+  const [sectionId, setSectionId] = useState('');
+  const readingPane = useRef<HTMLDivElement>(null);
+  function selectSection(nextId: string) {
+    setSectionId(nextId);
+    requestAnimationFrame(() => {
+      readingPane.current?.scrollIntoView({ block: 'start' });
+      readingPane.current?.querySelector('h2')?.focus({ preventScroll: true });
+    });
+  }
   const [object, setObject] = useState<ProductObject | null>(null);
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   const availableConnections = connections.data?.filter((item) => item.config.enabled) ?? [];
@@ -101,16 +118,47 @@ export function PassportPage() {
       await queryClient.invalidateQueries({ queryKey: ['product', id] });
     },
   });
+  const cancelGeneration = useMutation({
+    mutationFn: () => api<Run>(`/generations/${runId}/cancel`, { method: 'POST' }),
+    onSuccess: (cancelled) => {
+      queryClient.setQueryData<Run>(['run', cancelled.id], (previous) =>
+        mergeRun(previous, cancelled)
+      );
+    },
+  });
+  const deletePassport = useMutation({
+    mutationFn: () => api<Product>(`/products/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void navigate('/');
+      queryClient.removeQueries({ queryKey: ['product', id] });
+      queryClient.removeQueries({ queryKey: ['revisions', id] });
+      for (const item of history.data ?? []) {
+        queryClient.removeQueries({ queryKey: ['revision', item.id] });
+      }
+      void queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
   if (product.isPending) {
     return <Loading label="Loading product space…" />;
   }
   if (product.isError) {
     return <ErrorNotice error={product.error} />;
   }
+  const views = revision.data?.content.views;
+  const chapters = views === undefined ? undefined : documentChapters(views);
+  const sections = views === undefined ? [] : legacySections(views);
+  const entries = chapters ?? sections;
+  const selected = entries.find((item) => item.id === sectionId) ?? entries.at(0);
+  const chapter = chapters?.find((item) => item.id === selected?.id);
   const section =
-    revision.data?.content.views.sections?.find((item) => item.id === sectionId) ??
-    revision.data?.content.views.sections?.at(0);
-  const busy = activeRun(run.data?.status) || generate.isPending;
+    chapters === undefined ? sections.find((item) => item.id === selected?.id) : undefined;
+  const position = entries.findIndex((item) => item.id === selected?.id);
+  const previous = entries.at(position - 1);
+  const next = entries.at(position + 1);
+  const documentRun =
+    revisionRun.data ?? (run.data?.id === revision.data?.run_id ? run.data : undefined);
+  const generating = activeRun(run.data?.status ?? product.data.latest_run_status);
+  const busy = generating || generate.isPending || deletePassport.isPending;
   const generateLabel = run.data?.status === 'failed' ? 'Generate again' : 'Generate passport';
   return (
     <>
@@ -122,6 +170,10 @@ export function PassportPage() {
         style={productCardTheme(revision.data?.content.views.card_theme)}
       >
         <div>
+          <ProductIdentity
+            name={product.data.name}
+            theme={revision.data?.content.views.card_theme}
+          />
           <p className="eyebrow">Product passport</p>
           <h1>{revision.data?.content.model.title ?? product.data.name}</h1>
           <p className="page-description">
@@ -130,7 +182,7 @@ export function PassportPage() {
           </p>
           {product.data.card_brandkit && (
             <p className="brandkit-note">
-              Product card brand kit:{' '}
+              Product brand kit:{' '}
               {product.data.card_brandkit.file_name === ''
                 ? product.data.card_brandkit.url
                 : product.data.card_brandkit.file_name}
@@ -144,6 +196,34 @@ export function PassportPage() {
           hasDraft={product.data.latest_revision_id !== '' || revision.data !== undefined}
         />
       </div>
+      {isAdmin(me) && (
+        <button
+          type="button"
+          className="text-button destructive"
+          disabled={busy}
+          onClick={() => {
+            deletePassport.reset();
+            setConfirmDelete(true);
+          }}
+        >
+          <Trash2 size={16} aria-hidden="true" />
+          Delete passport
+        </button>
+      )}
+      {confirmDelete && (
+        <DeleteConfirmation
+          title="Delete product passport?"
+          label="Delete passport"
+          pending={deletePassport.isPending}
+          disabled={busy}
+          error={deletePassport.error}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => deletePassport.mutate()}
+        >
+          Delete “{product.data.name}”, all passport versions, connected source settings and
+          generation data? This cannot be undone. Original repositories stay unchanged.
+        </DeleteConfirmation>
+      )}
       {(manage || (history.data?.length ?? 0) > 0) && (
         <div className="generation-controls">
           {manage && (
@@ -194,53 +274,35 @@ export function PassportPage() {
                 {busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
                 {busy ? 'Generating…' : generateLabel}
               </button>
+              <CancelGenerationButton
+                status={run.data?.status}
+                pending={cancelGeneration.isPending}
+                onCancel={() => cancelGeneration.mutate()}
+              />
             </>
           )}
-          {(history.data?.length ?? 0) > 0 && (
-            <label className="revision-select">
-              Version
-              <select
-                value={revisionId}
-                onChange={(event) => setSelectedRevision(event.target.value)}
-              >
-                {history.data?.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    Version {item.version}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <VersionSelect history={history.data} value={revisionId} onChange={setSelectedRevision} />
         </div>
       )}
-      {manage &&
-        availableConnections.length === 0 &&
-        (setup.data?.connections_enabled === false || !connections.isPending) && (
-          <div className="notice">
-            <p>Add an enabled model connection to generate this passport.</p>
-            {isAdmin(me) ? (
-              <Link className="text-link" to="/connections">
-                Set up a connection
-                <ArrowRight size={15} />
-              </Link>
-            ) : (
-              <p>Ask an admin to set one up.</p>
-            )}
-          </div>
-        )}
+      <MissingConnectionNotice
+        manage={manage}
+        admin={isAdmin(me)}
+        available={availableConnections.length}
+        setupEnabled={setup.data?.connections_enabled}
+        loading={connections.isPending}
+      />
       {generate.isError && <ErrorNotice error={generate.error} />}
+      {cancelGeneration.isError && <ErrorNotice error={cancelGeneration.error} />}
       {run.isError && <ErrorNotice error={run.error} />}
-      {run.data?.status === 'failed' && (
-        <div className="notice error" role="alert">
-          <div>
-            <strong>{`Generation stopped: ${stageLabels[run.data.stage] ?? run.data.stage}.`}</strong>
-            <p>{run.data.error_message}</p>
-            {revision.data !== undefined && <p>The previous passport remains available below.</p>}
-          </div>
-        </div>
-      )}
+      <GenerationOutcome run={run.data} hasRevision={revision.data !== undefined} />
       {run.data !== undefined && (
         <GenerationProgress key={run.data.id} run={run.data} streamState={streamState} />
+      )}
+      {run.data !== undefined && run.data.id !== revision.data?.run_id && (
+        <PartialResearchNotice
+          events={run.data.events}
+          label="This generation has incomplete research"
+        />
       )}
       {revision.isFetching && <Loading label="Loading passport revision…" />}
       {revision.isError && <ErrorNotice error={revision.error} />}
@@ -250,12 +312,10 @@ export function PassportPage() {
         !revision.isFetching &&
         run.data?.status !== 'failed' && (
           <EmptyState title="Your sources are ready to explore">
-            {manage
-              ? 'Choose a connection and model, then generate a passport. It will cover the product’s purpose, users, domain, scenarios, architecture and developer workflow.'
-              : 'No passport has been generated yet. A product lead can generate it.'}
+            {emptyPassportMessage(manage)}
           </EmptyState>
         )}
-      {revision.data !== undefined && section !== undefined && (
+      {revision.data !== undefined && selected !== undefined && (
         <>
           <div className="revision-meta">
             <span>Version {revision.data.version}</span>
@@ -268,29 +328,81 @@ export function PassportPage() {
             )}
             <span>Expert review pending</span>
           </div>
-          <div className="passport-layout">
+          <PartialResearchNotice
+            events={documentRun?.events}
+            label="This passport has incomplete research"
+          />
+          {chapters === undefined && !sections.some((item) => item.id === 'repositories') && (
+            <p className="notice">
+              This draft uses an earlier structure. Generate a new passport to add repository
+              connections, technologies and deeper architecture research.
+            </p>
+          )}
+          <div
+            className={`passport-layout${revision.data.content.views.card_theme ? ' product-passport' : ''}`}
+            style={productCardTheme(revision.data.content.views.card_theme)}
+          >
             <nav className="section-nav" aria-label="Passport sections">
-              {revision.data.content.views.sections?.map((item, index) => (
+              {entries.map((item, index) => (
                 <button
                   type="button"
                   key={item.id}
-                  className={item.id === section.id ? 'active' : ''}
-                  aria-current={item.id === section.id ? 'true' : undefined}
-                  onClick={() => setSectionId(item.id)}
+                  className={item.id === selected.id ? 'active' : ''}
+                  aria-current={item.id === selected.id ? 'true' : undefined}
+                  onClick={() => selectSection(item.id)}
                 >
                   <span>{String(index + 1).padStart(2, '0')}</span>
-                  {item.title}
+                  {chapters === undefined ? (sectionTitles[item.id] ?? item.title) : item.title}
                 </button>
               ))}
             </nav>
-            <SectionContent
-              key={`${revision.data.id}:${section.id}`}
-              section={section}
-              revision={revision.data}
-              onObject={setObject}
-              onEvidence={setEvidenceId}
-            />
+            <div className="passport-reading-pane" ref={readingPane}>
+              {chapter !== undefined && (
+                <DocumentContent
+                  key={`${revision.data.id}:${chapter.id}`}
+                  chapter={chapter}
+                  revision={revision.data}
+                  onObject={setObject}
+                  onEvidence={setEvidenceId}
+                />
+              )}
+              {section !== undefined && (
+                <SectionContent
+                  key={`${revision.data.id}:${section.id}`}
+                  section={section}
+                  revision={revision.data}
+                  onObject={setObject}
+                  onEvidence={setEvidenceId}
+                />
+              )}
+              {chapters !== undefined && (
+                <nav className="chapter-navigation" aria-label="Continue reading">
+                  {position > 0 && previous !== undefined && (
+                    <button
+                      type="button"
+                      className="button quiet"
+                      onClick={() => selectSection(previous.id)}
+                    >
+                      <span>Previous chapter</span>
+                      {previous.title}
+                    </button>
+                  )}
+                  {next !== undefined && (
+                    <button
+                      type="button"
+                      className="button quiet next-chapter"
+                      onClick={() => selectSection(next.id)}
+                    >
+                      <span>Next chapter</span>
+                      {next.title}
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </button>
+                  )}
+                </nav>
+              )}
+            </div>
           </div>
+          <ProductBrandSources theme={revision.data.content.views.card_theme} />
           <details className="sources-panel">
             <summary>
               <GitBranch size={17} />
@@ -357,4 +469,111 @@ export function PassportPage() {
       )}
     </>
   );
+}
+
+function CancelGenerationButton({
+  status,
+  pending,
+  onCancel,
+}: Readonly<{
+  status: string | undefined;
+  pending: boolean;
+  onCancel: () => void;
+}>) {
+  if (!activeRun(status)) {
+    return null;
+  }
+  return (
+    <button type="button" className="button quiet" disabled={pending} onClick={onCancel}>
+      <Square size={16} aria-hidden="true" />
+      {pending ? 'Cancelling…' : 'Cancel generation'}
+    </button>
+  );
+}
+
+function GenerationOutcome({
+  run,
+  hasRevision,
+}: Readonly<{ run: Run | undefined; hasRevision: boolean }>) {
+  if (run?.status !== 'failed') {
+    return null;
+  }
+  const cancelled = cancelledRun(run);
+  return (
+    <div className={cancelled ? 'notice' : 'notice error'} role={cancelled ? 'status' : 'alert'}>
+      <div>
+        <strong>
+          {cancelled
+            ? 'Generation cancelled.'
+            : generationMessage(`Generation stopped: ${stageLabels[run.stage] ?? run.stage}.`)}
+        </strong>
+        <p>
+          {cancelled
+            ? 'You can generate the passport again.'
+            : generationMessage(run.error_message)}
+        </p>
+        {hasRevision && <p>The previous passport remains available below.</p>}
+      </div>
+    </div>
+  );
+}
+
+function VersionSelect({
+  history,
+  value,
+  onChange,
+}: Readonly<{ history?: RevisionInfo[]; value: string; onChange: (id: string) => void }>) {
+  if (history === undefined || history.length === 0) {
+    return null;
+  }
+  return (
+    <label className="revision-select">
+      Version
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {history.map((item) => (
+          <option key={item.id} value={item.id}>
+            Version {item.version}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function MissingConnectionNotice({
+  manage,
+  admin,
+  available,
+  setupEnabled,
+  loading,
+}: Readonly<{
+  manage: boolean;
+  admin: boolean;
+  available: number;
+  setupEnabled?: boolean;
+  loading: boolean;
+}>) {
+  // Connections are only fetched for people who can generate, once setup allows them.
+  if (!manage || available > 0 || (setupEnabled !== false && loading)) {
+    return null;
+  }
+  return (
+    <div className="notice">
+      <p>Add an enabled model connection to generate this passport.</p>
+      {admin ? (
+        <Link className="text-link" to="/connections">
+          Set up a connection
+          <ArrowRight size={15} />
+        </Link>
+      ) : (
+        <p>Ask an admin to set one up.</p>
+      )}
+    </div>
+  );
+}
+
+function emptyPassportMessage(manage: boolean): string {
+  return manage
+    ? 'Choose a connection and model, then generate a passport. It will cover the product’s purpose, users, domain, scenarios, architecture and developer workflow.'
+    : 'No passport has been generated yet. A product lead can generate it.';
 }

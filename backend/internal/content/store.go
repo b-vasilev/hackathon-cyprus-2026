@@ -25,6 +25,47 @@ func (s *Store) WriteJSON(path string, value any) (string, error) {
 	return s.Write(path, append(data, '\n'))
 }
 
+// SaveCheckpoint atomically replaces mutable, in-progress state. Accepted
+// artifacts still use WriteJSON and retain its immutable-file contract.
+func (s *Store) SaveCheckpoint(path string, value any) error {
+	if !validPath(path) {
+		return errors.New("invalid checkpoint path")
+	}
+	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(s.Dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if err := root.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	temporary := filepath.Join(filepath.Dir(path), ".checkpoint-"+rand.Text())
+	file, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Remove(temporary) }()
+	err = json.NewEncoder(file).Encode(value)
+	if err == nil {
+		err = file.Sync()
+	}
+	if err := errors.Join(err, file.Close()); err != nil {
+		return err
+	}
+	if err := root.Rename(temporary, path); err != nil {
+		return err
+	}
+	directory, err := root.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	return directory.Sync()
+}
+
 // Write publishes a complete immutable file before its reference enters SQLite.
 func (s *Store) Write(path string, data []byte) (string, error) {
 	if !validPath(path) {
@@ -111,4 +152,23 @@ func (s *Store) ReadJSON(path, checksum string, value any) error {
 
 func validPath(path string) bool {
 	return filepath.IsLocal(path) && path != "." && filepath.Clean(path) == path
+}
+
+// RemoveAll removes an artifact folder within the private content directory.
+func (s *Store) RemoveAll(path string) error {
+	if !validPath(path) {
+		return errors.New("invalid content path")
+	}
+	root, err := os.OpenRoot(s.Dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("open content directory: %w", err)
+	}
+	defer root.Close()
+	if err := root.RemoveAll(path); err != nil {
+		return fmt.Errorf("remove content folder: %w", err)
+	}
+	return nil
 }

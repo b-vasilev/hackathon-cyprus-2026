@@ -64,6 +64,9 @@ func (g *fixtureGenerator) Generate(_ context.Context, c llmgateway.Config, r ll
 		if strings.Contains(r.Input, "brand-accent-fixture") {
 			views.CardTheme = &passport.ProductCardTheme{AccentColor: "#123456", BackgroundColor: "#FDFCFD"}
 		}
+		if strings.Contains(r.Input, "auto-brand-fixture") {
+			views.CardTheme = &passport.ProductCardTheme{AccentColor: "#357ABC", BackgroundColor: "#FDFCFD"}
+		}
 		result = views
 	default:
 		return llm.Result{}, errors.New("unexpected generation stage")
@@ -85,11 +88,21 @@ func fixtureModel(name, docID string) passport.Model {
 }
 
 func fixtureViews() passport.Views {
-	views := passport.Views{Sections: make([]passport.Section, 0), Diagrams: []passport.Diagram{{ID: "components", Title: "Request storage", Kind: "components", Summary: "A source-backed fixture view.", NodeIDs: []string{"api", "database"}, RelationIDs: []string{"store-request"}}}}
-	for _, id := range passport.SectionIDs() {
-		views.Sections = append(views.Sections, passport.Section{ID: id, Title: id, Status: "insufficient_evidence", Summary: "This integration fixture has limited source context.", ClaimIDs: []string{"claim-purpose"}, ObjectIDs: []string{"api", "database"}, DiagramIDs: []string{"components"}, ScenarioIDs: []string{"create-request"}})
+	return passport.Views{
+		Sections: []passport.Section{},
+		Diagrams: []passport.Diagram{{ID: "components", Title: "Request storage", Kind: "components", Summary: "A source-backed fixture view.", NodeIDs: []string{"api", "database"}, RelationIDs: []string{"store-request"}}},
+		Document: &passport.Document{Version: 2, Chapters: []passport.Chapter{
+			{ID: "overview", Title: "Product overview", Question: "What does it do?", Blocks: []passport.DocumentBlock{{Kind: "markdown", Markdown: "The fixture stores requests.", ClaimIDs: []string{"claim-purpose"}}}},
+			{ID: "repositories", Title: "Repositories and connections", Question: "Where is its code?", Blocks: []passport.DocumentBlock{{Kind: "markdown", Markdown: "The supplied fixture does not establish repository wiring."}}},
+			{ID: "architecture", Title: "Logical architecture", Question: "How is responsibility divided?", Blocks: []passport.DocumentBlock{
+				{Kind: "markdown", Markdown: "The API persists requests in a store.", ClaimIDs: []string{"claim-purpose"}},
+				{Kind: "diagram_ref", ReferenceID: "components"},
+				{Kind: "markdown", Markdown: "The next chapter follows the same components in execution order.", ClaimIDs: []string{"claim-purpose"}},
+			}},
+			{ID: "scenarios", Title: "End-to-end flows", Question: "How is a result produced?", Blocks: []passport.DocumentBlock{{Kind: "scenario_ref", ReferenceID: "create-request"}}},
+			{ID: "technologies", Title: "Technologies and tools", Question: "What implements these responsibilities?", Blocks: []passport.DocumentBlock{{Kind: "object_table", TableStyle: "objects", ObjectIDs: []string{"api", "database"}, ClaimIDs: []string{"claim-purpose"}}}},
+		}},
 	}
-	return views
 }
 
 //nolint:gocyclo // End-to-end contract covers successful and failed durable runs.
@@ -112,8 +125,8 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 	generator := &fixtureGenerator{}
 	service := New(database, connections, generator, &source.Collector{MaxBytes: 300000, MaxFiles: 120}, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
 	runs := make([]Run, 0, 2)
-	for index, protocol := range []string{"openai_responses", "anthropic_messages"} {
-		name := []string{"Payment service", "Issue tracker"}[index]
+	for index, protocol := range []string{"openai_responses", "anthropic_messages", "openai_chat_completions"} {
+		name := []string{"Payment service", "Issue tracker", "Automatic brand"}[index]
 		config := llmgateway.Config{Name: protocol, Enabled: true, Protocol: protocol, EndpointURL: "https://example.com/v1", EndpointMode: "base", AuthMode: "header", AuthHeader: "Authorization", AuthPrefix: "Bearer ", Secret: "original-key", Models: []llmgateway.Model{{ID: "same-model", OutputMode: "json_schema", MaxOutputTokens: 12000}}, TimeoutSeconds: 30, MaxConcurrent: 1}
 		connection, err := connections.Save(ctx, "", config)
 		if err != nil {
@@ -122,6 +135,9 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		input := product.Input{Name: name, Sources: []source.Input{{Kind: "text", Text: name + " stores requests."}}}
 		if index == 0 {
 			input.CardBrandkit = &productcard.Brandkit{FileName: "brand.md", Text: "brand-accent-fixture: #123456; card background #FDFCFD"}
+		}
+		if index == 2 {
+			input.Sources[0].Text += "\nauto-brand-fixture: primary color #357ABC"
 		}
 		p, err := service.Products.Create(ctx, input)
 		if err != nil {
@@ -154,7 +170,7 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		}
 	}
 	done := make(chan struct{})
-	go func() { defer close(done); service.Work(ctx) }()
+	go func() { defer close(done); service.Work(ctx, 1) }()
 	defer func() { cancel(); <-done }()
 	for _, run := range runs {
 		finished := waitForRun(t, service, run.ID)
@@ -169,8 +185,12 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(r.Content.Views.Sections) != 12 || len(r.Snapshots) != 1 {
+		if r.Content.Views.Document == nil || r.Content.Views.Document.Version != 2 || len(r.Content.Views.Document.Chapters) != 5 || len(r.Snapshots) != 1 {
 			t.Fatal("incomplete passport")
+		}
+		architecture := r.Content.Views.Document.Chapters[2].Blocks
+		if len(architecture) != 3 || architecture[0].Kind != "markdown" || architecture[1].Kind != "diagram_ref" || architecture[2].Kind != "markdown" {
+			t.Fatal("authored narrative order was not preserved in the saved revision")
 		}
 		p, err := service.Products.Get(ctx, run.ProductID)
 		if err != nil {
@@ -179,6 +199,10 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		if p.Name == "Payment service" {
 			if p.CardBrandkit == nil || p.CardTheme == nil || r.Content.Views.CardTheme == nil || p.CardTheme.AccentColor != "#123456" {
 				t.Fatal("brand kit or generated product theme was not preserved")
+			}
+		} else if p.Name == "Automatic brand" {
+			if p.CardBrandkit != nil || p.CardTheme == nil || r.Content.Views.CardTheme == nil || p.CardTheme.AccentColor != "#357ABC" || len(p.CardTheme.Sources) == 0 {
+				t.Fatal("branding discovered in product sources was not applied to both product and passport")
 			}
 		} else if p.CardBrandkit != nil || p.CardTheme != nil || r.Content.Views.CardTheme != nil {
 			t.Fatal("brand styling leaked into a product without a kit")

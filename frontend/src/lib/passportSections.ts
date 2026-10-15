@@ -1,0 +1,16 @@
+export const sectionTitles: Record<string, string> = {
+  overview: 'Product overview',
+  repositories: 'Repositories and connections',
+  architecture: 'Logical architecture',
+  technologies: 'Technologies and tools',
+  scenarios: 'End-to-end flows',
+  data: 'Data and artifacts',
+  runtime: 'Runtime and deployment',
+  development: 'Development guide',
+  operations: 'Operations and recovery',
+  decisions: 'Decisions and tradeoffs',
+  ownership: 'Ownership and open questions',
+  capabilities: 'Capabilities and limits',
+  users: 'Users and access',
+  domain: 'Domain concepts',
+};

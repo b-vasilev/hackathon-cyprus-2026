@@ -122,6 +122,9 @@ func TestAccessRoles(t *testing.T) {
 	// Leads pass authorization; this server has no master key configured.
 	request(http.MethodGet, "/api/llm-connections", "", lead, http.StatusServiceUnavailable)
 	request(http.MethodPost, "/api/llm-connections", `{}`, lead, http.StatusForbidden)
+	request(http.MethodDelete, "/api/llm-connections/any", "", lead, http.StatusForbidden)
+	request(http.MethodDelete, "/api/products/"+product.ID, "", lead, http.StatusForbidden)
+	request(http.MethodPost, "/api/generations/missing/cancel", "", lead, http.StatusNotFound)
 	request(http.MethodGet, "/api/git-connection", "", lead, http.StatusForbidden)
 	request(http.MethodGet, "/api/users", "", learner, http.StatusForbidden)
 	request(http.MethodGet, "/api/users", "", lead, http.StatusOK)

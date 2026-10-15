@@ -74,14 +74,29 @@ func (f *Factory) register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/llm-connections/models", f.admin(f.listConnectionModels))
 	mux.HandleFunc("GET /api/llm-connections/{id}", f.lead(f.connection))
 	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.admin(f.updateConnection))
+	mux.HandleFunc("DELETE /api/llm-connections/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
+		if !f.requireConnections(w) {
+			return
+		}
+		value, err := f.Service.Connections.Delete(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	}))
 	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.admin(f.testConnection))
 	mux.HandleFunc("GET /api/products", f.signedIn(f.products))
 	mux.HandleFunc("POST /api/products", f.admin(f.createProduct))
+	mux.HandleFunc("DELETE /api/products/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.DeleteProduct(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	}))
 	mux.HandleFunc("GET /api/products/{id}", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
 	mux.HandleFunc("POST /api/products/{id}/generations", f.product(true, pathProduct, f.startGeneration))
+	mux.HandleFunc("POST /api/generations/{id}/cancel", f.product(true, runProduct, func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.Cancel(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	}))
 	mux.HandleFunc("GET /api/generations/{id}/events", f.product(false, runProduct, f.generationEvents))
 	mux.HandleFunc("GET /api/generations/{id}", f.product(false, runProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.GetRun(r.Context(), r.PathValue("id"))
@@ -315,6 +330,10 @@ func decode[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
 }
 
 func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
+		// The client no longer needs a response; this is not a server failure.
+		return
+	}
 	if err == nil {
 		writeJSON(w, http.StatusOK, value)
 		return
@@ -325,6 +344,8 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusNotFound, "not_found", "The requested item was not found or is disabled.")
 	case errors.Is(err, generation.ErrActive):
 		problem(w, http.StatusConflict, "active_generation", err.Error())
+	case errors.Is(err, llmgateway.ErrInUse):
+		problem(w, http.StatusConflict, "connection_in_use", err.Error())
 	case errors.Is(err, product.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid_product", err.Error())
 	case errors.Is(err, llmgateway.ErrInvalid):

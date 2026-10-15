@@ -1,6 +1,16 @@
-import { Check, CircleAlert, Clock3, LoaderCircle } from 'lucide-react';
+import { Check, CircleAlert, Clock3, LoaderCircle, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { activeRun, duration, stageLabels, stageProgress, stages } from '../lib/generation';
+import {
+  activeRun,
+  cancelledRun,
+  duration,
+  stageLabels,
+  stageProgress,
+  stages,
+} from '../lib/generation';
+import { generationMessage } from '../lib/generationMessages';
+import { AnalysisProgress } from './AnalysisProgress';
+import { ResearchProgress } from './ResearchProgress';
 import { Badge } from './ui';
 import type { Run } from '../lib/api';
 
@@ -36,7 +46,13 @@ export function GenerationBadges({
           {runLabel}
         </Badge>
       )}
-      {run?.status === 'failed' && !busy && (
+      {cancelledRun(run) && !busy && (
+        <Badge>
+          <Square size={14} aria-hidden="true" />
+          Generation cancelled
+        </Badge>
+      )}
+      {run?.status === 'failed' && !cancelledRun(run) && !busy && (
         <Badge tone="error">
           <CircleAlert size={14} aria-hidden="true" />
           Generation failed
@@ -52,6 +68,9 @@ export function GenerationBadges({
 }
 
 function progressTitle(run: Run): string {
+  if (cancelledRun(run)) {
+    return 'Generation cancelled';
+  }
   if (run.status === 'failed') {
     return 'Generation stopped';
   }
@@ -83,6 +102,7 @@ export function GenerationProgress({
   }, [busy]);
   const end = run.finished_at === '' ? now : Date.parse(run.finished_at);
   const latest = run.events.at(-1);
+  const analysis = run.analysis ?? undefined;
   return (
     <section className="generation-progress" aria-label="Generation progress">
       <div className="progress-heading">
@@ -123,7 +143,26 @@ export function GenerationProgress({
           );
         })}
       </ol>
-      {latest !== undefined && <p className="progress-latest">{latest.message}</p>}
+      {run.research !== undefined && (
+        <ResearchProgress progress={run.research} running={busy && run.stage === 'researching'} />
+      )}
+      {analysis !== undefined && (
+        <AnalysisProgress
+          area={analysis.area_title}
+          action={analysis.action}
+          step={analysis.step}
+          checkpointRevision={analysis.checkpoint_revision}
+          counts={{
+            objects: analysis.objects,
+            claims: analysis.claims,
+            relations: analysis.relations,
+          }}
+          running={busy && run.stage === 'analyzing'}
+        />
+      )}
+      {latest !== undefined && (run.research === undefined || run.stage !== 'researching') && (
+        <p className="progress-latest">{generationMessage(latest.message)}</p>
+      )}
       <div className="progress-connection">
         {busy && <LoaderCircle size={14} aria-hidden="true" />}
         <span role="status">
@@ -143,8 +182,10 @@ export function GenerationProgress({
                 {new Date(event.created_at).toLocaleTimeString('en-GB')}
               </time>
               <div>
-                <span className="activity-stage">{stageLabels[event.stage] ?? event.stage}</span>
-                <p>{event.message}</p>
+                <span className="activity-stage">
+                  {generationMessage(stageLabels[event.stage] ?? event.stage)}
+                </span>
+                <p>{generationMessage(event.message)}</p>
               </div>
             </li>
           ))}

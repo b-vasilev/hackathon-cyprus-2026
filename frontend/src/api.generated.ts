@@ -100,6 +100,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/generations/{id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['cancelGeneration'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/generations/{id}/events': {
     parameters: {
       query?: never;
@@ -191,7 +207,7 @@ export interface paths {
     get: operations['getConnection'];
     put?: never;
     post?: never;
-    delete?: never;
+    delete: operations['deleteConnection'];
     options?: never;
     head?: never;
     patch: operations['updateConnection'];
@@ -288,7 +304,7 @@ export interface paths {
     get: operations['getProduct'];
     put?: never;
     post?: never;
-    delete?: never;
+    delete: operations['deleteProduct'];
     options?: never;
     head?: never;
     patch?: never;
@@ -575,11 +591,14 @@ export interface components {
     Diagram: {
       id: string;
       title: string;
-      /** @description One of context, components, domain, data, deployment, states. */
+      /** @description One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects. */
       kind: string;
       summary: string;
       node_ids: null | string[];
       relation_ids: null | string[];
+      /** @description Optional object ID whose immediate architectural children this view explains. */
+      scope_object_id?: string;
+      question?: string;
     };
     Evidence: {
       id: string;
@@ -610,6 +629,8 @@ export interface components {
     GenerationInput: {
       connection_id: string;
       model: string;
+      resume_run_id?: string;
+      request_timeout_seconds?: number;
     };
     GitHubConnection: {
       enabled: boolean;
@@ -721,7 +742,7 @@ export interface components {
           | null
           | {
               id: string;
-              /** @description One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner. */
+              /** @description One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units. */
               kind: string;
               name: string;
               summary: string;
@@ -732,6 +753,10 @@ export interface components {
               outputs: null | string[];
               contracts: null | string[];
               claim_ids: null | string[];
+              /** @description Optional software_system, runtime_unit or component. Describes logical structure, not source ownership. */
+              architecture_role?: string;
+              /** @description Optional architectural parent object ID. Never a repository provenance link. */
+              parent_id?: string;
             }[];
         relations:
           | null
@@ -743,6 +768,10 @@ export interface components {
               /** @description One of call, data, dependency, ownership, association, transition. */
               kind: string;
               claim_ids: null | string[];
+              /** @description Optional in_process, sync, async, artifact, build or unknown. */
+              interaction?: string;
+              /** @description Optional specific protocol, payload or artifact contract. */
+              contract?: string;
             }[];
         scenarios:
           | null
@@ -802,17 +831,53 @@ export interface components {
           | {
               id: string;
               title: string;
-              /** @description One of context, components, domain, data, deployment, states. */
+              /** @description One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects. */
               kind: string;
               summary: string;
               node_ids: null | string[];
               relation_ids: null | string[];
+              /** @description Optional object ID whose immediate architectural children this view explains. */
+              scope_object_id?: string;
+              question?: string;
             }[];
         card_theme: null | {
-          /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+          /** @description Brand accent as a six-digit hex color, for example #6550B9. */
           accent_color: string;
-          /** @description Product card background as a six-digit hex colour. */
+          /** @description Product card background as a six-digit hex color. */
           background_color: string;
+          /** @description Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL. */
+          logo_url: string;
+          /** @description Brand provenance populated by the server; leave empty. */
+          sources:
+            | null
+            | {
+                label: string;
+                url: string;
+              }[];
+        };
+        document?: null | {
+          /** @description Must be 2. */
+          version: number;
+          chapters:
+            | null
+            | {
+                id: string;
+                title: string;
+                question: string;
+                blocks:
+                  | null
+                  | {
+                      /** @description One of markdown, diagram_ref, scenario_ref, object_table. */
+                      kind: string;
+                      /** @description Plain Markdown only, without raw HTML or executable JS/MDX. */
+                      markdown?: string;
+                      reference_id?: string;
+                      object_ids?: null | string[];
+                      claim_ids?: null | string[];
+                      /** @description For object_table only: objects, repositories or technologies. */
+                      table_style?: string;
+                    }[];
+              }[];
         };
       };
     };
@@ -848,10 +913,19 @@ export interface components {
         text: string;
       };
       card_theme?: null | {
-        /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+        /** @description Brand accent as a six-digit hex color, for example #6550B9. */
         accent_color: string;
-        /** @description Product card background as a six-digit hex colour. */
+        /** @description Product card background as a six-digit hex color. */
         background_color: string;
+        /** @description Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL. */
+        logo_url: string;
+        /** @description Brand provenance populated by the server; leave empty. */
+        sources:
+          | null
+          | {
+              label: string;
+              url: string;
+            }[];
       };
       created_at: string;
       latest_revision_id: string;
@@ -883,7 +957,7 @@ export interface components {
         | null
         | {
             id: string;
-            /** @description One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner. */
+            /** @description One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units. */
             kind: string;
             name: string;
             summary: string;
@@ -894,6 +968,10 @@ export interface components {
             outputs: null | string[];
             contracts: null | string[];
             claim_ids: null | string[];
+            /** @description Optional software_system, runtime_unit or component. Describes logical structure, not source ownership. */
+            architecture_role?: string;
+            /** @description Optional architectural parent object ID. Never a repository provenance link. */
+            parent_id?: string;
           }[];
       relations:
         | null
@@ -905,6 +983,10 @@ export interface components {
             /** @description One of call, data, dependency, ownership, association, transition. */
             kind: string;
             claim_ids: null | string[];
+            /** @description Optional in_process, sync, async, artifact, build or unknown. */
+            interaction?: string;
+            /** @description Optional specific protocol, payload or artifact contract. */
+            contract?: string;
           }[];
       scenarios:
         | null
@@ -946,7 +1028,7 @@ export interface components {
     };
     ProductObject: {
       id: string;
-      /** @description One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner. */
+      /** @description One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units. */
       kind: string;
       name: string;
       summary: string;
@@ -957,6 +1039,10 @@ export interface components {
       outputs: null | string[];
       contracts: null | string[];
       claim_ids: null | string[];
+      /** @description Optional software_system, runtime_unit or component. Describes logical structure, not source ownership. */
+      architecture_role?: string;
+      /** @description Optional architectural parent object ID. Never a repository provenance link. */
+      parent_id?: string;
     };
     Relation: {
       id: string;
@@ -966,6 +1052,10 @@ export interface components {
       /** @description One of call, data, dependency, ownership, association, transition. */
       kind: string;
       claim_ids: null | string[];
+      /** @description Optional in_process, sync, async, artifact, build or unknown. */
+      interaction?: string;
+      /** @description Optional specific protocol, payload or artifact contract. */
+      contract?: string;
     };
     Revision: {
       id: string;
@@ -983,7 +1073,7 @@ export interface components {
             | null
             | {
                 id: string;
-                /** @description One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner. */
+                /** @description One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units. */
                 kind: string;
                 name: string;
                 summary: string;
@@ -994,6 +1084,10 @@ export interface components {
                 outputs: null | string[];
                 contracts: null | string[];
                 claim_ids: null | string[];
+                /** @description Optional software_system, runtime_unit or component. Describes logical structure, not source ownership. */
+                architecture_role?: string;
+                /** @description Optional architectural parent object ID. Never a repository provenance link. */
+                parent_id?: string;
               }[];
           relations:
             | null
@@ -1005,6 +1099,10 @@ export interface components {
                 /** @description One of call, data, dependency, ownership, association, transition. */
                 kind: string;
                 claim_ids: null | string[];
+                /** @description Optional in_process, sync, async, artifact, build or unknown. */
+                interaction?: string;
+                /** @description Optional specific protocol, payload or artifact contract. */
+                contract?: string;
               }[];
           scenarios:
             | null
@@ -1064,17 +1162,53 @@ export interface components {
             | {
                 id: string;
                 title: string;
-                /** @description One of context, components, domain, data, deployment, states. */
+                /** @description One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects. */
                 kind: string;
                 summary: string;
                 node_ids: null | string[];
                 relation_ids: null | string[];
+                /** @description Optional object ID whose immediate architectural children this view explains. */
+                scope_object_id?: string;
+                question?: string;
               }[];
           card_theme: null | {
-            /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+            /** @description Brand accent as a six-digit hex color, for example #6550B9. */
             accent_color: string;
-            /** @description Product card background as a six-digit hex colour. */
+            /** @description Product card background as a six-digit hex color. */
             background_color: string;
+            /** @description Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL. */
+            logo_url: string;
+            /** @description Brand provenance populated by the server; leave empty. */
+            sources:
+              | null
+              | {
+                  label: string;
+                  url: string;
+                }[];
+          };
+          document?: null | {
+            /** @description Must be 2. */
+            version: number;
+            chapters:
+              | null
+              | {
+                  id: string;
+                  title: string;
+                  question: string;
+                  blocks:
+                    | null
+                    | {
+                        /** @description One of markdown, diagram_ref, scenario_ref, object_table. */
+                        kind: string;
+                        /** @description Plain Markdown only, without raw HTML or executable JS/MDX. */
+                        markdown?: string;
+                        reference_id?: string;
+                        object_ids?: null | string[];
+                        claim_ids?: null | string[];
+                        /** @description For object_table only: objects, repositories or technologies. */
+                        table_style?: string;
+                      }[];
+                }[];
           };
         };
       };
@@ -1123,6 +1257,7 @@ export interface components {
       connection_id: string;
       connection_revision: number;
       model: string;
+      request_timeout_seconds: number;
       status: string;
       stage: string;
       error_code: string;
@@ -1141,6 +1276,79 @@ export interface components {
         message: string;
         created_at: string;
       }[];
+      research?: {
+        execution?: string;
+        status: string;
+        areas: {
+          id: string;
+          name: string;
+          repository: string;
+          /** @enum {string} */
+          status: 'not_started' | 'investigating' | 'checked' | 'blocked' | 'excluded';
+          questions: {
+            id: string;
+            question: string;
+            /** @enum {string} */
+            status: 'pending' | 'answered' | 'not_applicable' | 'blocked' | 'excluded';
+            result: string;
+            evidence: {
+              document_id: string;
+              path: string;
+              start_line: number;
+              end_line: number;
+            }[];
+          }[];
+        }[];
+        focus: {
+          area: string;
+          question: string;
+          reason: string;
+        };
+        activity: string;
+        last_result: string;
+        budget: {
+          used: number;
+          limit: number;
+          hard_limit: number;
+          deadline: string;
+          decisions: {
+            turn: number;
+            limit: number;
+            kind: string;
+            reason: string;
+          }[];
+        };
+        parallel?: {
+          waiting?: number;
+          requests?: number;
+          limit: number;
+          active: number;
+          queued: number;
+          workers: {
+            question?: string;
+            status?: string;
+            turns?: number;
+            id: string;
+            task: string;
+            focus: {
+              area: string;
+              question: string;
+              reason: string;
+            };
+            activity: string;
+          }[];
+        };
+      };
+      analysis?: null | {
+        area_id: string;
+        area_title: string;
+        action: string;
+        step: number;
+        checkpoint_revision: number;
+        objects: number;
+        claims: number;
+        relations: number;
+      };
     };
     Scenario: {
       id: string;
@@ -1346,6 +1554,37 @@ export interface operations {
     };
   };
   getGeneration: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Run'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  cancelGeneration: {
     parameters: {
       query?: never;
       header?: never;
@@ -1658,6 +1897,37 @@ export interface operations {
       };
     };
   };
+  deleteConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Connection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   updateConnection: {
     parameters: {
       query?: never;
@@ -1874,6 +2144,37 @@ export interface operations {
     };
   };
   getProduct: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Product'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  deleteProduct: {
     parameters: {
       query?: never;
       header?: never;
