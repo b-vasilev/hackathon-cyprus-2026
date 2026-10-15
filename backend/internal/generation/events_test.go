@@ -34,8 +34,10 @@ func (g *repairingGenerator) Generate(ctx context.Context, config llmgateway.Con
 		views := fixtureViews()
 		views.Sections = views.Sections[:1] // Forces the passport repair path.
 		value = views
+	case strings.HasPrefix(request.Input, "Repair this passport") && strings.Contains(request.Input, "\nVIEWS:\n"):
+		value = fixtureViews()
 	case strings.HasPrefix(request.Input, "Repair this passport"):
-		value = passport.Passport{Model: g.model, Views: fixtureViews()}
+		value = g.model
 	default:
 		result, err := g.fixture.Generate(ctx, config, request)
 		if err != nil {

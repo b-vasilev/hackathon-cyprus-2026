@@ -102,7 +102,17 @@ func (c *Client) Generate(ctx context.Context, config llmgateway.Config, request
 		if model.OutputMode == "tool_call" {
 			opts = append(opts, aoption.WithJSONSet("tools", []any{map[string]any{"name": "emit_result", "description": "Return the completed task as structured data.", "input_schema": request.Schema}}), aoption.WithJSONSet("tool_choice", map[string]any{"type": "tool", "name": "emit_result"}))
 		}
-		response, err = client.Messages.New(ctx, params, opts...)
+		// Stream so large output budgets are not refused by the SDK's 10-minute non-streaming guard.
+		stream := client.Messages.NewStreaming(ctx, params, opts...)
+		var message anthropic.Message
+		for err == nil && stream.Next() {
+			err = message.Accumulate(stream.Current())
+		}
+		if err == nil {
+			err = stream.Err()
+		}
+		_ = stream.Close()
+		response = message
 	default:
 		return Result{}, &ProviderError{Code: "unsupported_protocol", Message: "Unsupported connection protocol."}
 	}

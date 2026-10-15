@@ -374,8 +374,7 @@ func (s *Service) process(ctx context.Context, run Run) error {
 		if checkErr := s.stage(ctx, run.ID, "repairing"); checkErr != nil {
 			return checkErr
 		}
-		encoded, _ := json.Marshal(p)
-		p, err = generate[passport.Passport](ctx, s, run, "repairing", repairPrompt+"\nSECTION REQUIREMENTS:\n"+requirements+"\nERROR:\n"+validationErr.Error()+"\nPASSPORT:\n"+string(encoded)+"\nSOURCES:\n"+contextText+brandContext)
+		p, err = repair(ctx, s, run, p, validationErr.Error(), requirements, contextText, brandContext)
 		if err != nil {
 			return err
 		}
@@ -395,9 +394,26 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	return s.saveRevision(ctx, run, p)
 }
 
+// repair fixes model and views in separate calls: the combined passport schema exceeds strict-output grammar limits.
+func repair(ctx context.Context, s *Service, run Run, p passport.Passport, diagnostics, requirements, contextText, brandContext string) (passport.Passport, error) {
+	encoded, _ := json.Marshal(p)
+	model, err := generate[passport.Model](ctx, s, run, "repairing", repairPrompt+"\nIn this step, return only the repaired model; the views are repaired next.\nSECTION REQUIREMENTS:\n"+requirements+"\nERROR:\n"+diagnostics+"\nPASSPORT:\n"+string(encoded)+"\nSOURCES:\n"+contextText)
+	if err != nil {
+		return p, err
+	}
+	modelJSON, _ := json.Marshal(model)
+	viewsJSON, _ := json.Marshal(p.Views)
+	views, err := generate[passport.Views](ctx, s, run, "repairing", repairPrompt+"\nIn this step, return only the repaired views. Reference only IDs in the repaired MODEL.\nSECTION REQUIREMENTS:\n"+requirements+"\nERROR:\n"+diagnostics+"\nMODEL:\n"+string(modelJSON)+"\nVIEWS:\n"+string(viewsJSON)+brandContext)
+	if err != nil {
+		return p, err
+	}
+	p.Model, p.Views = model, views
+	return p, nil
+}
+
 func generate[T any](ctx context.Context, s *Service, run Run, stage, input string) (T, error) {
 	var empty T
-	schema, err := passport.Schema[T]()
+	schema, err := passport.OutputSchema[T]()
 	if err != nil {
 		return empty, err
 	}
