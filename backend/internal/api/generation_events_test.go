@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
@@ -57,7 +58,7 @@ func TestGenerationStreamReplayAndCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := generation.New(database, connections, nil, nil, zerolog.Nop())
+	service := generation.New(database, connections, nil, nil, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
 	p, err := service.Products.Create(ctx, product.Input{Name: "Fixture", Sources: []source.Input{{Kind: "text", Text: "Fixture source"}}})
 	if err != nil {
 		t.Fatal(err)

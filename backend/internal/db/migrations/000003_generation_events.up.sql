@@ -10,3 +10,12 @@ CREATE TABLE generation_events (
     created_at TEXT NOT NULL
 );
 CREATE INDEX generation_events_run_id ON generation_events(run_id, id);
+
+ALTER TABLE passport_revisions ADD COLUMN content_path TEXT NOT NULL DEFAULT '';
+ALTER TABLE passport_revisions ADD COLUMN content_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE source_documents ADD COLUMN content_path TEXT NOT NULL DEFAULT '';
+ALTER TABLE llm_calls ADD COLUMN output_path TEXT NOT NULL DEFAULT '';
+ALTER TABLE llm_calls ADD COLUMN output_hash TEXT NOT NULL DEFAULT '';
+
+-- Startup exports legacy payloads and clears their old columns only after the
+-- corresponding files are written, synced and verified. API contracts are unchanged.

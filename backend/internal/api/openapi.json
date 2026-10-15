@@ -628,6 +628,50 @@
         ],
         "additionalProperties": false
       },
+      "GitHubConnection": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "login": {
+            "type": "string"
+          },
+          "auth_method": {
+            "type": "string"
+          },
+          "connected_at": {
+            "type": "string"
+          },
+          "oauth_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "connected",
+          "login",
+          "auth_method",
+          "connected_at",
+          "oauth_enabled"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubTokenInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "additionalProperties": false
+      },
       "Health": {
         "properties": {
           "status": {
@@ -665,6 +709,18 @@
           "output_mode",
           "max_output_tokens",
           "reasoning_effort"
+        ],
+        "additionalProperties": false
+      },
+      "OAuthURL": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
         ],
         "additionalProperties": false
       },
@@ -1155,11 +1211,33 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "card_theme": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "accent_color": {
+                    "type": "string",
+                    "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                  },
+                  "background_color": {
+                    "type": "string",
+                    "description": "Product card background as a six-digit hex colour."
+                  }
+                },
+                "required": [
+                  "accent_color",
+                  "background_color"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
               "sections",
-              "diagrams"
+              "diagrams",
+              "card_theme"
             ],
             "additionalProperties": false
           }
@@ -1269,6 +1347,50 @@
               "additionalProperties": false
             }
           },
+          "card_brandkit": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "file_name": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url",
+              "file_name",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          "card_theme": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "accent_color": {
+                "type": "string",
+                "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+              },
+              "background_color": {
+                "type": "string",
+                "description": "Product card background as a six-digit hex colour."
+              }
+            },
+            "required": [
+              "accent_color",
+              "background_color"
+            ],
+            "additionalProperties": false
+          },
           "created_at": {
             "type": "string"
           },
@@ -1332,6 +1454,29 @@
               ],
               "additionalProperties": false
             }
+          },
+          "card_brandkit": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "file_name": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url",
+              "file_name",
+              "text"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -2271,11 +2416,33 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "card_theme": {
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "accent_color": {
+                        "type": "string",
+                        "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                      },
+                      "background_color": {
+                        "type": "string",
+                        "description": "Product card background as a six-digit hex colour."
+                      }
+                    },
+                    "required": [
+                      "accent_color",
+                      "background_color"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
                   "sections",
-                  "diagrams"
+                  "diagrams",
+                  "card_theme"
                 ],
                 "additionalProperties": false
               }
@@ -2317,13 +2484,75 @@
                     },
                     "note": {
                       "type": "string"
+                    },
+                    "read_files": {
+                      "type": "integer"
+                    },
+                    "cited_files": {
+                      "type": "integer"
+                    },
+                    "files": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "bytes": {
+                            "type": "integer"
+                          },
+                          "read_ranges": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "start_line": {
+                                  "type": "integer"
+                                },
+                                "end_line": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "start_line",
+                                "end_line"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "cited": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "path",
+                          "bytes",
+                          "read_ranges",
+                          "cited"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "file_count",
                     "bytes",
                     "selection",
-                    "note"
+                    "note",
+                    "read_files",
+                    "cited_files",
+                    "files"
                   ],
                   "additionalProperties": false
                 }
@@ -2789,6 +3018,120 @@
               }
             },
             "description": "Generation event stream"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/git-connection": {
+      "delete": {
+        "operationId": "disconnectGitHub",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "get": {
+        "operationId": "getGitHubConnection",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "connectGitHubToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubTokenInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/git-connection/oauth/start": {
+      "post": {
+        "operationId": "startGitHubOAuth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthURL"
+                }
+              }
+            },
+            "description": "Success"
           },
           "default": {
             "content": {

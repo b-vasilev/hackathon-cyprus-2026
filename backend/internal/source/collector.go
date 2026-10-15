@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -23,6 +22,7 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+	git "github.com/go-git/go-git/v5"
 )
 
 // Input is either a GitHub repository or supplemental product context.
@@ -44,10 +44,28 @@ type Snapshot struct {
 
 // Coverage describes collection limits without claiming complete repository analysis.
 type Coverage struct {
-	FileCount int    `json:"file_count"`
-	Bytes     int    `json:"bytes"`
-	Selection string `json:"selection"`
-	Note      string `json:"note"`
+	FileCount  int            `json:"file_count"`
+	Bytes      int            `json:"bytes"`
+	Selection  string         `json:"selection"`
+	Note       string         `json:"note"`
+	ReadFiles  int            `json:"read_files"`
+	CitedFiles int            `json:"cited_files"`
+	Files      []FileCoverage `json:"files"`
+}
+
+// LineRange records original source lines actually returned to the researcher.
+type LineRange struct {
+	StartLine int `json:"start_line"`
+	EndLine   int `json:"end_line"`
+}
+
+// FileCoverage distinguishes indexed files from files read and cited by the model.
+type FileCoverage struct {
+	ID         string      `json:"id"`
+	Path       string      `json:"path"`
+	Bytes      int         `json:"bytes"`
+	ReadRanges []LineRange `json:"read_ranges"`
+	Cited      bool        `json:"cited"`
 }
 
 // Document preserves the original collected text and its stable line numbering.
@@ -77,6 +95,7 @@ type SelectFiles func(context.Context, string) ([]string, error)
 // Collector invokes a pinned Repomix executable; repository code is never executed.
 type Collector struct {
 	WorkDir, RepomixBin, GitHubToken string
+	Token                            func(context.Context) (string, error)
 	MaxBytes, MaxFiles               int
 	CacheScope                       string
 	cacheMu                          sync.Mutex
@@ -121,6 +140,16 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 	if checkErr := Validate(inputs); checkErr != nil {
 		return Collection{}, checkErr
 	}
+	if c.Token != nil && slices.ContainsFunc(inputs, func(input Input) bool { return input.Kind == "github" }) {
+		token, err := c.Token(ctx)
+		if err != nil {
+			return Collection{}, fmt.Errorf("load GitHub connection: %w", err)
+		}
+		if token == "" {
+			token = c.GitHubToken
+		}
+		ctx = context.WithValue(ctx, githubTokenKey{}, token)
+	}
 	result := Collection{Snapshots: make([]Snapshot, 0), Documents: make([]Document, 0)}
 	bytes := 0
 	for _, input := range inputs {
@@ -154,8 +183,8 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 			if content == "" {
 				continue
 			}
-			if len(content) > 128*1024 {
-				return Collection{}, errors.New("a selected source file exceeds 128 KiB; narrow the source include patterns")
+			if len(content) > 8*1024*1024 {
+				return Collection{}, errors.New("a source file exceeds the 8 MiB safety ceiling")
 			}
 			bytes += len(content)
 			if bytes > c.MaxBytes || len(result.Documents) >= c.MaxFiles {
@@ -167,7 +196,7 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 			snapshot.Coverage.Bytes += len(content)
 		}
 		snapshot.Coverage.Selection = input.Include
-		snapshot.Coverage.Note = "Selected text files only. Build outputs, dependencies, binary files and secret-like files are excluded. Missing material is not evidence of absent behavior."
+		snapshot.Coverage.Note = "Repository text indexed at the pinned SHA. Build outputs, dependencies, binary files and secret-like files are excluded. Available files are not automatically read by the model."
 		if cached {
 			snapshot.Coverage.Note += " Reused the safe source package at the unchanged commit SHA."
 		}
@@ -185,25 +214,32 @@ func (c *Collector) repositoryFiles(ctx context.Context, input Input, sha string
 	files, cached := c.cache[key]
 	c.cacheMu.Unlock()
 	if !cached {
-		selected, selectErr := c.selectPaths(ctx, input, sha, choose, budget)
-		if selectErr != nil {
-			return nil, false, selectErr
-		}
-		packed, packErr := c.pack(ctx, input, sha, selected)
-		files = packed
-		if packErr != nil {
-			return nil, false, packErr
-		}
-		c.cacheMu.Lock()
-		if len(c.cache) >= 8 {
-			clear(c.cache)
-		}
-		if c.cache == nil {
-			c.cache = make(map[string]map[string]string)
-		}
-		c.cache[key] = files
-		c.cacheMu.Unlock()
+		files, cached = c.loadPackage(key)
 	}
+	if cached {
+		return files, true, nil
+	}
+	selected, selectErr := c.selectPaths(ctx, input, sha, choose, budget)
+	if selectErr != nil {
+		return nil, false, selectErr
+	}
+	packed, packErr := c.pack(ctx, input, sha, selected)
+	files = packed
+	if packErr != nil {
+		return nil, false, packErr
+	}
+	if err := c.savePackage(key, files); err != nil {
+		return nil, false, err
+	}
+	c.cacheMu.Lock()
+	if len(c.cache) >= 8 {
+		clear(c.cache)
+	}
+	if c.cache == nil {
+		c.cache = make(map[string]map[string]string)
+	}
+	c.cache[key] = files
+	c.cacheMu.Unlock()
 	return files, cached, nil
 }
 
@@ -222,8 +258,8 @@ func (c *Collector) resolve(ctx context.Context, input Input) (string, error) {
 		return "", fmt.Errorf("build GitHub request: %w", err)
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	if c.GitHubToken != "" {
-		request.Header.Set("Authorization", "Bearer "+c.GitHubToken)
+	if token := c.githubToken(ctx); token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
 	}
 	client := http.Client{Timeout: 30 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
 	response, err := client.Do(request)
@@ -243,7 +279,6 @@ func (c *Collector) resolve(ctx context.Context, input Input) (string, error) {
 	return commit.SHA, nil
 }
 
-//nolint:gocyclo // Keep collection, safe staging and original-byte preservation in one bounded operation.
 func (c *Collector) pack(ctx context.Context, input Input, sha string, selected []string) (map[string]string, error) {
 	if checkErr := os.MkdirAll(c.WorkDir, 0o700); checkErr != nil {
 		return nil, fmt.Errorf("create collection workspace: %w", checkErr)
@@ -256,53 +291,30 @@ func (c *Collector) pack(ctx context.Context, input Input, sha string, selected 
 	output := filepath.Join(dir, "source.json")
 	configPath := filepath.Join(dir, "repomix.config.json")
 	env := c.commandEnv(dir)
-	repository := filepath.Join(dir, "git")
-	if checkErr := os.Mkdir(repository, 0o700); checkErr != nil {
-		return nil, fmt.Errorf("create Git source workspace: %w", checkErr)
+	repository, err := fetchGitRepository(ctx, filepath.Join(dir, "git"), input.Locator, sha, c.githubToken(ctx))
+	if err != nil {
+		return nil, err
 	}
-	for _, args := range [][]string{
-		{"init", "--quiet", repository},
-		{"-C", repository, "remote", "add", "origin", input.Locator},
-		{"-C", repository, "config", "remote.origin.promisor", "true"},
-		{"-C", repository, "config", "remote.origin.partialclonefilter", "blob:none"},
-		{"-C", repository, "fetch", "--quiet", "--filter=blob:none", "--depth", "1", "--recurse-submodules=no", "origin", sha},
-	} {
-		//nolint:gosec // Fixed executable and argument list; no shell or repository code is executed.
-		command := exec.CommandContext(ctx, "git", args...)
-		command.Env = env
-		command.Stdout = io.Discard
-		command.Stderr = io.Discard
-		if checkErr := command.Run(); checkErr != nil {
-			return nil, errors.New("could not fetch the pinned source revision; check repository access")
-		}
-	}
+	return c.packRepository(ctx, dir, repository, sha, selected, env, output, configPath)
+}
+
+func (c *Collector) packRepository(ctx context.Context, dir string, repository *git.Repository, sha string, selected, env []string, output, configPath string) (map[string]string, error) {
 	selectedDir := filepath.Join(dir, "selected")
 	if checkErr := os.Mkdir(selectedDir, 0o700); checkErr != nil {
 		return nil, fmt.Errorf("create selected source workspace: %w", checkErr)
 	}
-	originals := make(map[string]string, len(selected))
-	for _, path := range selected {
-		if !filepath.IsLocal(path) {
-			return nil, errors.New("source catalog contains an invalid path")
-		}
-		//nolint:gosec // SHA and exact relative path come from the verified GitHub catalog.
-		command := exec.CommandContext(ctx, "git", "-C", repository, "show", sha+":"+path)
-		command.Env = env
-		content, err := command.Output()
-		if err != nil {
-			return nil, errors.New("could not read an original file at the pinned revision")
-		}
-		if len(content) > 128*1024 {
-			return nil, errors.New("selected source file exceeds the file budget")
-		}
+	originals, readErr := readGitFiles(ctx, repository, sha, selected, c.MaxBytes)
+	if readErr != nil {
+		return nil, readErr
+	}
+	for path, content := range originals {
 		target := filepath.Join(selectedDir, path)
 		if checkErr := os.MkdirAll(filepath.Dir(target), 0o700); checkErr != nil {
 			return nil, fmt.Errorf("create source directory: %w", checkErr)
 		}
-		if checkErr := os.WriteFile(target, content, 0o600); checkErr != nil {
+		if checkErr := os.WriteFile(target, []byte(content), 0o600); checkErr != nil {
 			return nil, fmt.Errorf("write source evidence: %w", checkErr)
 		}
-		originals[path] = string(content)
 	}
 	config := map[string]any{"output": map[string]any{"filePath": output, "style": "json", "removeComments": false, "removeEmptyLines": false, "showLineNumbers": false, "compress": false, "fileSummary": false}, "security": map[string]any{"enableSecurityCheck": true}, "ignore": map[string]any{"useGitignore": true, "useDefaultPatterns": true, "customPatterns": []string{"**/.env*", "**/*.pem", "**/*.key", "**/credentials*", "**/package-lock.json", "**/go.sum", "**/pnpm-lock.yaml", "**/yarn.lock", "**/*.min.js", "**/*.svg", "**/*.lock"}}}
 	patterns := make([]string, 0, len(selected))
@@ -318,7 +330,7 @@ func (c *Collector) pack(ctx context.Context, input Input, sha string, selected 
 	if checkErr := os.WriteFile(configPath, encoded, 0o600); checkErr != nil {
 		return nil, fmt.Errorf("write collection settings: %w", checkErr)
 	}
-	args := []string{selectedDir, "--config", configPath, "--output", output, "--style", "json", "--quiet", "--no-git-sort-by-changes", "--token-budget", "100000"}
+	args := []string{selectedDir, "--config", configPath, "--output", output, "--style", "json", "--quiet", "--no-git-sort-by-changes"}
 	//nolint:gosec // Executable is operator-configured; arguments are fixed or app-owned local paths.
 	command := exec.CommandContext(ctx, c.RepomixBin, args...)
 	command.Dir = dir
@@ -337,7 +349,7 @@ func (c *Collector) pack(ctx context.Context, input Input, sha string, selected 
 	var packed struct {
 		Files map[string]string `json:"files"`
 	}
-	if checkErr := json.NewDecoder(io.LimitReader(file, int64(c.MaxBytes)+(1<<20))).Decode(&packed); checkErr != nil {
+	if checkErr := json.NewDecoder(io.LimitReader(file, int64(c.MaxBytes)*3+(1<<20))).Decode(&packed); checkErr != nil {
 		return nil, errors.New("repomix source package is invalid or exceeds the collection budget")
 	}
 	// Repomix trims surrounding whitespace. Use its safe-file selection, but retain
@@ -355,16 +367,12 @@ func (c *Collector) commandEnv(dir string) []string {
 	env := make([]string, 0)
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
-		if strings.HasPrefix(name, "GIT_") || slices.Contains([]string{"TMPDIR", "LLM_MASTER_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN"}, name) {
+		if strings.HasPrefix(name, "GIT_") || slices.Contains([]string{"TMPDIR", "LLM_MASTER_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN", "GITHUB_OAUTH_CLIENT_SECRET"}, name) {
 			continue
 		}
 		env = append(env, entry)
 	}
-	env = append(env, "TMPDIR="+dir, "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=core.hooksPath", "GIT_CONFIG_VALUE_0=/dev/null")
-	if c.GitHubToken != "" {
-		env[len(env)-3] = "GIT_CONFIG_COUNT=2"
-		env = append(env, "GIT_CONFIG_KEY_1=http.https://github.com/.extraheader", "GIT_CONFIG_VALUE_1=Authorization: Basic "+base64.StdEncoding.EncodeToString([]byte("x-access-token:"+c.GitHubToken)))
-	}
+	env = append(env, "TMPDIR="+dir)
 	return env
 }
 
@@ -384,8 +392,8 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 		return nil, fmt.Errorf("build source catalog request: %w", err)
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	if c.GitHubToken != "" {
-		request.Header.Set("Authorization", "Bearer "+c.GitHubToken)
+	if token := c.githubToken(ctx); token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
 	}
 	client := http.Client{Timeout: 30 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
 	response, err := client.Do(request)
@@ -428,8 +436,8 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 		if !matches {
 			continue
 		}
-		if len(eligible) >= 5000 {
-			break
+		if len(eligible) >= c.MaxFiles {
+			return nil, errors.New("repository exceeds the configured file safety ceiling; no partial catalog was used")
 		}
 		eligible[file.Path] = file.Size
 		id := fmt.Sprintf("f%d", len(eligible))
@@ -445,7 +453,12 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 		return nil, errors.New("no eligible text/source files match this repository selection")
 	}
 	if choose == nil {
-		return nil, errors.New("automatic source selection requires a configured model")
+		paths := make([]string, 0, len(eligible))
+		for path := range eligible {
+			paths = append(paths, path)
+		}
+		slices.Sort(paths)
+		return paths, nil
 	}
 	chosen, err := choose(ctx, fmt.Sprintf("Repository: %s\nCommit: %s\nFile budget: at most %d files and %d bytes. Catalog limit: 5000 eligible entries.\nCATALOG:\n%s", input.Locator, sha, min(c.MaxFiles, 80), budget, catalog.String()))
 	if err != nil {
@@ -479,7 +492,7 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 }
 
 func eligibleFile(file treeFile) bool {
-	if file.Type != "blob" || file.Mode == "120000" || file.Size < 1 || file.Size > 128*1024 {
+	if file.Type != "blob" || file.Mode == "120000" || file.Size < 1 || file.Size > 8<<20 {
 		return false
 	}
 	path := strings.ToLower(file.Path)
@@ -491,7 +504,7 @@ func eligibleFile(file treeFile) bool {
 		return false
 	}
 	for part := range strings.SplitSeq(path, "/") {
-		if slices.Contains([]string{"node_modules", "vendor", ".git", "dist", "build", "bin", "obj", "coverage", "__pycache__", "artifacts", "testdata", "fixtures", "__snapshots__"}, part) {
+		if slices.Contains([]string{"node_modules", "vendor", ".git", "dist", "build", "bin", "obj", "coverage", "__pycache__", "artifacts"}, part) {
 			return false
 		}
 	}

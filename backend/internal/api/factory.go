@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
@@ -19,6 +20,8 @@ import (
 
 // Factory exposes product, connection and generation operations.
 type Factory struct {
+	GitHub      *githubconnection.Store
+	GitHubOAuth githubconnection.OAuthConfig
 	Service     *generation.Service
 	Network     llmgateway.NetworkPolicy
 	FrontendDir string
@@ -50,6 +53,7 @@ type FactoryStatus struct {
 }
 
 func (f *Factory) register(mux *http.ServeMux) {
+	f.registerGitHub(mux)
 	if f.FrontendDir != "" {
 		mux.Handle("GET /", frontend(f.FrontendDir))
 	}
@@ -296,6 +300,8 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusBadRequest, "invalid_product", err.Error())
 	case errors.Is(err, llmgateway.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid_connection", err.Error())
+	case errors.Is(err, githubconnection.ErrInvalid):
+		problem(w, http.StatusBadRequest, "invalid_github_connection", err.Error())
 	case errors.As(err, &failure):
 		problem(w, http.StatusBadGateway, failure.Code, failure.Message)
 	default:

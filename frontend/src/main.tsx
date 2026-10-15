@@ -32,7 +32,7 @@ createRoot(root).render(
               <NavLink to="/" end>
                 Product spaces
               </NavLink>
-              <NavLink to="/connections">LLM connections</NavLink>
+              <NavLink to="/connections">Connections</NavLink>
             </nav>
             <span className="header-caption">Know the product. Find your way.</span>
           </div>
@@ -47,7 +47,7 @@ createRoot(root).render(
           </Routes>
         </main>
         <footer className="site-footer">
-          <span>onboarding factory</span>
+          <span>Wayfinder</span>
           <span>Source-backed drafts. Human understanding.</span>
         </footer>
       </BrowserRouter>

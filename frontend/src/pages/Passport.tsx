@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
+import { SourceCoverage } from '../components/SourceCoverage';
 import { EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
 import {
   api,
@@ -18,6 +19,7 @@ import {
   type Run,
 } from '../lib/api';
 import { activeRun, stageLabels } from '../lib/generation';
+import { productCardTheme } from '../lib/productCardTheme';
 import { useGeneration } from '../lib/useGeneration';
 
 export function PassportPage() {
@@ -111,7 +113,10 @@ export function PassportPage() {
       <Link to="/" className="back-link">
         ← Product spaces
       </Link>
-      <div className="passport-heading">
+      <div
+        className={`passport-heading${revision.data?.content.views.card_theme ? ' product-branded' : ''}`}
+        style={productCardTheme(revision.data?.content.views.card_theme)}
+      >
         <div>
           <p className="eyebrow">Product passport</p>
           <h1>{revision.data?.content.model.title ?? product.data.name}</h1>
@@ -119,6 +124,14 @@ export function PassportPage() {
             {revision.data?.content.model.tagline ??
               'Connect the sources. Generate the picture. Inspect the evidence.'}
           </p>
+          {product.data.card_brandkit && (
+            <p className="brandkit-note">
+              Product card brand kit:{' '}
+              {product.data.card_brandkit.file_name === ''
+                ? product.data.card_brandkit.url
+                : product.data.card_brandkit.file_name}
+            </p>
+          )}
         </div>
         <GenerationBadges
           run={run.data}
@@ -280,6 +293,7 @@ export function PassportPage() {
                   {snapshot.coverage.selection !== '' && (
                     <p className="meta">Selection: {snapshot.coverage.selection}</p>
                   )}
+                  <SourceCoverage snapshot={snapshot} />
                 </div>
                 {snapshot.locator.startsWith('https://github.com/') && (
                   <ExternalLink

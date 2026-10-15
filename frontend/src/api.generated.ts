@@ -53,6 +53,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/git-connection': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getGitHubConnection'];
+    put: operations['connectGitHubToken'];
+    post?: never;
+    delete: operations['disconnectGitHub'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/git-connection/oauth/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['startGitHubOAuth'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/llm-connections': {
     parameters: {
       query?: never;
@@ -428,6 +460,17 @@ export interface components {
       connection_id: string;
       model: string;
     };
+    GitHubConnection: {
+      enabled: boolean;
+      connected: boolean;
+      login: string;
+      auth_method: string;
+      connected_at: string;
+      oauth_enabled: boolean;
+    };
+    GitHubTokenInput: {
+      token: string;
+    };
     Health: {
       /** @enum {string} */
       status: 'ok' | 'ready' | 'unavailable';
@@ -437,6 +480,9 @@ export interface components {
       output_mode: string;
       max_output_tokens: number;
       reasoning_effort: string;
+    };
+    OAuthURL: {
+      url: string;
     };
     Parameter: {
       name: string;
@@ -539,6 +585,12 @@ export interface components {
               node_ids: null | string[];
               relation_ids: null | string[];
             }[];
+        card_theme: null | {
+          /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+          accent_color: string;
+          /** @description Product card background as a six-digit hex colour. */
+          background_color: string;
+        };
       };
     };
     Probe: {
@@ -567,6 +619,17 @@ export interface components {
             include: string;
             text: string;
           }[];
+      card_brandkit?: null | {
+        url: string;
+        file_name: string;
+        text: string;
+      };
+      card_theme?: null | {
+        /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+        accent_color: string;
+        /** @description Product card background as a six-digit hex colour. */
+        background_color: string;
+      };
       created_at: string;
       latest_revision_id: string;
       latest_run_id: string;
@@ -583,6 +646,11 @@ export interface components {
             include: string;
             text: string;
           }[];
+      card_brandkit?: null | {
+        url: string;
+        file_name: string;
+        text: string;
+      };
     };
     ProductModel: {
       title: string;
@@ -779,6 +847,12 @@ export interface components {
                 node_ids: null | string[];
                 relation_ids: null | string[];
               }[];
+          card_theme: null | {
+            /** @description Brand accent as a six-digit hex colour, for example #6550B9. */
+            accent_color: string;
+            /** @description Product card background as a six-digit hex colour. */
+            background_color: string;
+          };
         };
       };
       snapshots:
@@ -792,6 +866,22 @@ export interface components {
               bytes: number;
               selection: string;
               note: string;
+              read_files: number;
+              cited_files: number;
+              files:
+                | null
+                | {
+                    id: string;
+                    path: string;
+                    bytes: number;
+                    read_ranges:
+                      | null
+                      | {
+                          start_line: number;
+                          end_line: number;
+                        }[];
+                    cited: boolean;
+                  }[];
             };
           }[];
     };
@@ -953,6 +1043,126 @@ export interface operations {
         };
         content: {
           'text/event-stream': string;
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getGitHubConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GitHubConnection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  connectGitHubToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GitHubTokenInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GitHubConnection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  disconnectGitHub: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GitHubConnection'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  startGitHubOAuth: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OAuthURL'];
         };
       };
       /** @description Request failed */

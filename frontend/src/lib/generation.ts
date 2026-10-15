@@ -3,6 +3,7 @@ import type { Run } from './api';
 export const stages = [
   'collecting',
   'selecting_sources',
+  'researching',
   'analyzing',
   'synthesizing',
   'composing',
@@ -13,6 +14,7 @@ export const stageLabels: Record<string, string> = {
   queued: 'Waiting for the worker',
   collecting: 'Collecting source files',
   selecting_sources: 'Selecting source files',
+  researching: 'Exploring repository code',
   analyzing: 'Analyzing evidence',
   synthesizing: 'Reconciling the product model',
   composing: 'Preparing passport sections',

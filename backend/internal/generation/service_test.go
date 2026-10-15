@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/productcard"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 	"github.com/rs/zerolog"
 )
@@ -33,6 +35,9 @@ func (g *fixtureGenerator) Generate(_ context.Context, c llmgateway.Config, r ll
 	var result any
 	switch {
 	case strings.HasPrefix(r.Input, "Analyze"):
+		if strings.Contains(r.Input, "brand-accent-fixture") {
+			return llm.Result{}, errors.New("brand kit leaked into product evidence")
+		}
 		match := regexp.MustCompile(`<source_document id="([^"]+)"`).FindStringSubmatch(r.Input)
 		if len(match) != 2 {
 			return llm.Result{}, errors.New("missing source document")
@@ -55,7 +60,11 @@ func (g *fixtureGenerator) Generate(_ context.Context, c llmgateway.Config, r ll
 				return llm.Result{}, fmt.Errorf("composition omitted the %s section recipe", id)
 			}
 		}
-		result = fixtureViews()
+		views := fixtureViews()
+		if strings.Contains(r.Input, "brand-accent-fixture") {
+			views.CardTheme = &passport.ProductCardTheme{AccentColor: "#123456", BackgroundColor: "#FDFCFD"}
+		}
+		result = views
 	default:
 		return llm.Result{}, errors.New("unexpected generation stage")
 	}
@@ -101,7 +110,7 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		t.Fatal(setupErr)
 	}
 	generator := &fixtureGenerator{}
-	service := New(database, connections, generator, &source.Collector{MaxBytes: 300000, MaxFiles: 120}, zerolog.Nop())
+	service := New(database, connections, generator, &source.Collector{MaxBytes: 300000, MaxFiles: 120}, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
 	runs := make([]Run, 0, 2)
 	for index, protocol := range []string{"openai_responses", "anthropic_messages"} {
 		name := []string{"Payment service", "Issue tracker"}[index]
@@ -110,13 +119,30 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		p, err := service.Products.Create(ctx, product.Input{Name: name, Sources: []source.Input{{Kind: "text", Text: name + " stores requests."}}})
+		input := product.Input{Name: name, Sources: []source.Input{{Kind: "text", Text: name + " stores requests."}}}
+		if index == 0 {
+			input.CardBrandkit = &productcard.Brandkit{FileName: "brand.md", Text: "brand-accent-fixture: #123456; card background #FDFCFD"}
+		}
+		p, err := service.Products.Create(ctx, input)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if index == 1 {
+			// Existing products and queued runs used a bare source array.
+			legacy, _ := json.Marshal(input.Sources)
+			if _, err := database.ExecContext(ctx, "UPDATE products SET sources_json=? WHERE id=?", string(legacy), p.ID); err != nil {
+				t.Fatal(err)
+			}
 		}
 		run, err := service.Start(ctx, p.ID, Input{ConnectionID: connection.ID, Model: "same-model"})
 		if err != nil {
 			t.Fatal(err)
+		}
+		if index == 1 {
+			legacy, _ := json.Marshal(input.Sources)
+			if _, err := database.ExecContext(ctx, "UPDATE generation_runs SET input_json=? WHERE id=?", string(legacy), run.ID); err != nil {
+				t.Fatal(err)
+			}
 		}
 		runs = append(runs, run)
 		if _, err := service.Start(ctx, p.ID, Input{ConnectionID: connection.ID, Model: "same-model"}); !errors.Is(err, ErrActive) {
@@ -145,6 +171,17 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		}
 		if len(r.Content.Views.Sections) != 12 || len(r.Snapshots) != 1 {
 			t.Fatal("incomplete passport")
+		}
+		p, err := service.Products.Get(ctx, run.ProductID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.Name == "Payment service" {
+			if p.CardBrandkit == nil || p.CardTheme == nil || r.Content.Views.CardTheme == nil || p.CardTheme.AccentColor != "#123456" {
+				t.Fatal("brand kit or generated product theme was not preserved")
+			}
+		} else if p.CardBrandkit != nil || p.CardTheme != nil || r.Content.Views.CardTheme != nil {
+			t.Fatal("brand styling leaked into a product without a kit")
 		}
 		evidence, err := service.Evidence(ctx, r.ID, "evidence-purpose")
 		if err != nil || !strings.Contains(evidence.Excerpt, "stores requests") {

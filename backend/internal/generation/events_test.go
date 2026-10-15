@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
@@ -72,7 +73,7 @@ func TestRunEventsSurviveReloadAndRecordRepair(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database, connections, &repairingGenerator{}, &source.Collector{MaxBytes: 300000, MaxFiles: 120}, zerolog.Nop())
+	service := New(database, connections, &repairingGenerator{}, &source.Collector{MaxBytes: 300000, MaxFiles: 120}, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
 	p, err := service.Products.Create(ctx, product.Input{Name: "Fixture", Sources: []source.Input{{Kind: "text", Text: "Payment service stores requests."}}})
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +90,7 @@ func TestRunEventsSurviveReloadAndRecordRepair(t *testing.T) {
 		t.Fatal(checkErr)
 	}
 	// A fresh service reads events from SQLite without any in-memory state.
-	reloaded := New(database, connections, nil, nil, zerolog.Nop())
+	reloaded := New(database, connections, nil, nil, zerolog.Nop(), service.Content)
 	finished, err := reloaded.GetRun(ctx, run.ID)
 	if err != nil {
 		t.Fatal(err)

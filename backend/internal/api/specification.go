@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
@@ -27,6 +28,7 @@ func Specification() ([]byte, error) {
 		return nil, fmt.Errorf("read base OpenAPI: %w", err)
 	}
 	types := map[string]func() (*jsonschema.Schema, error){
+		"GitHubConnection": passport.Schema[githubconnection.Status], "GitHubTokenInput": passport.Schema[githubconnection.TokenInput], "OAuthURL": passport.Schema[OAuthURL],
 		"Connection": passport.Schema[llmgateway.Connection], "ConnectionConfig": passport.Schema[llmgateway.Config], "Model": passport.Schema[llmgateway.Model], "Parameter": passport.Schema[llmgateway.Parameter],
 		"Product": passport.Schema[product.Product], "ProductInput": passport.Schema[product.Input], "SourceInput": passport.Schema[source.Input],
 		"GenerationInput": passport.Schema[generation.Input], "Run": passport.Schema[generation.Run], "Revision": passport.Schema[generation.Revision], "RevisionInfo": passport.Schema[generation.RevisionInfo], "EvidenceView": passport.Schema[generation.EvidenceView],
@@ -60,6 +62,10 @@ func Specification() ([]byte, error) {
 		status                          int
 		array                           bool
 	}{
+		{methodGet, "/api/git-connection", "getGitHubConnection", "", "GitHubConnection", 200, false},
+		{"put", "/api/git-connection", "connectGitHubToken", "GitHubTokenInput", "GitHubConnection", 200, false},
+		{"delete", "/api/git-connection", "disconnectGitHub", "", "GitHubConnection", 200, false},
+		{"post", "/api/git-connection/oauth/start", "startGitHubOAuth", "", "OAuthURL", 200, false},
 		{methodGet, "/api/factory/status", "getFactoryStatus", "", "FactoryStatus", 200, false},
 		{methodGet, "/api/llm-connections", "listConnections", "", "Connection", 200, true},
 		{"post", "/api/llm-connections", "createConnection", "ConnectionConfig", "Connection", 201, false},
