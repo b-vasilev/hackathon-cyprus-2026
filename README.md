@@ -67,6 +67,22 @@ other diagram kinds keep their existing renderer.
 For a single-origin local build, run `just frontend::build`, then start the API
 with `FRONTEND_DIR=../frontend/dist` and `CORS_ORIGINS=http://127.0.0.1:8080`.
 
+## Accounts and access
+
+Everyone signs in with an email and password. The first account registered on a
+fresh database becomes an admin, so register it before sharing the portal URL.
+Later accounts start with no product access.
+
+| Role | Scope | Can |
+| --- | --- | --- |
+| Admin | Everything | Manage connections, products, all product access and admin roles. |
+| Product lead | One product | Read and generate its passport; grant or revoke leads and learners. |
+| Learner | One product | Read the product and its passport. |
+
+A person can hold different roles on different products. Admins manage accounts and
+every product's leads and learners under **People**. Leads manage their own products
+from **People and access** on each product page. Sessions are HttpOnly cookies that last 30 days.
+
 ## LLM connections
 
 Use any endpoint implementing a supported protocol:

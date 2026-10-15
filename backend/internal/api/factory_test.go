@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
@@ -35,11 +36,14 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := generation.New(database, store, nil, nil, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
-	handler := New(database, zerolog.Nop(), nil, &Factory{Service: service, Network: policy})
+	users := &access.Store{DB: database}
+	admin := signInAdmin(t, users)
+	handler := New(database, zerolog.Nop(), nil, &Factory{Access: users, Service: service, Network: policy})
 	request := func(method, path, body string, status int) *httptest.ResponseRecorder {
 		t.Helper()
 		r := httptest.NewRequest(method, path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json; charset=utf-8")
+		r.AddCookie(admin)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
 		if w.Code != status {

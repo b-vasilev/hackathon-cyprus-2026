@@ -4,9 +4,11 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Badge, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import { api, date, type Product, type ProductInput } from '../lib/api';
+import { isAdmin, useMe } from '../lib/auth';
 import { productCardTheme } from '../lib/productCardTheme';
 
 export function Products() {
+  const admin = isAdmin(useMe());
   const query = useQuery({
     queryKey: ['products'],
     queryFn: ({ signal }) => api<Product[]>('/products', { signal }),
@@ -18,10 +20,12 @@ export function Products() {
         title="Understanding starts here."
         description="Turn product sources into a shared, traceable picture of what you build."
         action={
-          <Link className="button primary" to="/products/new">
-            <Plus size={17} />
-            Add product
-          </Link>
+          admin && (
+            <Link className="button primary" to="/products/new">
+              <Plus size={17} />
+              Add product
+            </Link>
+          )
         }
       />
       <div className="intro-strip">
@@ -33,7 +37,12 @@ export function Products() {
       </div>
       {query.isPending && <Loading />}
       {query.isError && <ErrorNotice error={query.error} />}
-      {query.data?.length === 0 && (
+      {query.data?.length === 0 && !admin && (
+        <EmptyState title="No product spaces yet">
+          Ask an admin or a product lead to give you access to a product.
+        </EmptyState>
+      )}
+      {query.data?.length === 0 && admin && (
         <EmptyState
           title="Create your first product passport"
           action={
