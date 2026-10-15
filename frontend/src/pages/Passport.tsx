@@ -397,35 +397,44 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
               )}
             </div>
           </div>
-          <ProductBrandSources theme={revision.data.content.views.card_theme} />
-          <details className="sources-panel">
+          {!publishedView && <ProductBrandSources theme={revision.data.content.views.card_theme} />}
+          <details className="sources-panel analyzed-sources">
             <summary>
               <GitBranch size={17} />
               Analyzed sources and coverage
               <DisclosureHint show="Show sources" hide="Hide sources" />
             </summary>
             {revision.data.snapshots?.map((snapshot) => (
-              <div className="source-row" key={snapshot.id}>
-                <div>
-                  <strong>{snapshot.locator}</strong>
-                  <p className="meta">
-                    {snapshot.coverage.file_count} files ·{' '}
-                    {snapshot.coverage.bytes.toLocaleString()} bytes · revision{' '}
-                    <code>{snapshot.revision.slice(0, 12)}</code>
-                  </p>
-                  <p className="field-help">{snapshot.coverage.note}</p>
-                  {snapshot.coverage.selection !== '' && (
-                    <p className="meta">Selection: {snapshot.coverage.selection}</p>
+              <div className="source-snapshot" key={snapshot.id}>
+                <div className="source-snapshot-heading">
+                  <div className="source-snapshot-identity">
+                    <strong>
+                      {snapshot.locator
+                        .replace(/^https:\/\/github\.com\//, '')
+                        .replace(/\.git$/, '')}
+                    </strong>
+                    <div className="source-snapshot-meta">
+                      <span>{snapshot.coverage.file_count.toLocaleString()} files</span>
+                      <span>
+                        {new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(
+                          snapshot.coverage.bytes / 1024 / 1024
+                        )}{' '}
+                        MB
+                      </span>
+                      <span>
+                        Commit <code>{snapshot.revision.slice(0, 12)}</code>
+                      </span>
+                    </div>
+                  </div>
+                  {snapshot.locator.startsWith('https://github.com/') && (
+                    <ExternalLink
+                      href={`${snapshot.locator.replace(/\.git$/, '')}/tree/${snapshot.revision}`}
+                    >
+                      Repository
+                    </ExternalLink>
                   )}
-                  <SourceCoverage snapshot={snapshot} />
                 </div>
-                {snapshot.locator.startsWith('https://github.com/') && (
-                  <ExternalLink
-                    href={`${snapshot.locator.replace(/\.git$/, '')}/tree/${snapshot.revision}`}
-                  >
-                    Repository
-                  </ExternalLink>
-                )}
+                <SourceCoverage snapshot={snapshot} />
               </div>
             ))}
           </details>

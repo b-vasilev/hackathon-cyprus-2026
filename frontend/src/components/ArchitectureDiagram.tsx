@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Controls, MarkerType, ReactFlow, useReactFlow, useStore } from '@xyflow/react';
 import { Maximize2, MousePointer2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { layoutArchitecture } from '../lib/diagramLayout';
 import { diagramScope } from '../lib/passportDocument';
 import { DiagramEdge, type ArchitectureEdge } from './DiagramEdge';
 import { DiagramNode, type ArchitectureNode } from './DiagramNode';
-import { Dialog, ErrorNotice, Loading } from './ui';
+import { Dialog, DisclosureHint, ErrorNotice, Loading } from './ui';
 import type { Diagram, ProductModel, ProductObject } from '../lib/api';
 
 const nodeTypes = { architecture: DiagramNode };
@@ -41,15 +41,22 @@ export function ArchitectureDiagram({
 }>) {
   const [expanded, setExpanded] = useState(false);
   const [hovered, setHovered] = useState('');
-  const [vertical, setVertical] = useState(
-    () => globalThis.matchMedia('(max-width: 1000px)').matches
-  );
+  const figure = useRef<HTMLElement>(null);
+  const expandedFigure = useRef<HTMLDivElement>(null);
+  const [vertical, setVertical] = useState(false);
   useEffect(() => {
-    const media = globalThis.matchMedia('(max-width: 1000px)');
-    const update = () => setVertical(media.matches);
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
+    const container = expanded ? expandedFigure.current : figure.current;
+    if (container === null) {
+      return;
+    }
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry !== undefined) {
+        setVertical(entry.contentRect.width <= 700);
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [expanded]);
   const objects = useMemo(
     () => new Map((model.objects ?? []).map((object) => [object.id, object])),
     [model.objects]
@@ -143,7 +150,7 @@ export function ArchitectureDiagram({
     );
   }
   return (
-    <figure className="architecture-diagram" id={`diagram-${diagram.id}`}>
+    <figure className="architecture-diagram" id={`diagram-${diagram.id}`} ref={figure}>
       <div className="architecture-toolbar">
         <div>
           <span className="eyebrow">{diagramScope(diagram, model)}</span>
@@ -161,8 +168,7 @@ export function ArchitectureDiagram({
         <div className="architecture-frame-label">{diagramScope(diagram, model)}</div>
         {graph()}
       </div>
-      <figcaption>
-        <p>{diagram.summary}</p>
+      <figcaption className="architecture-caption">
         <div className="architecture-legend">
           <span>
             <i />
@@ -177,10 +183,21 @@ export function ArchitectureDiagram({
             Select a block to inspect
           </span>
         </div>
+        {diagram.summary.trim() !== '' && (
+          <details className="diagram-explanation">
+            <summary>
+              About this diagram
+              <DisclosureHint show="Show explanation" hide="Hide explanation" />
+            </summary>
+            <p>{diagram.summary}</p>
+          </details>
+        )}
       </figcaption>
       {expanded && (
         <Dialog title={diagram.title} wide onClose={() => setExpanded(false)}>
-          <div className="architecture-expanded">{graph()}</div>
+          <div className="architecture-expanded" ref={expandedFigure}>
+            {graph()}
+          </div>
           <p className="field-help">
             Drag to explore. Select a block for its responsibility, contracts and evidence.
           </p>

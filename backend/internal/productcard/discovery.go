@@ -81,9 +81,11 @@ func Discover(ctx context.Context, collection source.Collection, manual *Brandki
 }
 
 var (
-	linkPattern     = regexp.MustCompile(`(?:https://[^\s<>"'\x60)\]]+|(?:href|src)="[^"]+"|!?\[[^\]\n]*\]\([^\s)]+\))`)
-	colorPattern    = regexp.MustCompile(`(?i)#[0-9a-f]{6}\b|#[0-9a-f]{3}\b`)
-	paintURLPattern = regexp.MustCompile(`(?i)url\(\s*['"]?([^)'"\s]+)`)
+	linkPattern      = regexp.MustCompile(`(?:https://[^\s<>"'\x60)\]]+|(?:href|src)="[^"]+"|!?\[[^\]\n]*\]\([^\s)]+\))`)
+	assetBasePattern = regexp.MustCompile("(?im)^\\s*assets? base url:\\s*`?(https://[^\\s`<>\"']+)")
+	assetPathPattern = regexp.MustCompile("(?i)`([^`\\s<>()]+\\.(?:svg|png|jpe?g|gif)(?:\\?[^`\\s<>()]+)?)`")
+	colorPattern     = regexp.MustCompile(`(?i)#[0-9a-f]{6}\b|#[0-9a-f]{3}\b`)
+	paintURLPattern  = regexp.MustCompile(`(?i)url\(\s*['"]?([^)'"\s]+)`)
 )
 
 func discover(ctx context.Context, collection source.Collection, manual *Brandkit, fetch resourceFetcher) Discovery {
@@ -253,7 +255,7 @@ func logoLink(location string) bool {
 		return false
 	}
 	p := strings.ToLower(u.Path)
-	return (strings.Contains(p, "logo") || strings.Contains(p, "wordmark") || strings.Contains(p, "brand") || strings.Contains(p, "logotype")) && imageLink(location)
+	return (strings.Contains(p, "logo") || strings.Contains(p, "wordmark") || strings.Contains(p, "brand") || strings.Contains(p, "logotype") || strings.Contains(p, "/mark/")) && imageLink(location)
 }
 
 func imageLink(location string) bool {
@@ -262,10 +264,22 @@ func imageLink(location string) bool {
 }
 
 func logoLinks(ref Reference) []string {
+	// Some guides declare an asset directory separately from the document URL.
+	if match := assetBasePattern.FindStringSubmatch(ref.Text); len(match) > 0 {
+		if base, err := url.Parse(match[1]); err == nil && base.Scheme == "https" && base.Hostname() != "" && base.User == nil {
+			base.Path = strings.TrimRight(base.Path, "/") + "/"
+			ref.URL = base.String()
+		}
+	}
 	var result []string
+	add := func(link string) {
+		if !slices.Contains(result, link) {
+			result = append(result, link)
+		}
+	}
 	for _, link := range links(ref) {
 		if logoLink(link) {
-			result = append(result, link)
+			add(link)
 		}
 	}
 	for line := range strings.SplitSeq(ref.Text, "\n") {
@@ -273,8 +287,25 @@ func logoLinks(ref Reference) []string {
 			continue
 		}
 		for _, link := range links(Reference{URL: ref.URL, Text: line}) {
-			if imageLink(link) && !slices.Contains(result, link) {
-				result = append(result, link)
+			if imageLink(link) {
+				add(link)
+			}
+		}
+	}
+	// Prefer explicit paths over standalone filename examples before the download
+	// budget is spent. Never expand filename templates or invent missing paths.
+	var paths, filenames []string
+	for _, match := range assetPathPattern.FindAllStringSubmatch(ref.Text, 100) {
+		if strings.Contains(match[1], "/") {
+			paths = append(paths, match[1])
+		} else {
+			filenames = append(filenames, match[1])
+		}
+	}
+	for _, file := range append(paths, filenames...) {
+		for _, link := range links(Reference{URL: ref.URL, Text: "![](" + file + ")"}) {
+			if logoLink(link) {
+				add(link)
 			}
 		}
 	}

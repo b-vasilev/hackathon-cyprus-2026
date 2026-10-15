@@ -28,17 +28,18 @@ export function PublishedPassports() {
       )}
       <div className="product-grid">
         {products.data?.map((product) => (
-          <article
+          <Link
             className={`product-card published-card${product.card_theme ? ' product-branded' : ''}`}
             style={productCardTheme(product.card_theme)}
             key={product.id}
+            to={`/published/${product.id}`}
           >
-            <Link className="product-card-content" to={`/published/${product.id}`}>
+            <div className="product-card-content">
               <ProductIdentity name={product.name} theme={product.card_theme} />
               <h2>{product.name}</h2>
               <ArrowUpRight size={20} aria-hidden="true" />
-            </Link>
-          </article>
+            </div>
+          </Link>
         ))}
       </div>
     </>

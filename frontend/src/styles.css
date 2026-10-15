@@ -460,6 +460,12 @@ code {
   color: var(--of-muted);
   font-weight: 400;
 }
+.product-card-statuses {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
 .badge.warning {
   color: #825115;
   background: #fbf1df;
@@ -1436,20 +1442,10 @@ summary {
   display: block;
   margin-top: 4px;
 }
-.passport-layout:has(.architecture-diagram) {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 32px;
-}
-.passport-layout:has(.architecture-diagram) > .section-nav {
-  position: static;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--of-border);
-}
 .architecture-diagram {
   margin: 36px 0;
+  min-width: 0;
+  container-type: inline-size;
 }
 .architecture-toolbar {
   display: flex;
@@ -1457,6 +1453,13 @@ summary {
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 20px;
+}
+.architecture-toolbar > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.architecture-toolbar > button {
+  flex-shrink: 0;
 }
 .architecture-toolbar .eyebrow {
   display: block;
@@ -1620,11 +1623,37 @@ summary {
   white-space: pre-line;
   text-align: center;
 }
-.architecture-diagram figcaption > p {
+.architecture-caption {
+  margin-top: 16px;
+}
+.diagram-explanation {
+  margin-top: 16px;
+  padding: 0 16px;
+  background: var(--of-surface-subtle);
+  border-radius: 8px;
+}
+.diagram-explanation > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--of-ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+.diagram-explanation > summary::-webkit-details-marker {
+  display: none;
+}
+.diagram-explanation > p {
   font-size: 14px;
-  line-height: 1.7;
-  max-width: 85ch;
-  margin: 16px 0;
+  line-height: 1.75;
+  max-width: 76ch;
+  padding-bottom: 16px;
+  overflow-wrap: anywhere;
   color: var(--of-muted);
 }
 .architecture-legend {
@@ -1664,7 +1693,7 @@ summary {
 .dialog.wide:has(.architecture-expanded) {
   width: min(1440px, calc(100vw - 32px));
 }
-@media (max-width: 700px) {
+@container (max-width: 700px) {
   .architecture-toolbar {
     align-items: flex-start;
     flex-direction: column;
@@ -1709,7 +1738,33 @@ summary {
   border: 0;
   background: none;
   color: var(--of-brand);
-  font-size: 12px;
+  font-size: 13px;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.source-link:hover,
+.source-link:focus-visible {
+  color: var(--of-brand-strong);
+  background: var(--of-brand-soft);
+}
+.source-link > svg {
+  flex-shrink: 0;
+}
+.source-action {
+  max-width: 100%;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--of-control-border);
+  border-radius: 8px;
+  background: var(--of-surface);
+  font-weight: 500;
+  text-decoration: none;
+}
+.source-action:hover,
+.source-action:focus-visible {
+  border-color: var(--of-brand);
 }
 .detail-meta {
   display: flex;
@@ -1901,6 +1956,62 @@ summary {
 }
 .source-row .field-help {
   margin: 12px 0 0;
+}
+.analyzed-sources {
+  min-width: 0;
+}
+.analyzed-sources > summary {
+  min-height: 44px;
+  flex-wrap: wrap;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+.analyzed-sources > summary > svg {
+  flex-shrink: 0;
+}
+.source-snapshot {
+  min-width: 0;
+  padding: 24px 0;
+}
+.source-snapshot + .source-snapshot {
+  border-top: 1px solid var(--of-border);
+}
+.source-snapshot-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.source-snapshot-identity {
+  min-width: 0;
+}
+.source-snapshot-identity > strong {
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.source-snapshot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+  color: var(--of-muted);
+  font-size: 12px;
+}
+.source-snapshot-meta > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.source-snapshot-heading > .external-link {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .source-snapshot-heading {
+    flex-direction: column;
+    gap: 4px;
+  }
 }
 @media (max-width: 1000px) {
   .header-caption {
@@ -4272,6 +4383,8 @@ details[open] > summary .disclosure-chevron {
 }
 
 .passport-table-scroll {
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   margin: 24px 0;
 }
@@ -4288,14 +4401,24 @@ details[open] > summary .disclosure-chevron {
 }
 .passport-table th,
 .passport-table td {
+  min-width: 160px;
   text-align: left;
   vertical-align: top;
+  overflow-wrap: break-word;
+  word-break: normal;
   padding: 16px 12px;
   border-bottom: 1px solid var(--of-border);
+}
+.passport-table :is(th, td):first-child {
+  min-width: 176px;
 }
 .passport-table thead th {
   color: var(--of-muted);
   font-weight: 500;
+}
+.passport-table .source-link {
+  text-align: left;
+  justify-content: flex-start;
 }
 .passport-table td .source-link {
   display: block;
@@ -4385,6 +4508,12 @@ details[open] > summary .disclosure-chevron {
 }
 .document-prose .passport-table-scroll {
   margin: 24px 0;
+}
+.document-prose:has(> .passport-table-scroll) {
+  max-width: 100%;
+}
+.document-prose:has(> .passport-table-scroll) > :not(.passport-table-scroll) {
+  max-width: 80ch;
 }
 .diagram-question {
   max-width: 72ch;

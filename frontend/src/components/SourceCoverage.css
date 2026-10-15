@@ -1,12 +1,48 @@
 .source-coverage {
   margin-top: 16px;
+  min-width: 0;
   width: 100%;
 }
 .source-coverage > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
   cursor: pointer;
-  color: var(--of-brand);
+  color: var(--of-muted);
   font-size: 13px;
-  padding: 12px 0;
+  min-height: 44px;
+  padding: 12px 16px;
+  background: var(--of-surface-subtle);
+  border-radius: 8px;
+  list-style: none;
+}
+.source-coverage > summary::-webkit-details-marker {
+  display: none;
+}
+.source-coverage-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+.source-coverage-counts > span {
+  white-space: nowrap;
+}
+.source-coverage-counts strong {
+  color: var(--of-ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.source-coverage > .field-help {
+  margin-top: 16px;
+  max-width: 80ch;
+}
+.source-coverage-files .external-link {
+  overflow-wrap: anywhere;
+}
+.source-coverage-files .external-link > svg {
+  flex-shrink: 0;
 }
 .source-coverage-filters {
   display: grid;
