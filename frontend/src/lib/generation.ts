@@ -27,6 +27,10 @@ export function activeRun(status: string | undefined): boolean {
   return status === 'queued' || status === 'running';
 }
 
+export function cancelledRun(run: Run | undefined): boolean {
+  return run?.status === 'failed' && run.error_code === 'cancelled';
+}
+
 // Both HTTP snapshots and reconnect replay can overlap with events already seen.
 export function mergeRun(previous: Run | undefined, incoming: Run): Run {
   if (previous?.id !== incoming.id) {
@@ -69,12 +73,13 @@ const eventStates: Record<string, string | undefined> = {
   stage_skipped: 'Skipped',
   validation_failed: 'Needs repair',
   run_failed: 'Failed',
+  run_cancelled: 'Cancelled',
 };
 
 function stageState(run: Run, stage: string, events: Run['events']): string {
   if (routeStage(run.stage) === stage) {
     if (run.status === 'failed') {
-      return 'Failed';
+      return cancelledRun(run) ? 'Cancelled' : 'Failed';
     }
     if (run.status === 'running') {
       return run.stage === 'repairing' ? 'Repairing' : 'Running';
@@ -100,7 +105,9 @@ function stageTiming(events: Run['events'], now: number): string {
       hasTiming = true;
     }
     if (
-      ['stage_completed', 'validation_failed', 'run_failed'].includes(event.type) &&
+      ['stage_completed', 'validation_failed', 'run_failed', 'run_cancelled'].includes(
+        event.type
+      ) &&
       started !== undefined
     ) {
       milliseconds += Math.max(0, Date.parse(event.created_at) - started);

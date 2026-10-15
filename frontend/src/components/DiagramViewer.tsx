@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react';
 import { Maximize2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { diagramScope, hasLifecycleStatus, objectTypeLabel } from '../lib/passportDocument';
 import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { Dialog, ErrorNotice, Loading } from './ui';
 import type { Diagram, ProductModel, ProductObject } from '../lib/api';
@@ -30,10 +31,12 @@ function ProductNode({ data }: NodeProps<ObjectNode>) {
   return (
     <div className="diagram-node" data-status={data.status}>
       <Handle type="target" position={Position.Left} />
-      <span className="node-kind">{data.kind.replaceAll('_', ' ')}</span>
+      <span className="node-kind">{data.kind}</span>
       <strong>{data.title}</strong>
       <span className="node-tech">{data.technology}</span>
-      <span className="node-status">{data.status.replaceAll('_', ' ')}</span>
+      {data.status !== '' && (
+        <span className="node-status">{data.status.replaceAll('_', ' ')}</span>
+      )}
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -58,7 +61,7 @@ function FitDiagram() {
 }
 
 export function DiagramViewer(props: Parameters<typeof StandardDiagramViewer>[0]) {
-  return props.diagram.kind === 'context' ? (
+  return ['context', 'containers', 'components', 'repositories'].includes(props.diagram.kind) ? (
     <ArchitectureDiagram {...props} />
   ) : (
     <StandardDiagramViewer {...props} />
@@ -117,9 +120,9 @@ function StandardDiagramViewer({
       position: { x: item.x ?? 0, y: item.y ?? 0 },
       data: {
         title: object?.name ?? item.id,
-        kind: object?.kind ?? '',
+        kind: object === undefined ? '' : objectTypeLabel(object),
         technology: object?.technology ?? '',
-        status: object?.status ?? 'unknown',
+        status: object !== undefined && hasLifecycleStatus(object) ? object.status : '',
       },
       selected: highlighted.includes(item.id),
       ariaLabel: `Inspect ${object?.name ?? item.id}`,
@@ -131,9 +134,12 @@ function StandardDiagramViewer({
     target: relation.to,
     label: relation.label,
     type: 'smoothstep',
-    markerEnd: { type: MarkerType.ArrowClosed },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: 'var(--product-content-accent, var(--of-control-border))',
+    },
     style: {
-      stroke: 'var(--of-control-border)',
+      stroke: 'var(--product-content-accent, var(--of-control-border))',
       strokeDasharray: relation.kind === 'data' ? '8 4' : undefined,
     },
     labelStyle: { fill: 'var(--of-muted)', fontSize: 12 },
@@ -174,8 +180,11 @@ function StandardDiagramViewer({
     <div className="diagram-view">
       <div className="diagram-toolbar">
         <div>
-          <span className="eyebrow">{diagram.kind.replaceAll('_', ' ')}</span>
+          <span className="eyebrow">{diagramScope(diagram, model)}</span>
           <h3>{diagram.title}</h3>
+          {diagram.question !== undefined && diagram.question !== '' && (
+            <p className="diagram-question">{diagram.question}</p>
+          )}
         </div>
         <button type="button" className="button quiet" onClick={() => setExpanded(true)}>
           <Maximize2 size={15} />

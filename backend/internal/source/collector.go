@@ -209,7 +209,7 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 }
 
 func (c *Collector) repositoryFiles(ctx context.Context, input Input, sha string, choose SelectFiles, budget int) (map[string]string, bool, error) {
-	key := fmt.Sprintf("%s|%s|%s|%s|%d|%d", c.CacheScope, input.Locator, sha, input.Include, budget, c.MaxFiles)
+	key := fmt.Sprintf("product-brand-v1|%s|%s|%s|%s|%d|%d", c.CacheScope, input.Locator, sha, input.Include, budget, c.MaxFiles)
 	c.cacheMu.Lock()
 	files, cached := c.cache[key]
 	c.cacheMu.Unlock()
@@ -318,7 +318,7 @@ func (c *Collector) packRepository(ctx context.Context, dir string, repository *
 	}
 	// Files were selected from the pinned Git tree. The host repository's ignore
 	// rules must not hide this staging directory (for example, backend/data).
-	config := map[string]any{"output": map[string]any{"filePath": output, "style": "json", "removeComments": false, "removeEmptyLines": false, "showLineNumbers": false, "compress": false, "fileSummary": false}, "security": map[string]any{"enableSecurityCheck": true}, "ignore": map[string]any{"useGitignore": false, "useDefaultPatterns": true, "customPatterns": []string{"**/.env*", "**/*.pem", "**/*.key", "**/credentials*", "**/package-lock.json", "**/go.sum", "**/pnpm-lock.yaml", "**/yarn.lock", "**/*.min.js", "**/*.svg", "**/*.lock"}}}
+	config := map[string]any{"output": map[string]any{"filePath": output, "style": "json", "removeComments": false, "removeEmptyLines": false, "showLineNumbers": false, "compress": false, "fileSummary": false}, "security": map[string]any{"enableSecurityCheck": true}, "ignore": map[string]any{"useGitignore": false, "useDefaultPatterns": true, "customPatterns": []string{"**/.env*", "**/*.pem", "**/*.key", "**/credentials*", "**/package-lock.json", "**/go.sum", "**/pnpm-lock.yaml", "**/yarn.lock", "**/*.min.js", "**/*.lock"}}}
 	patterns := make([]string, 0, len(selected))
 	escape := strings.NewReplacer("\\", "\\\\", "*", "\\*", "?", "\\?", "[", "\\[", "]", "\\]", "{", "\\{", "}", "\\}", "!", "\\!")
 	for _, path := range selected {
@@ -340,19 +340,19 @@ func (c *Collector) packRepository(ctx context.Context, dir string, repository *
 	command.Stdout = io.Discard
 	command.Stderr = io.Discard
 	if checkErr := command.Run(); checkErr != nil {
-		return nil, errors.New("repomix could not package this revision. Check repository access, the Repomix executable and source size limits")
+		return nil, errors.New("could not prepare source files for this revision. Check repository access, source reader availability and source size limits")
 	}
 	//nolint:gosec // Output is an app-generated file within a fresh private workspace.
 	file, err := os.Open(output)
 	if err != nil {
-		return nil, errors.New("repomix did not produce a source package")
+		return nil, errors.New("the source reader did not produce a source package")
 	}
 	defer file.Close()
 	var packed struct {
 		Files map[string]string `json:"files"`
 	}
 	if checkErr := json.NewDecoder(io.LimitReader(file, int64(c.MaxBytes)*3+(1<<20))).Decode(&packed); checkErr != nil {
-		return nil, errors.New("repomix source package is invalid or exceeds the collection budget")
+		return nil, errors.New("the source package is invalid or exceeds the collection budget")
 	}
 	// Repomix trims surrounding whitespace. Use its safe-file selection, but retain
 	// the original Git bytes so citations and content hashes never shift lines.
@@ -363,7 +363,7 @@ func (c *Collector) packRepository(ctx context.Context, dir string, repository *
 		}
 	}
 	if len(safe) == 0 {
-		return nil, errors.New("repomix did not retain any selected source files after filtering")
+		return nil, errors.New("no selected source files remained after source filtering")
 	}
 	return safe, nil
 }
@@ -472,6 +472,25 @@ func (c *Collector) selectPaths(ctx context.Context, input Input, sha string, ch
 	paths := make([]string, 0)
 	seen := make(map[string]bool)
 	bytes := 0
+	// Reserve a small part of the selection for identity files. Otherwise the
+	// technical file selector can omit the brand guide and original SVG logo.
+	brandPaths := make([]string, 0)
+	for path, size := range eligible {
+		if IsBrandFile(path) && size <= 100000 {
+			brandPaths = append(brandPaths, path)
+		}
+	}
+	slices.Sort(brandPaths)
+	brandBytes := 0
+	for _, path := range brandPaths {
+		if len(paths) >= min(12, c.MaxFiles/4) || brandBytes+eligible[path] > budget/4 {
+			continue
+		}
+		paths = append(paths, path)
+		seen[path] = true
+		brandBytes += eligible[path]
+	}
+	bytes = brandBytes
 	for _, path := range chosen {
 		if resolved, ok := aliases[path]; ok {
 			path = resolved
@@ -512,6 +531,9 @@ func eligibleFile(file treeFile) bool {
 		if slices.Contains([]string{"node_modules", "vendor", ".git", "dist", "build", "bin", "obj", "coverage", "__pycache__", "artifacts"}, part) {
 			return false
 		}
+	}
+	if filepath.Ext(path) == ".svg" {
+		return IsBrandFile(path) && file.Size <= 100000
 	}
 	return !slices.Contains([]string{".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".zip", ".pdf", ".woff", ".woff2", ".ttf", ".mp4", ".parquet", ".sqlite", ".db"}, filepath.Ext(path))
 }

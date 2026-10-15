@@ -1,9 +1,9 @@
 # data
-Goal: explain what information the product owns and how it moves.
-Use: schemas, migrations, queries, model types, import/export code, storage adapters and data docs.
-Prepare: key entities and stores; ownership and source of truth; identifiers and relationships; ingestion/transformation/output paths; documented retention, deletion and consistency rules; supported sensitive-data boundaries without reproducing secrets or personal records.
-Select: entities, stores, interfaces and source-backed data relationships.
-Visual: a domain/data relationship view or directed data-flow graph. Describe logical relations honestly; do not present inferred relations as declared foreign keys.
-Missing evidence: mark retention, classification, backup and consistency guarantees unknown unless supported.
-Trace important source-to-target routes from entry point to accepted output. Identify shared transformations, route-specific steps, intermediate artifacts, validation gates, persistence and handoff boundaries. Distinguish files/artifacts from calls to tools or components. Artifact creation does not establish deployment or downstream acceptance.
-Keep schema names, contract purpose and ownership concise. Store exact source paths and revision anchors in evidence metadata instead of architecture/data diagram labels.
+Goal: explain information meaning, contracts, provenance and persistence.
+Question: What information does the product mean, create, validate, transform, own and exchange?
+Inputs: domain/entity/store/interface objects, primary scenario inputs/outputs, schema/model/migration evidence, writer/reader/validation code, exact claims and unresolved contracts.
+Investigation: derive material contracts from primary flows; check definition, writer, reader and validator separately. Follow aliases, variants and cross-repository handoffs. Check identifiers, invariants, relationships, transformations, source of truth and evidenced lifecycle rules.
+Output: vocabulary/meaning -> identifiers/invariants -> concise contract/artifact table -> lineage/transformation -> persistence/lifecycle. Use safe Markdown and existing object/diagram references. Domain/data views answer meaning or lineage; states require explicit transitions. Distinguish logical relationships from physical keys/cardinalities.
+Evidence/gaps: cite origin and supported consumer of each principal output; mark one-sided handoffs incomplete. A declaration is not adoption and artifact creation is not downstream acceptance. Retention, deletion, consistency, encryption, backups and delivery guarantees need their own evidence.
+Exclusions: no new contract/lifecycle ontology, schema dump, repeated architecture responsibilities or ordered execution. Domain normally integrates here; split only for substantial distinct rules.
+Acceptance: principal artifacts have traceable origin and a two-sided handoff or precise missing role; invariants/edges are supported; concepts, artifacts, stores and components remain distinct using allowed kinds.

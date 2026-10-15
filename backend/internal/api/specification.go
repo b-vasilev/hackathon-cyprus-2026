@@ -50,6 +50,7 @@ func Specification() ([]byte, error) {
 			// GetRun always returns an empty array when no events exist.
 			schema.Properties["events"].Type = "array"
 			schema.Properties["events"].Types = nil
+			researchProgressSchema(schema.Properties["research"])
 		}
 	}
 	patch, err := passport.Schema[llmgateway.Config]()
@@ -80,6 +81,7 @@ func Specification() ([]byte, error) {
 		{methodGet, "/api/products/{id}", "getProduct", "", "Product", 200, false},
 		{"post", "/api/products/{id}/generations", "startGeneration", "GenerationInput", "Run", 202, false},
 		{methodGet, "/api/generations/{id}", "getGeneration", "", "Run", 200, false},
+		{"post", "/api/generations/{id}/cancel", "cancelGeneration", "", "Run", 200, false},
 		{methodGet, "/api/generations/{id}/events", "streamGeneration", "", "Run", 200, false},
 		{methodGet, "/api/products/{id}/passport", "getLatestPassport", "", "Revision", 200, false},
 		{methodGet, "/api/products/{id}/passport-revisions", "listRevisions", "", "RevisionInfo", 200, true},
@@ -125,4 +127,17 @@ func Specification() ([]byte, error) {
 		return nil, fmt.Errorf("encode OpenAPI: %w", err)
 	}
 	return append(encoded, '\n'), nil
+}
+
+// The progress builder always initializes these collections and omits a missing
+// state. Keep the generated client contract as precise as the returned JSON.
+func researchProgressSchema(state *jsonschema.Schema) {
+	state.Type, state.Types = "object", nil
+	areas := state.Properties["areas"]
+	questions := areas.Items.Properties["questions"]
+	for _, field := range []*jsonschema.Schema{areas, questions, questions.Items.Properties["evidence"], state.Properties["budget"].Properties["decisions"]} {
+		field.Type, field.Types = "array", nil
+	}
+	areas.Items.Properties["status"].Enum = []any{"not_started", "investigating", "checked", "blocked", "excluded"}
+	questions.Items.Properties["status"].Enum = []any{"pending", "answered", "not_applicable", "blocked", "excluded"}
 }

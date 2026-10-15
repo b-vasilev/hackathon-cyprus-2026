@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/analysis"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/api"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/config"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
@@ -57,6 +58,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	collector := &source.Collector{WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin, GitHubToken: cfg.GitHubToken, MaxBytes: 128 << 20, MaxFiles: 20000, CacheScope: generation.PromptVersion}
 	factory := generation.New(database, connections, client, collector, logger, files)
 	factory.Research = &research.Runner{Policy: policy, Limiter: client.Limiter, WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin}
+	factory.Analysis = &analysis.Runner{Policy: policy, Limiter: client.Limiter}
 	var githubStore *githubconnection.Store
 	if cfg.ConnectionMasterKey != "" {
 		githubStore, err = githubconnection.NewStore(database, cfg.ConnectionMasterKey)
@@ -67,7 +69,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	}
 	workerCtx, stopWorker := context.WithCancel(ctx)
 	workerDone := make(chan struct{})
-	go func() { defer close(workerDone); factory.Work(workerCtx) }()
+	go func() { defer close(workerDone); factory.Work(workerCtx, cfg.GenerationWorkers) }()
 	defer func() { stopWorker(); <-workerDone }()
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

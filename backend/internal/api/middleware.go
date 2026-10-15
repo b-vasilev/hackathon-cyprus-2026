@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -33,6 +34,10 @@ func accessLog(next http.Handler) http.Handler {
 			status := writer.status
 			if status == 0 {
 				status = http.StatusOK
+				if errors.Is(r.Context().Err(), context.Canceled) {
+					// Log client cancellation without writing to the closed connection.
+					status = 499
+				}
 			}
 			// Route patterns exclude query strings, credentials and dynamic path values.
 			zerolog.Ctx(r.Context()).Info().Str("method", r.Method).Str("route", r.Pattern).

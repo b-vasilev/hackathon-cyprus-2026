@@ -26,14 +26,20 @@ type Runner struct {
 	Policy              llmgateway.NetworkPolicy
 	Limiter             *llmgateway.Limiter
 	WorkDir, RepomixBin string
+	// MaxTurns is the hard cap for one attempt; zero uses 120 turns.
+	MaxTurns int
 }
 
 type Result struct {
 	Context                    string
+	Plan                       []researchBoundary
+	Ledger                     Ledger
+	Notes                      string
 	Collection                 source.Collection
 	InputTokens, OutputTokens  int64
 	Steps, ToolCalls, MCPReads int
 	DurationMS                 int64
+	Progress                   *State
 }
 
 // Progress reports activity and the usage of each completed model turn.
@@ -42,6 +48,7 @@ type Progress struct {
 	Step                      int
 	InputTokens, OutputTokens int64
 	DurationMS                int64
+	State                     *State
 }
 
 type workspace struct {
@@ -51,26 +58,47 @@ type workspace struct {
 	reads               map[string][]source.LineRange
 	toolCalls, mcpReads int
 	event               func(string) error
+	plan                []researchBoundary
+	checkedNotes        string
+	submittedNotes      string
+	inventory           Inventory
+	ledger              Ledger
+	searches            []searchedScope
+	summaryNotes        string
+	turn, turnBudget    int
+	deadline            time.Time
+	readFailures        map[string]string
+	budget              *attemptBudget
+	activity            string
 }
 
-// Run gives the model access to the full safe source package, with bounded paged tool results.
+// run gives the model access to pinned source files with bounded paged tools.
 //
-//nolint:gocyclo // Keep workspace setup, model turns and coverage checks in one lifecycle.
-func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, progress func(Progress) error) (Result, error) {
+//nolint:gocyclo // Keep workspace, checkpoint and adaptive research lifecycle cleanup together.
+func (r *Runner) run(ctx context.Context, config llmgateway.Config, modelID string, collection source.Collection, checkpoint *Checkpoint, progress func(Progress) error) (result Result, err error) {
 	started := time.Now()
-	ctx, cancel := context.WithTimeout(ctx, 12*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
-	result := Result{}
-	event := func(message string) error { return progress(Progress{Message: message}) }
-	if err := os.MkdirAll(r.WorkDir, 0o700); err != nil {
-		return result, fmt.Errorf("create research workspace: %w", err)
+	var w *workspace
+	event := func(message string) error {
+		if w != nil && strings.HasPrefix(message, "Investigating ") {
+			return w.publish(progress, message)
+		}
+		return progress(Progress{Message: message})
+	}
+	if setupErr := os.MkdirAll(r.WorkDir, 0o700); setupErr != nil {
+		return result, fmt.Errorf("create research workspace: %w", setupErr)
 	}
 	dir, err := os.MkdirTemp(r.WorkDir, "research-")
 	if err != nil {
 		return result, fmt.Errorf("create research workspace: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	w := &workspace{documents: map[string]source.Document{}, reads: map[string][]source.LineRange{}, event: event}
+	w = &workspace{documents: map[string]source.Document{}, reads: map[string][]source.LineRange{}, readFailures: map[string]string{}, event: event, turnBudget: r.MaxTurns}
+	if w.turnBudget <= 0 {
+		w.turnBudget = 120
+	}
+	w.deadline, _ = ctx.Deadline()
 	for _, doc := range collection.Documents {
 		path := doc.SnapshotID + "/" + doc.Path
 		if !filepath.IsLocal(path) {
@@ -87,6 +115,47 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 		w.paths = append(w.paths, path)
 	}
 	slices.Sort(w.paths)
+	w.inventory = buildInventory(collection)
+	w.ledger = Ledger{Inventory: w.inventory, Status: "in_progress"}
+	if checkpoint != nil {
+		if restoreErr := w.restore(*checkpoint); restoreErr != nil {
+			return result, restoreErr
+		}
+	}
+	defer func() {
+		result.Ledger = w.ledger
+		result.Plan = w.plan
+		result.Notes = w.submittedNotes
+		result.ToolCalls, result.MCPReads = w.toolCalls, w.mcpReads
+		result.DurationMS = time.Since(started).Milliseconds()
+		result.Collection = w.readCollection(collection)
+		if err != nil {
+			result.Ledger.Status = researchPartial
+			result.Ledger.Frontier = w.unfinishedFrontier()
+			result.Ledger.Frontier = append(result.Ledger.Frontier, "Research stopped before an accepted coverage check: "+err.Error())
+			w.ledger = result.Ledger
+			if w.budget != nil {
+				w.budget.stopped = true
+				w.budget.decisions = append(w.budget.decisions, BudgetDecision{Turn: w.turn, Limit: w.activeLimit(), Kind: "stopped", Reason: "Research stopped before coverage was accepted: " + err.Error()})
+				// The service callback uses the parent context, so it can save the
+				// final state even when this attempt's time budget has expired.
+				_ = w.publish(progress, "Research stopped; findings and open questions are retained.")
+			}
+		}
+		state := w.state()
+		result.Progress = &state
+	}()
+	orientation := w.orientation(collection)
+	if w.checkedNotes != "" && w.ledger.Status == researchComplete {
+		w.budget = &attemptBudget{stopped: true, decisions: []BudgetDecision{{Kind: researchComplete, Reason: "Reused completed research at the same source revisions. No new model turns were needed."}}}
+		result.Context, err = w.resultContext(orientation)
+		return result, err
+	}
+	w.ledger.Focus = Focus{}
+	w.startBudget()
+	if publishErr := w.publish(progress, "Research plan opened. Source areas will be refined into product responsibilities."); publishErr != nil {
+		return result, publishErr
+	}
 	session, err := connectMCP(ctx, r.RepomixBin, dir)
 	if err != nil {
 		return result, err
@@ -102,80 +171,81 @@ func (r *Runner) Run(ctx context.Context, config llmgateway.Config, modelID stri
 	if err != nil {
 		return result, err
 	}
-	tools := w.tools(session)
+	tools := append(w.tools(session), w.coverageTools()...)
 	agent := fantasy.NewAgent(model, fantasy.WithSystemPrompt(prompt), fantasy.WithTools(tools...))
-	var orientation strings.Builder
+	if loopErr := w.investigate(ctx, agent, config, modelID, orientation, progress, &result); loopErr != nil {
+		return result, loopErr
+	}
+	result.Context, err = w.resultContext(orientation)
+	return result, err
+}
+
+func (w *workspace) orientation(collection source.Collection) string {
+	var b strings.Builder
 	for _, snapshot := range collection.Snapshots {
-		fmt.Fprintf(&orientation, "Repository %s at %s; workspace prefix %s/; %d available files\n", snapshot.Locator, snapshot.Revision, snapshot.ID, snapshot.Coverage.FileCount)
+		fmt.Fprintf(&b, "Repository %s at %s; workspace prefix %s/; %d available files\n", snapshot.Locator, snapshot.Revision, snapshot.ID, snapshot.Coverage.FileCount)
 	}
-	maxOutput := int64(6000)
-	reportedSteps := 0
-	var stepStarted time.Time
-	reportUsage := func(steps []fantasy.StepResult) error {
-		for reportedSteps < len(steps) {
-			usage := steps[reportedSteps].Usage
-			step := reportedSteps + 1
-			if checkErr := progress(Progress{
-				Message:      fmt.Sprintf("Research model turn %d completed. Recorded usage: %d input tokens and %d output tokens.", step, usage.InputTokens, usage.OutputTokens),
-				Step:         step,
-				InputTokens:  usage.InputTokens,
-				OutputTokens: usage.OutputTokens,
-				DurationMS:   time.Since(stepStarted).Milliseconds(),
-			}); checkErr != nil {
-				return fmt.Errorf("report research usage: %w", checkErr)
-			}
-			reportedSteps++
-		}
-		return nil
-	}
-	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: orientation.String() + "Investigate this complete product scope and prepare source-backed findings.", MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{fantasy.StepCountIs(24)}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
-		if checkErr := reportUsage(options.Steps); checkErr != nil {
-			return stepCtx, fantasy.PrepareStepResult{}, checkErr
-		}
-		stepStarted = time.Now()
-		return stepCtx, fantasy.PrepareStepResult{}, event(fmt.Sprintf("Research model turn %d started.", options.StepNumber+1))
-	}})
+	fmt.Fprintf(&b, "Independent inventory: %d candidates. Review list_research_inventory and next_research_questions. This candidate map does not prove completeness.\n", len(w.inventory.Candidates))
+	return b.String()
+}
+
+func (w *workspace) resultContext(orientation string) (string, error) {
+	contextText, err := w.evidenceContext(w.checkedNotes)
 	if err != nil {
-		return result, errors.New("repository research failed through the selected connection; check protocol support, endpoint availability and timeout")
+		return "", err
 	}
-	if checkErr := reportUsage(response.Steps); checkErr != nil {
-		return result, checkErr
-	}
-	notes := response.Response.Content.Text()
-	if !strings.Contains(notes, "RESEARCH_COMPLETE") || strings.Contains(notes, "RESEARCH_INCOMPLETE") {
-		return result, errors.New("research budget ended before the model completed its coverage checks")
-	}
-	result.Context, err = w.evidenceContext(notes)
+	ledgerText, err := w.ledgerContext()
 	if err != nil {
-		return result, err
+		return "", err
 	}
-	result.Collection = source.Collection{Snapshots: collection.Snapshots, Documents: []source.Document{}}
-	for i := range result.Collection.Snapshots {
-		snap := &result.Collection.Snapshots[i]
+	return "REPOSITORY CATALOG:\n" + orientation + contextText + ledgerText, nil
+}
+
+func (w *workspace) readCollection(collection source.Collection) source.Collection {
+	result := source.Collection{Snapshots: slices.Clone(collection.Snapshots), Documents: []source.Document{}}
+	for i := range result.Snapshots {
+		snap := &result.Snapshots[i]
 		snap.Coverage.Files = []source.FileCoverage{}
+		snap.Coverage.ReadFiles, snap.Coverage.CitedFiles = 0, 0
 		for _, path := range w.paths {
 			doc := w.documents[path]
 			if doc.SnapshotID != snap.ID {
 				continue
 			}
-			ranges := w.reads[doc.ID]
+			ranges := slices.Clone(w.reads[doc.ID])
 			snap.Coverage.Files = append(snap.Coverage.Files, source.FileCoverage{ID: doc.ID, Path: doc.Path, Bytes: len(doc.Content), ReadRanges: ranges})
 			if len(ranges) > 0 {
 				snap.Coverage.ReadFiles++
-				result.Collection.Documents = append(result.Collection.Documents, doc)
+				result.Documents = append(result.Documents, doc)
 			}
 		}
 	}
-	result.InputTokens = response.TotalUsage.InputTokens
-	result.OutputTokens = response.TotalUsage.OutputTokens
-	result.Steps = len(response.Steps)
-	result.ToolCalls = w.toolCalls
-	result.MCPReads = w.mcpReads
-	result.DurationMS = time.Since(started).Milliseconds()
-	return result, nil
+	return result
 }
 
 var citationPattern = regexp.MustCompile(`\[([A-Z0-9]{20,}):L(\d+)-L(\d+)\]`)
+
+func mergeRanges(ranges []source.LineRange) []source.LineRange {
+	ordered := slices.Clone(ranges)
+	slices.SortFunc(ordered, func(a, b source.LineRange) int {
+		if a.StartLine < b.StartLine {
+			return -1
+		}
+		if a.StartLine > b.StartLine {
+			return 1
+		}
+		return a.EndLine - b.EndLine
+	})
+	var merged []source.LineRange
+	for _, span := range ordered {
+		if len(merged) == 0 || span.StartLine > merged[len(merged)-1].EndLine+1 {
+			merged = append(merged, span)
+			continue
+		}
+		merged[len(merged)-1].EndLine = max(merged[len(merged)-1].EndLine, span.EndLine)
+	}
+	return merged
+}
 
 func (w *workspace) evidenceContext(notes string) (string, error) {
 	var b strings.Builder
@@ -188,30 +258,31 @@ func (w *workspace) evidenceContext(notes string) (string, error) {
 	if len(anchors) == 0 {
 		return "", errors.New("research produced no original-source evidence anchors")
 	}
-	seen := map[string]bool{}
+	ranges := map[string][]source.LineRange{}
 	for _, match := range anchors {
-		if seen[match[0]] {
-			continue
-		}
-		seen[match[0]] = true
 		doc, ok := byID[match[1]]
 		start, _ := strconv.Atoi(match[2])
 		end, _ := strconv.Atoi(match[3])
-		read := false
-		for _, span := range w.reads[doc.ID] {
-			if start >= span.StartLine && end <= span.EndLine {
-				read = true
-			}
-		}
-		if !ok || !read || start < 1 || end < start || end > doc.LineCount {
+		if !ok || !RangeCovered(w.reads[doc.ID], start, end) || end > doc.LineCount {
 			return "", errors.New("research cited a source range it did not read")
 		}
-		fmt.Fprintf(&b, "\n<source_document id=%q path=%q>\n", doc.ID, doc.Path)
+		ranges[doc.ID] = append(ranges[doc.ID], source.LineRange{StartLine: start, EndLine: end})
+	}
+	ids := make([]string, 0, len(ranges))
+	for id := range ranges {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		doc := byID[id]
 		lines := strings.Split(doc.Content, "\n")
-		for i := start - 1; i < end; i++ {
-			fmt.Fprintf(&b, "%d: %s\n", i+1, lines[i])
+		for _, span := range mergeRanges(ranges[id]) {
+			fmt.Fprintf(&b, "\n<source_document id=%q snapshot_id=%q path=%q start_line=\"%d\" end_line=\"%d\">\n", doc.ID, doc.SnapshotID, doc.Path, span.StartLine, span.EndLine)
+			for i := span.StartLine - 1; i < span.EndLine; i++ {
+				fmt.Fprintf(&b, "%d: %s\n", i+1, lines[i])
+			}
+			b.WriteString("</source_document>\n")
 		}
-		b.WriteString("</source_document>\n")
 	}
 	return b.String(), nil
 }

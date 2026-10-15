@@ -76,6 +76,10 @@ func (f *Factory) register(mux *http.ServeMux) {
 		respond(w, r, value, err)
 	})
 	mux.HandleFunc("POST /api/products/{id}/generations", f.startGeneration)
+	mux.HandleFunc("POST /api/generations/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.Cancel(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	})
 	mux.HandleFunc("GET /api/generations/{id}/events", f.generationEvents)
 	mux.HandleFunc("GET /api/generations/{id}", func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.GetRun(r.Context(), r.PathValue("id"))
@@ -287,6 +291,10 @@ func decode[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
 }
 
 func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
+		// The client no longer needs a response; this is not a server failure.
+		return
+	}
 	if err == nil {
 		writeJSON(w, http.StatusOK, value)
 		return

@@ -1,7 +1,9 @@
 # capabilities
-Goal: explain what the product can do and the boundaries of those capabilities.
-Use: documented features, routes, services, tests and feature flags.
-Prepare: a small capability map grouped by user outcome; inputs, outputs, constraints and dependencies; implemented versus planned or experimental behavior.
-Select: capability objects and supporting scenario/claim IDs. Describe limitations alongside each relevant capability.
-Visual: a capability-to-component context or component view only if those relations are modeled.
-Missing evidence: do not infer absence from omitted files. Label documented promises separately from demonstrated implementation.
+Goal: explain substantial supported outcome families and limits when overview is insufficient.
+Question: What can users achieve, under which supported variants and limits?
+Inputs: canonical capabilities/actors, documented promises, implementation/flags, material variant coverage, scenario outcomes and supporting claims.
+Investigation: group by user outcome; check caller/wiring/implementation/acceptance behind significant claims. Preserve implemented, in_development, experimental and planned status independently from evidence confidence.
+Output: normally integrate concise outcome families/limits into overview. For a distinct useful chapter, use cited Markdown with capability -> input/output -> status -> constraint distinctions. Refer to canonical scenarios in prose without embedding their full blocks.
+Evidence/gaps: a route/registration is not end-to-end support; source absence is not feature absence. Separate documented promises from implemented behavior and observed results.
+Exclusions: no endpoint/class catalogue, duplicate overview list, static architecture inventory or full scenarios. No arbitrary top-three selection that loses material families.
+Acceptance: every significant researched outcome/variant is represented at the right level or explicitly excluded; limitations sit beside the affected capability and have support.

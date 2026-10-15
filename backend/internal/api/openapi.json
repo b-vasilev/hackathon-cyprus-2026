@@ -486,7 +486,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "One of context, components, domain, data, deployment, states."
+            "description": "One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects."
           },
           "summary": {
             "type": "string"
@@ -508,6 +508,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "scope_object_id": {
+            "type": "string",
+            "description": "Optional object ID whose immediate architectural children this view explains."
+          },
+          "question": {
+            "type": "string"
           }
         },
         "required": [
@@ -632,6 +639,12 @@
           },
           "model": {
             "type": "string"
+          },
+          "resume_run_id": {
+            "type": "string"
+          },
+          "request_timeout_seconds": {
+            "type": "integer"
           }
         },
         "required": [
@@ -938,7 +951,7 @@
                     },
                     "kind": {
                       "type": "string",
-                      "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                      "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
                     },
                     "name": {
                       "type": "string"
@@ -988,6 +1001,14 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "architecture_role": {
+                      "type": "string",
+                      "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+                    },
+                    "parent_id": {
+                      "type": "string",
+                      "description": "Optional architectural parent object ID. Never a repository provenance link."
                     }
                   },
                   "required": [
@@ -1037,6 +1058,14 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "interaction": {
+                      "type": "string",
+                      "description": "Optional in_process, sync, async, artifact, build or unknown."
+                    },
+                    "contract": {
+                      "type": "string",
+                      "description": "Optional specific protocol, payload or artifact contract."
                     }
                   },
                   "required": [
@@ -1343,7 +1372,7 @@
                     },
                     "kind": {
                       "type": "string",
-                      "description": "One of context, components, domain, data, deployment, states."
+                      "description": "One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects."
                     },
                     "summary": {
                       "type": "string"
@@ -1365,6 +1394,13 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "scope_object_id": {
+                      "type": "string",
+                      "description": "Optional object ID whose immediate architectural children this view explains."
+                    },
+                    "question": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -1386,16 +1422,137 @@
                 "properties": {
                   "accent_color": {
                     "type": "string",
-                    "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                    "description": "Brand accent as a six-digit hex color, for example #6550B9."
                   },
                   "background_color": {
                     "type": "string",
-                    "description": "Product card background as a six-digit hex colour."
+                    "description": "Product card background as a six-digit hex color."
+                  },
+                  "logo_url": {
+                    "type": "string",
+                    "description": "Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL."
+                  },
+                  "sources": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Brand provenance populated by the server; leave empty."
                   }
                 },
                 "required": [
                   "accent_color",
-                  "background_color"
+                  "background_color",
+                  "logo_url",
+                  "sources"
+                ],
+                "additionalProperties": false
+              },
+              "document": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "description": "Must be 2."
+                  },
+                  "chapters": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "question": {
+                          "type": "string"
+                        },
+                        "blocks": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "description": "One of markdown, diagram_ref, scenario_ref, object_table."
+                              },
+                              "markdown": {
+                                "type": "string",
+                                "description": "Plain Markdown only, without raw HTML or executable JS/MDX."
+                              },
+                              "reference_id": {
+                                "type": "string"
+                              },
+                              "object_ids": {
+                                "type": [
+                                  "null",
+                                  "array"
+                                ],
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "claim_ids": {
+                                "type": [
+                                  "null",
+                                  "array"
+                                ],
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "table_style": {
+                                "type": "string",
+                                "description": "For object_table only: objects, repositories or technologies."
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "question",
+                        "blocks"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "version",
+                  "chapters"
                 ],
                 "additionalProperties": false
               }
@@ -1544,16 +1701,45 @@
             "properties": {
               "accent_color": {
                 "type": "string",
-                "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                "description": "Brand accent as a six-digit hex color, for example #6550B9."
               },
               "background_color": {
                 "type": "string",
-                "description": "Product card background as a six-digit hex colour."
+                "description": "Product card background as a six-digit hex color."
+              },
+              "logo_url": {
+                "type": "string",
+                "description": "Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL."
+              },
+              "sources": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "url"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Brand provenance populated by the server; leave empty."
               }
             },
             "required": [
               "accent_color",
-              "background_color"
+              "background_color",
+              "logo_url",
+              "sources"
             ],
             "additionalProperties": false
           },
@@ -1676,7 +1862,7 @@
                 },
                 "kind": {
                   "type": "string",
-                  "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                  "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
                 },
                 "name": {
                   "type": "string"
@@ -1726,6 +1912,14 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "architecture_role": {
+                  "type": "string",
+                  "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+                },
+                "parent_id": {
+                  "type": "string",
+                  "description": "Optional architectural parent object ID. Never a repository provenance link."
                 }
               },
               "required": [
@@ -1775,6 +1969,14 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "interaction": {
+                  "type": "string",
+                  "description": "Optional in_process, sync, async, artifact, build or unknown."
+                },
+                "contract": {
+                  "type": "string",
+                  "description": "Optional specific protocol, payload or artifact contract."
                 }
               },
               "required": [
@@ -1989,7 +2191,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+            "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
           },
           "name": {
             "type": "string"
@@ -2039,6 +2241,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "architecture_role": {
+            "type": "string",
+            "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Optional architectural parent object ID. Never a repository provenance link."
           }
         },
         "required": [
@@ -2082,6 +2292,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "interaction": {
+            "type": "string",
+            "description": "Optional in_process, sync, async, artifact, build or unknown."
+          },
+          "contract": {
+            "type": "string",
+            "description": "Optional specific protocol, payload or artifact contract."
           }
         },
         "required": [
@@ -2143,7 +2361,7 @@
                         },
                         "kind": {
                           "type": "string",
-                          "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                          "description": "One of repository, actor, capability, entity, component, store, external_system, interface, environment, decision, owner. Repository objects describe source ownership, never runtime units."
                         },
                         "name": {
                           "type": "string"
@@ -2193,6 +2411,14 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "architecture_role": {
+                          "type": "string",
+                          "description": "Optional software_system, runtime_unit or component. Describes logical structure, not source ownership."
+                        },
+                        "parent_id": {
+                          "type": "string",
+                          "description": "Optional architectural parent object ID. Never a repository provenance link."
                         }
                       },
                       "required": [
@@ -2242,6 +2468,14 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "interaction": {
+                          "type": "string",
+                          "description": "Optional in_process, sync, async, artifact, build or unknown."
+                        },
+                        "contract": {
+                          "type": "string",
+                          "description": "Optional specific protocol, payload or artifact contract."
                         }
                       },
                       "required": [
@@ -2548,7 +2782,7 @@
                         },
                         "kind": {
                           "type": "string",
-                          "description": "One of context, components, domain, data, deployment, states."
+                          "description": "One of repositories, context, containers, components, domain, data, deployment, states. In v2, repositories views contain only repository objects; other views exclude repository objects."
                         },
                         "summary": {
                           "type": "string"
@@ -2570,6 +2804,13 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "scope_object_id": {
+                          "type": "string",
+                          "description": "Optional object ID whose immediate architectural children this view explains."
+                        },
+                        "question": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -2591,16 +2832,137 @@
                     "properties": {
                       "accent_color": {
                         "type": "string",
-                        "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                        "description": "Brand accent as a six-digit hex color, for example #6550B9."
                       },
                       "background_color": {
                         "type": "string",
-                        "description": "Product card background as a six-digit hex colour."
+                        "description": "Product card background as a six-digit hex color."
+                      },
+                      "logo_url": {
+                        "type": "string",
+                        "description": "Exact original logo URL from the supplied verified logo candidates, or empty. Never invent a logo URL."
+                      },
+                      "sources": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Brand provenance populated by the server; leave empty."
                       }
                     },
                     "required": [
                       "accent_color",
-                      "background_color"
+                      "background_color",
+                      "logo_url",
+                      "sources"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "document": {
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "integer",
+                        "description": "Must be 2."
+                      },
+                      "chapters": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "question": {
+                              "type": "string"
+                            },
+                            "blocks": {
+                              "type": [
+                                "null",
+                                "array"
+                              ],
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "description": "One of markdown, diagram_ref, scenario_ref, object_table."
+                                  },
+                                  "markdown": {
+                                    "type": "string",
+                                    "description": "Plain Markdown only, without raw HTML or executable JS/MDX."
+                                  },
+                                  "reference_id": {
+                                    "type": "string"
+                                  },
+                                  "object_ids": {
+                                    "type": [
+                                      "null",
+                                      "array"
+                                    ],
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "claim_ids": {
+                                    "type": [
+                                      "null",
+                                      "array"
+                                    ],
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "table_style": {
+                                    "type": "string",
+                                    "description": "For object_table only: objects, repositories or technologies."
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title",
+                            "question",
+                            "blocks"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "chapters"
                     ],
                     "additionalProperties": false
                   }
@@ -2783,6 +3145,9 @@
           "model": {
             "type": "string"
           },
+          "request_timeout_seconds": {
+            "type": "integer"
+          },
           "status": {
             "type": "string"
           },
@@ -2846,6 +3211,241 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "not_started",
+                        "investigating",
+                        "checked",
+                        "blocked",
+                        "excluded"
+                      ]
+                    },
+                    "questions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "question": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "answered",
+                              "not_applicable",
+                              "blocked",
+                              "excluded"
+                            ]
+                          },
+                          "result": {
+                            "type": "string"
+                          },
+                          "evidence": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "document_id": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                },
+                                "start_line": {
+                                  "type": "integer"
+                                },
+                                "end_line": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "document_id",
+                                "path",
+                                "start_line",
+                                "end_line"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "question",
+                          "status",
+                          "result",
+                          "evidence"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "repository",
+                    "status",
+                    "questions"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "focus": {
+                "type": "object",
+                "properties": {
+                  "area": {
+                    "type": "string"
+                  },
+                  "question": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "area",
+                  "question",
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              "activity": {
+                "type": "string"
+              },
+              "last_result": {
+                "type": "string"
+              },
+              "budget": {
+                "type": "object",
+                "properties": {
+                  "used": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "hard_limit": {
+                    "type": "integer"
+                  },
+                  "deadline": {
+                    "type": "string"
+                  },
+                  "decisions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "turn": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "turn",
+                        "limit",
+                        "kind",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "used",
+                  "limit",
+                  "hard_limit",
+                  "deadline",
+                  "decisions"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "status",
+              "areas",
+              "focus",
+              "activity",
+              "last_result",
+              "budget"
+            ],
+            "additionalProperties": false
+          },
+          "analysis": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "area_id": {
+                "type": "string"
+              },
+              "area_title": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "step": {
+                "type": "integer"
+              },
+              "checkpoint_revision": {
+                "type": "integer"
+              },
+              "objects": {
+                "type": "integer"
+              },
+              "claims": {
+                "type": "integer"
+              },
+              "relations": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "area_id",
+              "area_title",
+              "action",
+              "step",
+              "checkpoint_revision",
+              "objects",
+              "claims",
+              "relations"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -2854,6 +3454,7 @@
           "connection_id",
           "connection_revision",
           "model",
+          "request_timeout_seconds",
           "status",
           "stage",
           "error_code",
@@ -3107,6 +3708,43 @@
     "/api/generations/{id}": {
       "get": {
         "operationId": "getGeneration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/generations/{id}/cancel": {
+      "post": {
+        "operationId": "cancelGeneration",
         "parameters": [
           {
             "in": "path",

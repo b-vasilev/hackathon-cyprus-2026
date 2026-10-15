@@ -1,5 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { ArrowUpRight, Boxes, Database, FileStack, Globe2, UserRound } from 'lucide-react';
+import { hasLifecycleStatus, objectTypeLabel } from '../lib/passportDocument';
 import type { ProductObject } from '../lib/api';
 import type { DiagramPort } from '../lib/diagramLayout';
 
@@ -63,7 +64,7 @@ export function DiagramNode({ data }: NodeProps<ArchitectureNode>) {
           <span className="architecture-node-icon">
             <KindIcon kind={object.kind} />
           </span>
-          <span className="node-kind">{object.kind.replaceAll('_', ' ')}</span>
+          <span className="node-kind">{objectTypeLabel(object)}</span>
           <ArrowUpRight size={15} className="architecture-inspect" aria-hidden="true" />
         </span>
         <strong>{object.name}</strong>
@@ -73,10 +74,12 @@ export function DiagramNode({ data }: NodeProps<ArchitectureNode>) {
         {object.kind !== 'actor' && (
           <span className="architecture-responsibility">{object.summary}</span>
         )}
-        <span className="architecture-status">
-          <span aria-hidden="true" />
-          {object.status.replaceAll('_', ' ')}
-        </span>
+        {hasLifecycleStatus(object) && (
+          <span className="architecture-status">
+            <span aria-hidden="true" />
+            {object.status.replaceAll('_', ' ')}
+          </span>
+        )}
       </button>
     </div>
   );
