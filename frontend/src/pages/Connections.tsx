@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, KeyRound, Pencil, Plug, Plus, ShieldCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { GitHubConnectionPanel } from '../components/GitHubConnectionPanel';
 import { Badge, Dialog, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import {
   api,
   message,
   protocolLabels,
+  type AvailableModel,
   type Connection,
   type ConnectionConfig,
   type FactoryStatus,
@@ -27,7 +29,9 @@ function defaultConfig(): ConnectionConfig {
     secret: '',
     headers: [],
     query_params: [],
-    models: [{ id: '', output_mode: 'json_schema', max_output_tokens: 12_000 }],
+    models: [
+      { id: '', output_mode: 'json_schema', max_output_tokens: 64_000, reasoning_effort: '' },
+    ],
     timeout_seconds: 180,
     max_concurrent: 2,
     quota_group: '',
@@ -64,10 +68,17 @@ export function Connections() {
   return (
     <>
       <PageHeading
-        eyebrow="Factory settings"
-        title="Your models. Your endpoints."
-        description="Connect a provider, a compatible gateway or an approved local endpoint."
-        action={
+        eyebrow="Wayfinder settings"
+        title="Your connections"
+        description="Connect GitHub for source access and choose your model endpoints."
+      />
+      <GitHubConnectionPanel />
+      <section aria-labelledby="llm-connections-heading" className="connections-section">
+        <header className="connections-section-heading">
+          <div>
+            <h2 id="llm-connections-heading">LLM connections</h2>
+            <p>Model providers and gateways for passport generation.</p>
+          </div>
           <button
             type="button"
             className="button primary"
@@ -75,111 +86,103 @@ export function Connections() {
             disabled={status.data?.connections_enabled !== true}
           >
             <Plus size={17} />
-            Add connection
+            Add LLM connection
           </button>
-        }
-      />
-      <div className="intro-strip">
-        <ShieldCheck size={19} aria-hidden="true" />
-        <p>
-          Keys are encrypted on the server. Each passport run uses a fixed connection revision and
-          model.
-        </p>
-      </div>
-      {status.data?.connections_enabled === false && (
-        <div className="notice warning">
-          <KeyRound size={19} aria-hidden="true" />
-          <div>
-            <strong>Connection storage needs a master key.</strong>
-            <p>
-              Set LLM_MASTER_KEY to a stable secret of at least 32 characters and restart the API.
-              Keep it safe: it decrypts your saved connections.
-            </p>
-          </div>
+        </header>
+        <div className="intro-strip">
+          <ShieldCheck size={19} aria-hidden="true" />
+          <p>
+            Keys are encrypted on the server. Each passport run uses a fixed connection revision and
+            model.
+          </p>
         </div>
-      )}
-      {(status.isPending || connections.isFetching) && <Loading />}
-      {(status.isError || connections.isError) && (
-        <ErrorNotice error={status.error ?? connections.error} />
-      )}
-      {connections.data?.length === 0 && (
-        <EmptyState
-          title="Connect a model endpoint"
-          action={
-            <button type="button" className="button primary" onClick={() => setEditing('new')}>
-              <Plus size={17} />
-              Add connection
-            </button>
-          }
-        >
-          Use your own URL, credentials and model names. Multiple connections can expose the same
-          model.
-        </EmptyState>
-      )}
-      <div className="connection-list">
-        {connections.data?.map((connection) => (
-          <article className="connection-card" key={connection.id}>
-            <div className="connection-heading">
-              <div className="connection-title">
-                <span className="small-icon">
-                  <Plug size={20} aria-hidden="true" />
-                </span>
-                <div>
-                  <h2>{connection.config.name}</h2>
-                  <p>{protocolLabels[connection.config.protocol]}</p>
-                </div>
-              </div>
-              <div className="row-actions">
-                <Badge>{connection.config.enabled ? 'Enabled' : 'Disabled'}</Badge>
-                <button
-                  type="button"
-                  className="button quiet"
-                  onClick={() => setEditing(connection)}
-                >
-                  <Pencil size={15} />
-                  Edit
-                </button>
-              </div>
+        {status.data?.connections_enabled === false && (
+          <div className="notice warning">
+            <KeyRound size={19} aria-hidden="true" />
+            <div>
+              <strong>Connection storage needs a master key.</strong>
+              <p>
+                Set CONNECTION_MASTER_KEY to a stable secret of at least 32 characters and restart
+                the API. Keep it safe: it decrypts your saved connections.
+              </p>
             </div>
-            <p className="endpoint">{connection.config.endpoint_url}</p>
-            <div className="connection-models">
-              {connection.config.models?.map((model) => (
-                <div className="model-row" key={model.id}>
+          </div>
+        )}
+        {(status.isPending || connections.isFetching) && <Loading />}
+        {(status.isError || connections.isError) && (
+          <ErrorNotice error={status.error ?? connections.error} />
+        )}
+        {connections.data?.length === 0 && (
+          <EmptyState title="Connect a model endpoint">
+            Use your own URL, credentials and model names. Multiple connections can expose the same
+            model.
+          </EmptyState>
+        )}
+        <div className="connection-list">
+          {connections.data?.map((connection) => (
+            <article className="connection-card" key={connection.id}>
+              <div className="connection-heading">
+                <div className="connection-title">
+                  <span className="small-icon">
+                    <Plug size={20} aria-hidden="true" />
+                  </span>
                   <div>
-                    <code>{model.id}</code>
-                    <span className="meta">
-                      {model.output_mode.replaceAll('_', ' ')} ·{' '}
-                      {model.max_output_tokens.toLocaleString()} output tokens
-                    </span>
-                    {checks[`${connection.id}:${model.id}`] !== undefined && (
-                      <p className="check-result" role="status">
-                        {checks[`${connection.id}:${model.id}`]}
-                      </p>
-                    )}
+                    <h2>{connection.config.name}</h2>
+                    <p>{protocolLabels[connection.config.protocol]}</p>
                   </div>
+                </div>
+                <div className="row-actions">
+                  <Badge>{connection.config.enabled ? 'Enabled' : 'Disabled'}</Badge>
                   <button
                     type="button"
-                    className="button secondary"
-                    disabled={!connection.config.enabled || probe.isPending}
-                    onClick={() => probe.mutate({ id: connection.id, model: model.id })}
+                    className="button quiet"
+                    onClick={() => setEditing(connection)}
                   >
-                    {probe.isPending &&
-                    probe.variables.id === connection.id &&
-                    probe.variables.model === model.id
-                      ? 'Checking…'
-                      : 'Check connection'}
+                    <Pencil size={15} />
+                    Edit
                   </button>
                 </div>
-              ))}
-            </div>
-            <div className="connection-foot">
-              <KeyRound size={14} aria-hidden="true" />
-              {connection.has_secret ? 'Key saved' : 'No authentication'}
-              <span>Revision {connection.revision}</span>
-            </div>
-          </article>
-        ))}
-      </div>
+              </div>
+              <p className="endpoint">{connection.config.endpoint_url}</p>
+              <div className="connection-models">
+                {connection.config.models?.map((model) => (
+                  <div className="model-row" key={model.id}>
+                    <div>
+                      <code>{model.id}</code>
+                      <span className="meta">
+                        {model.output_mode.replaceAll('_', ' ')} ·{' '}
+                        {model.max_output_tokens.toLocaleString()} output tokens
+                      </span>
+                      {checks[`${connection.id}:${model.id}`] !== undefined && (
+                        <p className="check-result" role="status">
+                          {checks[`${connection.id}:${model.id}`]}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={!connection.config.enabled || probe.isPending}
+                      onClick={() => probe.mutate({ id: connection.id, model: model.id })}
+                    >
+                      {probe.isPending &&
+                      probe.variables.id === connection.id &&
+                      probe.variables.model === model.id
+                        ? 'Checking…'
+                        : 'Check connection'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="connection-foot">
+                <KeyRound size={14} aria-hidden="true" />
+                {connection.has_secret ? 'Key saved' : 'No authentication'}
+                <span>Revision {connection.revision}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
       {editing !== null && (
         <ConnectionEditor
           connection={editing === 'new' ? null : editing}
@@ -206,6 +209,9 @@ function ConnectionEditor({
   const [config, setConfig] = useState<ConnectionConfig>(() =>
     connection === null ? defaultConfig() : structuredClone(connection.config)
   );
+  const [modelKeys, setModelKeys] = useState(() =>
+    (config.models ?? []).map(() => crypto.randomUUID())
+  );
   const [headers, setHeaders] = useState(() =>
     JSON.stringify(connection?.config.headers ?? [], null, 2)
   );
@@ -221,7 +227,34 @@ function ConnectionEditor({
       ),
     onSuccess: onSaved,
   });
+  const availableModels = useMutation({
+    mutationFn: (input: ConnectionConfig) =>
+      api<AvailableModel[]>('/llm-connections/models', {
+        method: 'POST',
+        body: JSON.stringify({ connection_id: connection?.id ?? '', config: input }),
+      }),
+  });
+  function formConfig(): ConnectionConfig {
+    const parsedHeaders = JSON.parse(headers) as Parameter[];
+    const parsedQuery = JSON.parse(query) as Parameter[];
+    if (!Array.isArray(parsedHeaders) || !Array.isArray(parsedQuery)) {
+      throw new TypeError('Headers and query parameters must be JSON arrays.');
+    }
+    return { ...config, headers: parsedHeaders, query_params: parsedQuery };
+  }
+  function fetchModels() {
+    try {
+      const input = formConfig();
+      setFormError(null);
+      availableModels.mutate(input);
+    } catch {
+      setFormError('Check the JSON arrays in the additional HTTP settings.');
+    }
+  }
   function set<K extends keyof ConnectionConfig>(key: K, value: ConnectionConfig[K]) {
+    if (key !== 'models') {
+      availableModels.reset();
+    }
     setConfig((old) => ({ ...old, [key]: value }));
   }
   function model(index: number, update: Partial<ModelConfig>) {
@@ -230,7 +263,19 @@ function ConnectionEditor({
       (config.models ?? []).map((item, i) => (i === index ? { ...item, ...update } : item))
     );
   }
+  function addModel() {
+    set('models', [
+      ...(config.models ?? []),
+      { id: '', output_mode: 'json_schema', max_output_tokens: 64_000, reasoning_effort: '' },
+    ]);
+    setModelKeys((keys) => [...keys, crypto.randomUUID()]);
+  }
+  function removeModel(index: number) {
+    set('models', config.models?.filter((_, i) => i !== index) ?? []);
+    setModelKeys((keys) => keys.filter((_, i) => i !== index));
+  }
   function preset(protocol: string) {
+    availableModels.reset();
     const anthropic = protocol === 'anthropic_messages';
     setConfig((old) => ({
       ...old,
@@ -245,13 +290,9 @@ function ConnectionEditor({
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      const parsedHeaders = JSON.parse(headers) as Parameter[];
-      const parsedQuery = JSON.parse(query) as Parameter[];
-      if (!Array.isArray(parsedHeaders) || !Array.isArray(parsedQuery)) {
-        throw new TypeError('Headers and query parameters must be JSON arrays.');
-      }
+      const input = formConfig();
       setFormError(null);
-      save.mutate({ ...config, headers: parsedHeaders, query_params: parsedQuery });
+      save.mutate(input);
     } catch {
       setFormError('Check the JSON arrays in the additional HTTP settings.');
     }
@@ -320,8 +361,8 @@ function ConnectionEditor({
           />
         </label>
         <p className="field-help">
-          Private or HTTP endpoints need an exact origin in the server’s LLM_ALLOWED_PRIVATE_ORIGINS
-          setting.
+          Local endpoints are allowed, including localhost and private networks. Other HTTP
+          endpoints need an exact origin in the server’s LLM_ALLOWED_PRIVATE_ORIGINS setting.
         </p>
         <label>
           Authentication
@@ -375,24 +416,37 @@ function ConnectionEditor({
           <button
             type="button"
             className="text-button"
-            onClick={() =>
-              set('models', [
-                ...(config.models ?? []),
-                { id: '', output_mode: 'json_schema', max_output_tokens: 12_000 },
-              ])
-            }
+            onClick={fetchModels}
+            disabled={availableModels.isPending}
           >
+            {availableModels.isPending ? 'Fetching models…' : 'Fetch models'}
+          </button>
+          <button type="button" className="text-button" onClick={addModel}>
             <Plus size={14} />
             Add model
           </button>
         </div>
+        {availableModels.isError && <ErrorNotice error={availableModels.error} />}
+        {availableModels.isSuccess && (
+          <p className="field-help" role="status">
+            {availableModels.data.length === 0
+              ? 'The endpoint returned no models.'
+              : `${availableModels.data.length} models available. Choose a model ID below.`}
+          </p>
+        )}
+        <datalist id="connection-model-options">
+          {availableModels.data?.map((item) => (
+            <option key={item.id} value={item.id} />
+          ))}
+        </datalist>
         {config.models?.map((item, index) => (
-          <div className="model-form" key={index}>
+          <div className="model-form" key={modelKeys.at(index)}>
             <label>
               Model ID
               <input
                 required
                 value={item.id}
+                list="connection-model-options"
                 onChange={(event) => model(index, { id: event.target.value })}
                 placeholder="The exact model name or deployment alias"
               />
@@ -423,11 +477,25 @@ function ConnectionEditor({
                 />
               </label>
             </div>
+            {config.protocol !== 'anthropic_messages' && (
+              <label>
+                Reasoning effort
+                <select
+                  value={item.reasoning_effort}
+                  onChange={(event) => model(index, { reasoning_effort: event.target.value })}
+                >
+                  <option value="">Provider default</option>
+                  <option value="low">Low (faster)</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+            )}
             {(config.models?.length ?? 0) > 1 && (
               <button
                 type="button"
                 className="text-button destructive"
-                onClick={() => set('models', config.models?.filter((_, i) => i !== index) ?? [])}
+                onClick={() => removeModel(index)}
               >
                 Remove model
               </button>
@@ -446,7 +514,10 @@ function ConnectionEditor({
               rows={4}
               className="code-input"
               value={headers}
-              onChange={(event) => setHeaders(event.target.value)}
+              onChange={(event) => {
+                setHeaders(event.target.value);
+                availableModels.reset();
+              }}
             />
           </label>
           <label>
@@ -455,7 +526,10 @@ function ConnectionEditor({
               rows={4}
               className="code-input"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                availableModels.reset();
+              }}
             />
           </label>
           <div className="form-grid">

@@ -53,7 +53,7 @@ func TestOutputSchemaHasNoNullableArrays(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := json.Marshal(schema)
-	if strings.Contains(string(data), `"null"`) {
-		t.Fatal("output schema contains nullable types that inflate strict grammars")
+	if strings.Contains(string(data), `["null","array"]`) {
+		t.Fatal("output schema contains nullable arrays that inflate strict grammars")
 	}
 }

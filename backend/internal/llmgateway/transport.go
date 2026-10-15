@@ -31,7 +31,7 @@ func DefaultPoolPolicy(key string) PoolPolicy {
 	return PoolPolicy{PoolKey: key, MaxActive: 2, MaxQueue: 8, MaxWaitMS: 60000, Mode: "auto"}
 }
 
-// NetworkPolicy permits private/HTTP destinations only through operator-owned exact origins.
+// NetworkPolicy permits local destinations and public HTTPS, with explicit overrides.
 type NetworkPolicy struct{ allowed map[string]bool }
 
 // NewNetworkPolicy parses a comma-separated list such as http://127.0.0.1:11434.
@@ -51,14 +51,14 @@ func NewNetworkPolicy(origins string) (NetworkPolicy, error) {
 	return p, nil
 }
 
-// ValidateEndpoint rejects plaintext destinations unless explicitly allowed by the operator.
+// ValidateEndpoint checks URL syntax; resolved destinations are checked when dialing.
 func (p NetworkPolicy) ValidateEndpoint(endpoint string) error {
 	u, err := url.Parse(endpoint)
-	if err != nil || u.Hostname() == "" {
+	if err != nil || u.Hostname() == "" || u.User != nil || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return fmt.Errorf("%w: invalid endpoint", ErrInvalid)
 	}
-	if !p.allowed[strings.ToLower(u.Scheme+"://"+u.Host)] && (u.Scheme != "https" || net.ParseIP(u.Hostname()) != nil) {
-		return fmt.Errorf("%w: HTTP and IP endpoints require LLM_ALLOWED_PRIVATE_ORIGINS", ErrInvalid)
+	if ip, err := netip.ParseAddr(u.Hostname()); err == nil && !p.allowed[strings.ToLower(u.Scheme+"://"+u.Host)] && !localIP(ip.Unmap()) && (u.Scheme != "https" || !publicIP(ip.Unmap())) {
+		return fmt.Errorf("%w: this endpoint requires an exact origin in LLM_ALLOWED_PRIVATE_ORIGINS", ErrInvalid)
 	}
 	return nil
 }
@@ -88,7 +88,7 @@ func (p NetworkPolicy) Client(c Config, limiter *Limiter) (*http.Client, error) 
 		dialer := &net.Dialer{Timeout: 10 * time.Second}
 		for _, address := range addresses {
 			ip, ok := netip.AddrFromSlice(address.IP)
-			if !ok || (!allowedPrivate && !publicIP(ip.Unmap())) {
+			if !ok || (!allowedPrivate && !localIP(ip.Unmap()) && (u.Scheme != "https" || !publicIP(ip.Unmap()))) {
 				continue
 			}
 			conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.Unmap().String(), port))
@@ -217,6 +217,10 @@ func joinPath(base, incoming string) string {
 		}
 	}
 	return base + incoming
+}
+
+func localIP(ip netip.Addr) bool {
+	return ip.IsLoopback() || ip.IsPrivate()
 }
 
 func publicIP(ip netip.Addr) bool {

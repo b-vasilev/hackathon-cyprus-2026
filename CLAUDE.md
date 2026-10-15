@@ -29,6 +29,12 @@
 - Report what changed, what was verified, and any remaining limitations.
 - Never claim success without evidence.
 
+## Database migration ordering
+
+- Before pushing a branch with database migrations or merging its PR, fetch the latest remote `main` and carefully check its highest migration version number. Do not rely on a stale local branch.
+- Ensure new migrations have unique version numbers after the latest migration on remote `main`, in the correct dependency order. Resolve numbering conflicts and update affected references before pushing or merging.
+- Recheck before merging even if numbering was checked before pushing. Do not renumber migrations already on `main`.
+
 ## Portal brandkit
 
 - Before creating or changing portal UI, styles, components, layouts, visual assets, or product themes, read and follow [the brandkit](.agents/skills/brandkit.md).

@@ -3,6 +3,7 @@ import type { components } from '../api.generated';
 export type Connection = components['schemas']['Connection'];
 export type ConnectionConfig = components['schemas']['ConnectionConfig'];
 export type ModelConfig = components['schemas']['Model'];
+export type AvailableModel = components['schemas']['AvailableModel'];
 export type Product = components['schemas']['Product'];
 export type ProductInput = components['schemas']['ProductInput'];
 export type Run = components['schemas']['Run'];
@@ -19,6 +20,8 @@ export type Parameter = components['schemas']['Parameter'];
 export type ProbeResult = components['schemas']['ProbeResult'];
 export type FactoryStatus = components['schemas']['FactoryStatus'];
 export type SourceInput = components['schemas']['SourceInput'];
+export type GitHubConnection = components['schemas']['GitHubConnection'];
+export type OAuthURL = components['schemas']['OAuthURL'];
 
 interface ErrorBody {
   code?: string;

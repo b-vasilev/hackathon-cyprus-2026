@@ -6,11 +6,14 @@ import {
   MarkerType,
   Position,
   ReactFlow,
+  useReactFlow,
+  useStore,
   type Node,
   type NodeProps,
 } from '@xyflow/react';
 import { Maximize2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArchitectureDiagram } from './ArchitectureDiagram';
 import { Dialog, ErrorNotice, Loading } from './ui';
 import type { Diagram, ProductModel, ProductObject } from '../lib/api';
 import '@xyflow/react/dist/style.css';
@@ -19,16 +22,18 @@ interface ObjectNodeData extends Record<string, unknown> {
   title: string;
   kind: string;
   technology: string;
+  status: string;
 }
 type ObjectNode = Node<ObjectNodeData, 'productObject'>;
 
 function ProductNode({ data }: NodeProps<ObjectNode>) {
   return (
-    <div className="diagram-node">
+    <div className="diagram-node" data-status={data.status}>
       <Handle type="target" position={Position.Left} />
       <span className="node-kind">{data.kind.replaceAll('_', ' ')}</span>
       <strong>{data.title}</strong>
       <span className="node-tech">{data.technology}</span>
+      <span className="node-status">{data.status.replaceAll('_', ' ')}</span>
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -36,7 +41,31 @@ function ProductNode({ data }: NodeProps<ObjectNode>) {
 
 const nodeTypes = { productObject: ProductNode };
 
-export function DiagramViewer({
+function FitDiagram() {
+  const { fitView, viewportInitialized } = useReactFlow();
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  useEffect(() => {
+    if (viewportInitialized && width > 0 && height > 0) {
+      const frame = requestAnimationFrame(() => {
+        void fitView({ padding: 0.2 });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    return undefined;
+  }, [viewportInitialized, width, height, fitView]);
+  return null;
+}
+
+export function DiagramViewer(props: Parameters<typeof StandardDiagramViewer>[0]) {
+  return props.diagram.kind === 'context' ? (
+    <ArchitectureDiagram {...props} />
+  ) : (
+    <StandardDiagramViewer {...props} />
+  );
+}
+
+function StandardDiagramViewer({
   diagram,
   model,
   onSelect,
@@ -68,7 +97,7 @@ export function DiagramViewer({
           'elk.spacing.nodeNode': '36',
           'elk.layered.spacing.nodeNodeBetweenLayers': '100',
         },
-        children: (diagram.node_ids ?? []).map((id) => ({ id, width: 230, height: 104 })),
+        children: (diagram.node_ids ?? []).map((id) => ({ id, width: 230, height: 128 })),
         edges: relations.map((relation) => ({
           id: relation.id,
           sources: [relation.from],
@@ -83,11 +112,14 @@ export function DiagramViewer({
     return {
       id: item.id,
       type: 'productObject',
+      width: 230,
+      height: 128,
       position: { x: item.x ?? 0, y: item.y ?? 0 },
       data: {
         title: object?.name ?? item.id,
         kind: object?.kind ?? '',
         technology: object?.technology ?? '',
+        status: object?.status ?? 'unknown',
       },
       selected: highlighted.includes(item.id),
       ariaLabel: `Inspect ${object?.name ?? item.id}`,
@@ -100,7 +132,10 @@ export function DiagramViewer({
     label: relation.label,
     type: 'smoothstep',
     markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: 'var(--of-control-border)' },
+    style: {
+      stroke: 'var(--of-control-border)',
+      strokeDasharray: relation.kind === 'data' ? '8 4' : undefined,
+    },
     labelStyle: { fill: 'var(--of-muted)', fontSize: 12 },
     labelBgStyle: { fill: 'var(--of-surface)' },
   }));
@@ -114,12 +149,12 @@ export function DiagramViewer({
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
             minZoom={0.25}
             maxZoom={1.5}
             nodesDraggable={false}
             nodesConnectable={false}
+            zoomOnScroll={false}
+            preventScrolling={false}
             onNodeClick={(_, node) => {
               const object = objects.get(node.id);
               if (object !== undefined) {
@@ -129,6 +164,7 @@ export function DiagramViewer({
           >
             <Background color="var(--of-border)" gap={24} size={1} />
             <Controls showInteractive={false} />
+            <FitDiagram />
           </ReactFlow>
         )}
       </div>
@@ -151,6 +187,9 @@ export function DiagramViewer({
       <p className="diagram-caption">
         {diagram.summary}
         <span>Select a component to inspect its role and sources.</span>
+      </p>
+      <p className="diagram-legend">
+        Solid arrow: call or relation · Dashed arrow: data transfer · Dashed border: planned
       </p>
       {expanded && (
         <Dialog title={diagram.title} wide onClose={() => setExpanded(false)}>

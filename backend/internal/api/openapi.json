@@ -1,6 +1,18 @@
 {
   "components": {
     "schemas": {
+      "AvailableModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
       "Claim": {
         "type": "object",
         "properties": {
@@ -142,12 +154,16 @@
                     },
                     "max_output_tokens": {
                       "type": "integer"
+                    },
+                    "reasoning_effort": {
+                      "type": "string"
                     }
                   },
                   "required": [
                     "id",
                     "output_mode",
-                    "max_output_tokens"
+                    "max_output_tokens",
+                    "reasoning_effort"
                   ],
                   "additionalProperties": false
                 }
@@ -292,12 +308,16 @@
                 },
                 "max_output_tokens": {
                   "type": "integer"
+                },
+                "reasoning_effort": {
+                  "type": "string"
                 }
               },
               "required": [
                 "id",
                 "output_mode",
-                "max_output_tokens"
+                "max_output_tokens",
+                "reasoning_effort"
               ],
               "additionalProperties": false
             }
@@ -429,12 +449,16 @@
                 },
                 "max_output_tokens": {
                   "type": "integer"
+                },
+                "reasoning_effort": {
+                  "type": "string"
                 }
               },
               "required": [
                 "id",
                 "output_mode",
-                "max_output_tokens"
+                "max_output_tokens",
+                "reasoning_effort"
               ],
               "additionalProperties": false
             }
@@ -572,6 +596,34 @@
         ],
         "additionalProperties": false
       },
+      "GenerationEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "stage",
+          "message",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
       "GenerationInput": {
         "type": "object",
         "properties": {
@@ -585,6 +637,50 @@
         "required": [
           "connection_id",
           "model"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubConnection": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "login": {
+            "type": "string"
+          },
+          "auth_method": {
+            "type": "string"
+          },
+          "connected_at": {
+            "type": "string"
+          },
+          "oauth_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "connected",
+          "login",
+          "auth_method",
+          "connected_at",
+          "oauth_enabled"
+        ],
+        "additionalProperties": false
+      },
+      "GitHubTokenInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
         ],
         "additionalProperties": false
       },
@@ -615,12 +711,182 @@
           },
           "max_output_tokens": {
             "type": "integer"
+          },
+          "reasoning_effort": {
+            "type": "string"
           }
         },
         "required": [
           "id",
           "output_mode",
-          "max_output_tokens"
+          "max_output_tokens",
+          "reasoning_effort"
+        ],
+        "additionalProperties": false
+      },
+      "ModelDiscoveryInput": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "protocol": {
+                "type": "string"
+              },
+              "endpoint_url": {
+                "type": "string"
+              },
+              "endpoint_mode": {
+                "type": "string"
+              },
+              "auth_mode": {
+                "type": "string"
+              },
+              "auth_header": {
+                "type": "string"
+              },
+              "auth_prefix": {
+                "type": "string"
+              },
+              "secret": {
+                "type": "string"
+              },
+              "headers": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "secret": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "query_params": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "secret": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "models": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "output_mode": {
+                      "type": "string"
+                    },
+                    "max_output_tokens": {
+                      "type": "integer"
+                    },
+                    "reasoning_effort": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "output_mode",
+                    "max_output_tokens",
+                    "reasoning_effort"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "timeout_seconds": {
+                "type": "integer"
+              },
+              "max_concurrent": {
+                "type": "integer"
+              },
+              "quota_group": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "enabled",
+              "protocol",
+              "endpoint_url",
+              "endpoint_mode",
+              "auth_mode",
+              "auth_header",
+              "auth_prefix",
+              "secret",
+              "headers",
+              "query_params",
+              "models",
+              "timeout_seconds",
+              "max_concurrent",
+              "quota_group"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "connection_id",
+          "config"
+        ],
+        "additionalProperties": false
+      },
+      "OAuthURL": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
         ],
         "additionalProperties": false
       },
@@ -685,7 +951,7 @@
                     },
                     "status": {
                       "type": "string",
-                      "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+                      "description": "One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
                     },
                     "inputs": {
                       "type": [
@@ -1111,11 +1377,33 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "card_theme": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "accent_color": {
+                    "type": "string",
+                    "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                  },
+                  "background_color": {
+                    "type": "string",
+                    "description": "Product card background as a six-digit hex colour."
+                  }
+                },
+                "required": [
+                  "accent_color",
+                  "background_color"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
               "sections",
-              "diagrams"
+              "diagrams",
+              "card_theme"
             ],
             "additionalProperties": false
           }
@@ -1225,6 +1513,50 @@
               "additionalProperties": false
             }
           },
+          "card_brandkit": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "file_name": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url",
+              "file_name",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          "card_theme": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "accent_color": {
+                "type": "string",
+                "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+              },
+              "background_color": {
+                "type": "string",
+                "description": "Product card background as a six-digit hex colour."
+              }
+            },
+            "required": [
+              "accent_color",
+              "background_color"
+            ],
+            "additionalProperties": false
+          },
           "created_at": {
             "type": "string"
           },
@@ -1288,6 +1620,29 @@
               ],
               "additionalProperties": false
             }
+          },
+          "card_brandkit": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "file_name": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url",
+              "file_name",
+              "text"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -1334,7 +1689,7 @@
                 },
                 "status": {
                   "type": "string",
-                  "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+                  "description": "One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
                 },
                 "inputs": {
                   "type": [
@@ -1647,7 +2002,7 @@
           },
           "status": {
             "type": "string",
-            "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+            "description": "One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
           },
           "inputs": {
             "type": [
@@ -1801,7 +2156,7 @@
                         },
                         "status": {
                           "type": "string",
-                          "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+                          "description": "One of implemented, in_development, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
                         },
                         "inputs": {
                           "type": [
@@ -2227,11 +2582,33 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "card_theme": {
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "accent_color": {
+                        "type": "string",
+                        "description": "Brand accent as a six-digit hex colour, for example #6550B9."
+                      },
+                      "background_color": {
+                        "type": "string",
+                        "description": "Product card background as a six-digit hex colour."
+                      }
+                    },
+                    "required": [
+                      "accent_color",
+                      "background_color"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
                   "sections",
-                  "diagrams"
+                  "diagrams",
+                  "card_theme"
                 ],
                 "additionalProperties": false
               }
@@ -2273,13 +2650,75 @@
                     },
                     "note": {
                       "type": "string"
+                    },
+                    "read_files": {
+                      "type": "integer"
+                    },
+                    "cited_files": {
+                      "type": "integer"
+                    },
+                    "files": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "bytes": {
+                            "type": "integer"
+                          },
+                          "read_ranges": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "start_line": {
+                                  "type": "integer"
+                                },
+                                "end_line": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "start_line",
+                                "end_line"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "cited": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "path",
+                          "bytes",
+                          "read_ranges",
+                          "cited"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "file_count",
                     "bytes",
                     "selection",
-                    "note"
+                    "note",
+                    "read_files",
+                    "cited_files",
+                    "files"
                   ],
                   "additionalProperties": false
                 }
@@ -2359,6 +2798,12 @@
           "created_at": {
             "type": "string"
           },
+          "started_at": {
+            "type": "string"
+          },
+          "stage_started_at": {
+            "type": "string"
+          },
           "finished_at": {
             "type": "string"
           },
@@ -2370,6 +2815,37 @@
           },
           "output_tokens": {
             "type": "integer"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "stage",
+                "message",
+                "created_at"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -2383,10 +2859,13 @@
           "error_code",
           "error_message",
           "created_at",
+          "started_at",
+          "stage_started_at",
           "finished_at",
           "document_count",
           "input_tokens",
-          "output_tokens"
+          "output_tokens",
+          "events"
         ],
         "additionalProperties": false
       },
@@ -2593,7 +3072,7 @@
     }
   },
   "info": {
-    "title": "Onboarding Factory API",
+    "title": "Wayfinder API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -2662,6 +3141,177 @@
         }
       }
     },
+    "/api/generations/{id}/events": {
+      "get": {
+        "description": "SSE snapshot and update events contain a Run with events after Last-Event-ID. IDs are ordered and durable. Reconnects replay missed events. Terminal snapshots close the stream.",
+        "operationId": "streamGeneration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Replay cursor when creating a new EventSource. Last-Event-ID takes precedence on automatic reconnect.",
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Generation event stream"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/git-connection": {
+      "delete": {
+        "operationId": "disconnectGitHub",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "get": {
+        "operationId": "getGitHubConnection",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "connectGitHubToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubTokenInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/git-connection/oauth/start": {
+      "post": {
+        "operationId": "startGitHubOAuth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthURL"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
     "/api/llm-connections": {
       "get": {
         "operationId": "listConnections",
@@ -2709,6 +3359,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/llm-connections/models": {
+      "post": {
+        "operationId": "listConnectionModels",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelDiscoveryInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AvailableModel"
+                  },
+                  "type": "array"
                 }
               }
             },
