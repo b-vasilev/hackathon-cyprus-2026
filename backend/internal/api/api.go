@@ -19,8 +19,11 @@ type Pinger interface {
 var openAPI []byte
 
 // New creates the API and its process-wide middleware.
-func New(database Pinger, logger zerolog.Logger, origins []string) http.Handler {
+func New(database Pinger, logger zerolog.Logger, origins []string, factories ...*Factory) http.Handler {
 	mux := http.NewServeMux()
+	for _, factory := range factories {
+		factory.register(mux)
+	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})

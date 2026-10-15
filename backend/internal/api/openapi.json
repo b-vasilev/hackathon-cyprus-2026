@@ -1,92 +1,3231 @@
 {
-  "openapi": "3.1.0",
+  "components": {
+    "schemas": {
+      "Claim": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string",
+            "description": "One of source_backed, inferred, unknown. A source pointer is not expert approval."
+          },
+          "evidence_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "basis",
+          "evidence_ids"
+        ],
+        "additionalProperties": false
+      },
+      "Connection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "has_secret": {
+            "type": "boolean"
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "protocol": {
+                "type": "string"
+              },
+              "endpoint_url": {
+                "type": "string"
+              },
+              "endpoint_mode": {
+                "type": "string"
+              },
+              "auth_mode": {
+                "type": "string"
+              },
+              "auth_header": {
+                "type": "string"
+              },
+              "auth_prefix": {
+                "type": "string"
+              },
+              "secret": {
+                "type": "string"
+              },
+              "headers": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "secret": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "query_params": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "secret": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "models": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "output_mode": {
+                      "type": "string"
+                    },
+                    "max_output_tokens": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "output_mode",
+                    "max_output_tokens"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "timeout_seconds": {
+                "type": "integer"
+              },
+              "max_concurrent": {
+                "type": "integer"
+              },
+              "quota_group": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "enabled",
+              "protocol",
+              "endpoint_url",
+              "endpoint_mode",
+              "auth_mode",
+              "auth_header",
+              "auth_prefix",
+              "secret",
+              "headers",
+              "query_params",
+              "models",
+              "timeout_seconds",
+              "max_concurrent",
+              "quota_group"
+            ],
+            "additionalProperties": false
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "has_secret",
+          "config",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "ConnectionConfig": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "endpoint_url": {
+            "type": "string"
+          },
+          "endpoint_mode": {
+            "type": "string"
+          },
+          "auth_mode": {
+            "type": "string"
+          },
+          "auth_header": {
+            "type": "string"
+          },
+          "auth_prefix": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "headers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "value",
+                "secret"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "query_params": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "value",
+                "secret"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "models": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "output_mode": {
+                  "type": "string"
+                },
+                "max_output_tokens": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "output_mode",
+                "max_output_tokens"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          },
+          "max_concurrent": {
+            "type": "integer"
+          },
+          "quota_group": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "enabled",
+          "protocol",
+          "endpoint_url",
+          "endpoint_mode",
+          "auth_mode",
+          "auth_header",
+          "auth_prefix",
+          "secret",
+          "headers",
+          "query_params",
+          "models",
+          "timeout_seconds",
+          "max_concurrent",
+          "quota_group"
+        ],
+        "additionalProperties": false
+      },
+      "ConnectionPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "endpoint_url": {
+            "type": "string"
+          },
+          "endpoint_mode": {
+            "type": "string"
+          },
+          "auth_mode": {
+            "type": "string"
+          },
+          "auth_header": {
+            "type": "string"
+          },
+          "auth_prefix": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "headers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "value",
+                "secret"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "query_params": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "value",
+                "secret"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "models": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "output_mode": {
+                  "type": "string"
+                },
+                "max_output_tokens": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "output_mode",
+                "max_output_tokens"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          },
+          "max_concurrent": {
+            "type": "integer"
+          },
+          "quota_group": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Diagram": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "One of context, components, domain, data, deployment, states."
+          },
+          "summary": {
+            "type": "string"
+          },
+          "node_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "relation_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "summary",
+          "node_ids",
+          "relation_ids"
+        ],
+        "additionalProperties": false
+      },
+      "Evidence": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "document_id": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer"
+          },
+          "end_line": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "start_line",
+          "end_line"
+        ],
+        "additionalProperties": false
+      },
+      "EvidenceView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer"
+          },
+          "end_line": {
+            "type": "integer"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "locator",
+          "revision",
+          "start_line",
+          "end_line",
+          "excerpt",
+          "source_url"
+        ],
+        "additionalProperties": false
+      },
+      "FactoryStatus": {
+        "type": "object",
+        "properties": {
+          "connections_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "connections_enabled"
+        ],
+        "additionalProperties": false
+      },
+      "GenerationInput": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "model"
+        ],
+        "additionalProperties": false
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "enum": [
+              "ok",
+              "ready",
+              "unavailable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "Model": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "output_mode": {
+            "type": "string"
+          },
+          "max_output_tokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "output_mode",
+          "max_output_tokens"
+        ],
+        "additionalProperties": false
+      },
+      "Parameter": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "secret"
+        ],
+        "additionalProperties": false
+      },
+      "Passport": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "tagline": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "objects": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "technology": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+                    },
+                    "inputs": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "outputs": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "contracts": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "claim_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "name",
+                    "summary",
+                    "technology",
+                    "status",
+                    "inputs",
+                    "outputs",
+                    "contracts",
+                    "claim_ids"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "relations": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "description": "One of call, data, dependency, ownership, association, transition."
+                    },
+                    "claim_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "from",
+                    "to",
+                    "label",
+                    "kind",
+                    "claim_ids"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "scenarios": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "inputs": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "outputs": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "failure_modes": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "object_ids": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "claim_ids": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "summary",
+                          "object_ids",
+                          "claim_ids"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "summary",
+                    "inputs",
+                    "outputs",
+                    "failure_modes",
+                    "steps"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "claims": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "basis": {
+                      "type": "string",
+                      "description": "One of source_backed, inferred, unknown. A source pointer is not expert approval."
+                    },
+                    "evidence_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "text",
+                    "basis",
+                    "evidence_ids"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "evidence": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "document_id": {
+                      "type": "string"
+                    },
+                    "start_line": {
+                      "type": "integer"
+                    },
+                    "end_line": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "document_id",
+                    "start_line",
+                    "end_line"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "open_questions": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "title",
+              "tagline",
+              "summary",
+              "objects",
+              "relations",
+              "scenarios",
+              "claims",
+              "evidence",
+              "open_questions"
+            ],
+            "additionalProperties": false
+          },
+          "views": {
+            "type": "object",
+            "properties": {
+              "sections": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "One of available, insufficient_evidence, not_applicable. Explain missing evidence in summary."
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "claim_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "object_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "diagram_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "scenario_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "checklist": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "status",
+                    "summary",
+                    "claim_ids",
+                    "object_ids",
+                    "diagram_ids",
+                    "scenario_ids",
+                    "checklist"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "diagrams": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "description": "One of context, components, domain, data, deployment, states."
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "node_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "relation_ids": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "kind",
+                    "summary",
+                    "node_ids",
+                    "relation_ids"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "sections",
+              "diagrams"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "model",
+          "views"
+        ],
+        "additionalProperties": false
+      },
+      "Probe": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "additionalProperties": false
+      },
+      "ProbeResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "input_tokens": {
+            "type": "integer"
+          },
+          "output_tokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "request_id",
+          "input_tokens",
+          "output_tokens"
+        ],
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sources": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "locator": {
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                },
+                "include": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "locator",
+                "ref",
+                "include",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "latest_revision_id": {
+            "type": "string"
+          },
+          "latest_run_id": {
+            "type": "string"
+          },
+          "latest_run_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sources",
+          "created_at",
+          "latest_revision_id",
+          "latest_run_id",
+          "latest_run_status"
+        ],
+        "additionalProperties": false
+      },
+      "ProductInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sources": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "locator": {
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                },
+                "include": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "locator",
+                "ref",
+                "include",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "name",
+          "sources"
+        ],
+        "additionalProperties": false
+      },
+      "ProductModel": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "tagline": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "objects": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                },
+                "name": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "technology": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+                },
+                "inputs": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "outputs": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "contracts": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "claim_ids": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "name",
+                "summary",
+                "technology",
+                "status",
+                "inputs",
+                "outputs",
+                "contracts",
+                "claim_ids"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "relations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "from": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "One of call, data, dependency, ownership, association, transition."
+                },
+                "claim_ids": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "from",
+                "to",
+                "label",
+                "kind",
+                "claim_ids"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scenarios": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "inputs": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "outputs": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "failure_modes": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "steps": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": "string"
+                      },
+                      "object_ids": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "claim_ids": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "summary",
+                      "object_ids",
+                      "claim_ids"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "summary",
+                "inputs",
+                "outputs",
+                "failure_modes",
+                "steps"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "claims": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "basis": {
+                  "type": "string",
+                  "description": "One of source_backed, inferred, unknown. A source pointer is not expert approval."
+                },
+                "evidence_ids": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "text",
+                "basis",
+                "evidence_ids"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "evidence": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "document_id": {
+                  "type": "string"
+                },
+                "start_line": {
+                  "type": "integer"
+                },
+                "end_line": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "document_id",
+                "start_line",
+                "end_line"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "open_questions": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "tagline",
+          "summary",
+          "objects",
+          "relations",
+          "scenarios",
+          "claims",
+          "evidence",
+          "open_questions"
+        ],
+        "additionalProperties": false
+      },
+      "ProductObject": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+          },
+          "name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "technology": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+          },
+          "inputs": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputs": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "contracts": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "claim_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "summary",
+          "technology",
+          "status",
+          "inputs",
+          "outputs",
+          "contracts",
+          "claim_ids"
+        ],
+        "additionalProperties": false
+      },
+      "Relation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "One of call, data, dependency, ownership, association, transition."
+          },
+          "claim_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "label",
+          "kind",
+          "claim_ids"
+        ],
+        "additionalProperties": false
+      },
+      "Revision": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "product_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "content": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "tagline": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "objects": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "description": "One of actor, capability, entity, component, store, external_system, interface, environment, decision, owner."
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "technology": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "description": "One of implemented, experimental, planned, unknown. Do not confuse feature status with evidence confidence."
+                        },
+                        "inputs": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "outputs": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "contracts": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "claim_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "name",
+                        "summary",
+                        "technology",
+                        "status",
+                        "inputs",
+                        "outputs",
+                        "contracts",
+                        "claim_ids"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "relations": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "description": "One of call, data, dependency, ownership, association, transition."
+                        },
+                        "claim_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "from",
+                        "to",
+                        "label",
+                        "kind",
+                        "claim_ids"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "scenarios": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "inputs": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "outputs": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "failure_modes": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "steps": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "object_ids": {
+                                "type": [
+                                  "null",
+                                  "array"
+                                ],
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "claim_ids": {
+                                "type": [
+                                  "null",
+                                  "array"
+                                ],
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "summary",
+                              "object_ids",
+                              "claim_ids"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "summary",
+                        "inputs",
+                        "outputs",
+                        "failure_modes",
+                        "steps"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "claims": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "basis": {
+                          "type": "string",
+                          "description": "One of source_backed, inferred, unknown. A source pointer is not expert approval."
+                        },
+                        "evidence_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "text",
+                        "basis",
+                        "evidence_ids"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "evidence": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "document_id": {
+                          "type": "string"
+                        },
+                        "start_line": {
+                          "type": "integer"
+                        },
+                        "end_line": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "document_id",
+                        "start_line",
+                        "end_line"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "open_questions": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "title",
+                  "tagline",
+                  "summary",
+                  "objects",
+                  "relations",
+                  "scenarios",
+                  "claims",
+                  "evidence",
+                  "open_questions"
+                ],
+                "additionalProperties": false
+              },
+              "views": {
+                "type": "object",
+                "properties": {
+                  "sections": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "description": "One of available, insufficient_evidence, not_applicable. Explain missing evidence in summary."
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "claim_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "object_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "diagram_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "scenario_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "checklist": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "status",
+                        "summary",
+                        "claim_ids",
+                        "object_ids",
+                        "diagram_ids",
+                        "scenario_ids",
+                        "checklist"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "diagrams": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "description": "One of context, components, domain, data, deployment, states."
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "node_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "relation_ids": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "kind",
+                        "summary",
+                        "node_ids",
+                        "relation_ids"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "sections",
+                  "diagrams"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "model",
+              "views"
+            ],
+            "additionalProperties": false
+          },
+          "snapshots": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "locator": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "file_count": {
+                      "type": "integer"
+                    },
+                    "bytes": {
+                      "type": "integer"
+                    },
+                    "selection": {
+                      "type": "string"
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "file_count",
+                    "bytes",
+                    "selection",
+                    "note"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "locator",
+                "revision",
+                "coverage"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "product_id",
+          "run_id",
+          "version",
+          "schema_version",
+          "created_at",
+          "content",
+          "snapshots"
+        ],
+        "additionalProperties": false
+      },
+      "RevisionInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "Run": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "product_id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "connection_revision": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "finished_at": {
+            "type": "string"
+          },
+          "document_count": {
+            "type": "integer"
+          },
+          "input_tokens": {
+            "type": "integer"
+          },
+          "output_tokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "product_id",
+          "connection_id",
+          "connection_revision",
+          "model",
+          "status",
+          "stage",
+          "error_code",
+          "error_message",
+          "created_at",
+          "finished_at",
+          "document_count",
+          "input_tokens",
+          "output_tokens"
+        ],
+        "additionalProperties": false
+      },
+      "Scenario": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputs": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "failure_modes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "object_ids": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "claim_ids": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "summary",
+                "object_ids",
+                "claim_ids"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "inputs",
+          "outputs",
+          "failure_modes",
+          "steps"
+        ],
+        "additionalProperties": false
+      },
+      "Section": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "One of available, insufficient_evidence, not_applicable. Explain missing evidence in summary."
+          },
+          "summary": {
+            "type": "string"
+          },
+          "claim_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "object_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "diagram_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "scenario_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "checklist": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "summary",
+          "claim_ids",
+          "object_ids",
+          "diagram_ids",
+          "scenario_ids",
+          "checklist"
+        ],
+        "additionalProperties": false
+      },
+      "SourceInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "include": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "locator",
+          "ref",
+          "include",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
   "info": {
     "title": "Onboarding Factory API",
     "version": "0.1.0"
   },
+  "openapi": "3.1.0",
   "paths": {
-    "/healthz": {
+    "/api/factory/status": {
       "get": {
-        "summary": "Process liveness",
-        "operationId": "getLiveness",
+        "operationId": "getFactoryStatus",
         "responses": {
           "200": {
-            "description": "ok",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Health"
+                  "$ref": "#/components/schemas/FactoryStatus"
                 }
               }
-            }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
           }
         }
       }
     },
-    "/readyz": {
+    "/api/generations/{id}": {
       "get": {
-        "summary": "SQLite readiness",
-        "operationId": "getReadiness",
+        "operationId": "getGeneration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "ready",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Health"
+                  "$ref": "#/components/schemas/Run"
                 }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/llm-connections": {
+      "get": {
+        "operationId": "listConnections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Connection"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createConnection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionConfig"
               }
             }
           },
-          "503": {
-            "description": "Storage unavailable",
+          "required": true
+        },
+        "responses": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Health"
+                  "$ref": "#/components/schemas/Connection"
                 }
               }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/llm-connections/{id}": {
+      "get": {
+        "operationId": "getConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/llm-connections/{id}/test": {
+      "post": {
+        "operationId": "testConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Probe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeResult"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
           }
         }
       }
     },
     "/api/openapi.json": {
       "get": {
-        "summary": "OpenAPI contract",
         "operationId": "getOpenAPI",
         "responses": {
           "200": {
-            "description": "This OpenAPI document",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object"
                 }
               }
+            },
+            "description": "This OpenAPI document"
+          }
+        },
+        "summary": "OpenAPI contract"
+      }
+    },
+    "/api/passport-revisions/{id}": {
+      "get": {
+        "operationId": "getRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revision"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
           }
         }
       }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Health": {
-        "type": "object",
-        "required": [
-          "status"
+    },
+    "/api/passport-revisions/{id}/evidence/{evidenceId}": {
+      "get": {
+        "operationId": "getEvidence",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evidenceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "ok",
-              "ready",
-              "unavailable"
-            ]
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceView"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
           }
         }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "operationId": "listProducts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Product"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProduct",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "operationId": "getProduct",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/generations": {
+      "post": {
+        "operationId": "startGeneration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/passport": {
+      "get": {
+        "operationId": "getLatestPassport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revision"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/passport-revisions": {
+      "get": {
+        "operationId": "listRevisions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RevisionInfo"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "getLiveness",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "ok"
+          }
+        },
+        "summary": "Process liveness"
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "getReadiness",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "ready"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Storage unavailable"
+          }
+        },
+        "summary": "SQLite readiness"
       }
     }
   }

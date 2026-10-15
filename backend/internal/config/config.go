@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -13,12 +15,18 @@ import (
 
 // Config contains process settings. Secrets and provider settings belong to their future modules.
 type Config struct {
-	HTTPAddr        string
-	DatabasePath    string
-	LogLevel        string
-	LogFormat       string
-	ShutdownTimeout time.Duration
-	CORSOrigins     []string
+	HTTPAddr          string
+	DatabasePath      string
+	LogLevel          string
+	LogFormat         string
+	ShutdownTimeout   time.Duration
+	CORSOrigins       []string
+	LLMMasterKey      string
+	LLMPrivateOrigins string
+	FactoryWorkDir    string
+	RepomixBin        string
+	GitHubToken       string
+	FrontendDir       string
 }
 
 // Load reads environment variables and fails on invalid settings.
@@ -34,10 +42,16 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return fallback
 	}
 	cfg := Config{
-		HTTPAddr:     get("HTTP_ADDR", "127.0.0.1:8080"),
-		DatabasePath: get("DATABASE_PATH", "./data/onboarding.db"),
-		LogLevel:     get("LOG_LEVEL", "info"),
-		LogFormat:    get("LOG_FORMAT", "console"),
+		HTTPAddr:          get("HTTP_ADDR", "127.0.0.1:8080"),
+		DatabasePath:      get("DATABASE_PATH", "./data/onboarding.db"),
+		LogLevel:          get("LOG_LEVEL", "info"),
+		LogFormat:         get("LOG_FORMAT", "console"),
+		LLMMasterKey:      get("LLM_MASTER_KEY", ""),
+		LLMPrivateOrigins: get("LLM_ALLOWED_PRIVATE_ORIGINS", ""),
+		FactoryWorkDir:    get("FACTORY_WORK_DIR", "/Volumes/Workspace/tmp/onboarding-factory"),
+		RepomixBin:        get("REPOMIX_BIN", "repomix"),
+		GitHubToken:       get("GITHUB_TOKEN", ""),
+		FrontendDir:       get("FRONTEND_DIR", ""),
 	}
 	if err := validate(cfg); err != nil {
 		return Config{}, err
@@ -52,6 +66,25 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return Config{}, err
 	}
 	cfg.CORSOrigins = origins
+	if cfg.LLMMasterKey != "" && len(cfg.LLMMasterKey) < 32 {
+		return Config{}, errors.New("LLM_MASTER_KEY must contain at least 32 characters")
+	}
+	if !filepath.IsAbs(cfg.FactoryWorkDir) {
+		return Config{}, errors.New("FACTORY_WORK_DIR must be an absolute path")
+	}
+	if binary, err := exec.LookPath(cfg.RepomixBin); err == nil {
+		cfg.RepomixBin = binary
+	} else if cfg.RepomixBin == "repomix" {
+		for _, candidate := range []string{"../frontend/node_modules/.bin/repomix", "frontend/node_modules/.bin/repomix"} {
+			if _, err := os.Stat(candidate); err == nil {
+				absolute, err := filepath.Abs(candidate)
+				if err == nil {
+					cfg.RepomixBin = absolute
+					break
+				}
+			}
+		}
+	}
 	return cfg, nil
 }
 

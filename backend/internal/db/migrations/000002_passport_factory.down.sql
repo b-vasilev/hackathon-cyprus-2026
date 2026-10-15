@@ -1,0 +1,10 @@
+DROP TRIGGER goqite_updated_timestamp;
+DROP TABLE goqite;
+DROP TABLE passport_revisions;
+DROP TABLE llm_calls;
+DROP TABLE source_documents;
+DROP TABLE source_snapshots;
+DROP TABLE generation_runs;
+DROP TABLE products;
+DROP TABLE llm_connection_revisions;
+DROP TABLE llm_connections;

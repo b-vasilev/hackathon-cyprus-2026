@@ -12,6 +12,10 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/api"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/config"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 	"github.com/rs/zerolog"
 )
 
@@ -31,9 +35,27 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	if migrationErr := db.RunMigrations(database); migrationErr != nil {
 		return fmt.Errorf("migrate storage: %w", migrationErr)
 	}
+	policy, err := llmgateway.NewNetworkPolicy(cfg.LLMPrivateOrigins)
+	if err != nil {
+		return fmt.Errorf("configure LLM network access: %w", err)
+	}
+	var connections *llmgateway.Store
+	if cfg.LLMMasterKey != "" {
+		connections, err = llmgateway.NewStore(database, cfg.LLMMasterKey)
+		if err != nil {
+			return fmt.Errorf("initialize LLM connections: %w", err)
+		}
+	}
+	client := &llm.Client{Policy: policy, Limiter: llmgateway.NewLimiter(8, 16, 2, 8)}
+	collector := &source.Collector{WorkDir: cfg.FactoryWorkDir, RepomixBin: cfg.RepomixBin, GitHubToken: cfg.GitHubToken, MaxBytes: 300000, MaxFiles: 120}
+	factory := generation.New(database, connections, client, collector, logger)
+	workerCtx, stopWorker := context.WithCancel(ctx)
+	workerDone := make(chan struct{})
+	go func() { defer close(workerDone); factory.Work(workerCtx) }()
+	defer func() { stopWorker(); <-workerDone }()
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(database, logger, cfg.CORSOrigins),
+		Handler:           api.New(database, logger, cfg.CORSOrigins, &api.Factory{Service: factory, Network: policy, FrontendDir: cfg.FrontendDir}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

@@ -1,104 +1,180 @@
-# hackathon-cyprus-2026
+# Onboarding Factory
 
-ODYSSEY-2026-UNLEASH-THE-GODS
-
-## Onboarding Factory foundation
-
-One Go process and one local SQLite file. React is an empty scaffold.
-No product features, GitHub/LLM integrations, auth or job workers are implemented yet.
+Generate a standard product passport from repository evidence. Each product gets
+its own content, model, scenarios and diagrams through shared renderers.
 
 ```text
-React / Vite (placeholder)
-        |
-        v
-Go net/http -> SQLite + embedded migrations
+GitHub SHA + optional context
+              |
+       LLM file selection
+              |
+      Git + Repomix safety checks
+              |
+  analyze -> reconcile -> compose -> validate
+              |
+    immutable passport in SQLite
+              |
+     React Flow + ELK + evidence
 ```
 
-### Setup and run
+The passport covers purpose, users, capabilities, domain, scenarios, architecture,
+data, runtime, operations, development, decisions and ownership. Missing evidence
+stays explicit. Generated revisions are drafts; they are not human approval.
 
-Install [mise](https://mise.jdx.dev/), then run from this repository:
+## Run locally
+
+Install [mise](https://mise.jdx.dev/), then:
 
 ```sh
 mise trust
 mise install
 mise exec -- just setup
+# Generate once; keep this key stable across restarts.
+export LLM_MASTER_KEY="$(openssl rand -hex 32)"
 mise exec -- just backend::run
+# In another terminal:
+mise exec -- just frontend::dev
 ```
 
-`mise install` installs pinned tools; `just setup` downloads backend dependencies. No secrets are needed.
-The API defaults to `127.0.0.1:8080`; `.env.example` documents all settings.
-Environment files are not loaded automatically. Override values in your shell, for example:
+Open [the portal](http://127.0.0.1:5173). Add a connection, check its model,
+register a product with GitHub URLs or context, then generate its passport.
+Environment files are not loaded by `just`; export overrides in the shell.
+See `.env.example` for settings. Keep the master key outside version control and
+back it up separately: losing it makes saved credentials unreadable.
 
-```sh
-LOG_FORMAT=json HTTP_ADDR=127.0.0.1:9000 mise exec -- just backend::run
-```
+Use a single API instance and a local persistent SQLite disk. Migrations run at
+startup. One goqite worker processes durable queued runs. Interrupted running jobs
+become failed after restart and can be generated again. A failed regeneration
+keeps the last successful passport.
 
-The database path is relative to `backend/` when using `just backend::run`.
-Migrations run automatically at startup; errors stop startup.
-Keep the SQLite file on a local persistent disk and use a single API instance.
-Shutdown handles SIGINT/SIGTERM and drains HTTP requests before closing storage.
+For a single-origin local build, run `just frontend::build`, then start the API
+with `FRONTEND_DIR=../frontend/dist` and `CORS_ORIGINS=http://127.0.0.1:8080`.
 
-### API
+## LLM connections
 
-| Route | Purpose |
-| --- | --- |
-| `GET /healthz` | Process liveness |
-| `GET /readyz` | SQLite readiness; returns 503 on failure |
-| `GET /api/openapi.json` | Embedded OpenAPI 3.1 contract |
+Use any endpoint implementing a supported protocol:
 
-All requests receive a server-generated `X-Request-ID`. CORS uses exact origins;
-set `CORS_ORIGINS=` to disable cross-origin access. Requests from other origins return 403.
-HTTP timeouts, a 1 MiB request body limit, panic recovery and structured logs are included.
-Logs omit query strings and raw path parameters. Internal errors stay out of responses.
-There is no authentication yet: only infrastructure routes are exposed. Add authentication and
-product access checks before adding product data endpoints or exposing them publicly.
-Use SSE for future job events. Streaming handlers will need a per-response write deadline.
+| Protocol | SDK | Endpoint example |
+| --- | --- | --- |
+| OpenAI Responses | openai-go/v3 | `https://api.openai.com/v1` |
+| OpenAI Chat Completions | openai-go/v3 | compatible gateway base URL |
+| Anthropic Messages | anthropic-sdk-go | `https://api.anthropic.com` |
 
-### Checks
+Model IDs are supplied by the operator. Each model selects native JSON Schema,
+tool output, or JSON by instruction. All output is validated locally. Connections
+support base or full URLs, a custom authentication header/prefix, additional
+headers, query parameters, timeouts, concurrency and a shared quota group.
+Native output requires support from the selected model and gateway.
 
-```sh
-mise exec -- just check       # gofmt and inherited golangci-lint rules
-mise exec -- just test        # short new foundation tests
-mise exec -- just ci          # check, race tests, vulnerability audit, static build
-```
+Credentials are encrypted with AES-GCM and an Argon2id-derived key. APIs return
+masked values; blank secret fields retain the saved value when editing. A job
+freezes its connection revision, model and source configuration when queued.
+Disabling a connection prevents new provider calls, including queued jobs.
 
-Go 1.27.2, golangci-lint 2.14.0 and govulncheck 1.9.0 are pinned in `.mise.toml`.
-The GitHub workflow runs the same backend checks and builds the Docker image.
-Frontend is deliberately separate: see `frontend/README.md`.
-
-```sh
-docker compose up --build
-```
-
-Compose binds to localhost and keeps SQLite in the `onboarding-data` volume.
-The image runs as a non-root user and contains no Node runtime or Antares binaries.
+Public HTTPS is the default. HTTP or private endpoints require an exact trusted
+origin in `LLM_ALLOWED_PRIVATE_ORIGINS`; redirects and environment proxies are
+not followed. Public destinations are DNS-checked and pinned for each connection.
+Only allow destinations you control.
 
 ### Optional LLM sidecar
 
-[`services/llm-proxy`](services/llm-proxy/README.md) is a separate Codex OAuth proxy
-with its own Go module and Docker image. Follow its setup instructions, then run:
+[`services/llm-proxy`](services/llm-proxy/README.md) is the existing separate
+Codex OAuth proxy. Follow its setup instructions, then run:
 
 ```sh
 docker compose up --build -d llm-proxy
 ```
 
-It listens on `http://127.0.0.1:8317/v1` with bearer-key authentication.
-Other Compose containers can use `http://llm-proxy:8317/v1`.
-Plain `docker compose up` leaves the sidecar off. The main app does not call it.
+In the portal, choose OpenAI Responses, the proxy's model ID and bearer key.
+For a local API use `http://127.0.0.1:8317/v1` and allow origin
+`http://127.0.0.1:8317`. For the Compose API use `http://llm-proxy:8317/v1`
+and allow origin `http://llm-proxy:8317`. The profile stays off by default.
 
-### Layout
+## Source collection and generation
+
+GitHub sources resolve to immutable SHAs. A bounded file catalog is sent to the
+selected model, which chooses exact files. Include patterns narrow that catalog.
+Git fetches the pinned commit without checking out or running repository code.
+Only selected regular files are staged for the pinned Repomix CLI. Repomix
+security and ignore filters determine safe files; original Git bytes are retained
+for exact hashes and line citations. Optional `GITHUB_TOKEN` supports private repos.
+
+Limits: 5 sources, 120 documents, 300 KB total text, 128 KiB per file, 5,000 catalog
+entries and 80 selected files per repository. Catalog truncation and source coverage
+are explicit. These are context limits, not a claim of complete repository analysis.
+Source text can be sent to the selected provider; use appropriate source access.
+
+The same selected model performs file selection, analysis, reconciliation,
+composition and bounded repair. google/jsonschema-go checks each response.
+Semantic checks verify all references, all 12 sections and citation line bounds.
+React Flow renders model references; ELK computes coordinates. Generated content
+cannot supply executable HTML, JavaScript or diagram code. Source material is
+always treated as untrusted data, including instructions found inside documents.
+
+## API and modules
+
+The full [OpenAPI contract](backend/internal/api/openapi.json) is served at
+`GET /api/openapi.json`. Request IDs, exact-origin CORS, timeouts, a 1 MiB body
+limit, sanitized errors and structured logs come from the scaffold.
+
+| Routes | Purpose |
+| --- | --- |
+| `/healthz`, `/readyz` | Liveness and database readiness |
+| `/api/factory/status` | Connection setup availability |
+| `/api/llm-connections`, `/{id}`, `/{id}/test` | Save, edit, list and check connections |
+| `/api/products`, `/{id}` | Register and inspect product sources |
+| `/api/products/{id}/generations` | Queue generation; returns 202 |
+| `/api/generations/{id}` | Stage, error, document count and token usage |
+| `/api/products/{id}/passport`, `/passport-revisions` | Latest content and revision history |
+| `/api/passport-revisions/{id}`, `/{id}/evidence/{evidenceId}` | Frozen content and exact source excerpts |
 
 ```text
-backend/cmd/api/              process entry point
-backend/internal/app/        startup, migrations, graceful shutdown
-backend/internal/api/        routes, middleware, OpenAPI
-backend/internal/config/     validated environment settings
-backend/internal/applog/     zerolog and request context
-backend/internal/db/         SQLite connection and SQL migrations
-frontend/                    empty React + Vite + TypeScript scaffold
+backend/internal/source/          GitHub catalog, pinned Git + Repomix
+backend/internal/llmgateway/      encrypted connections, network policy, limiter
+backend/internal/llm/             official provider SDK adapters
+backend/internal/passport/        shared contract and semantic validation
+backend/internal/generation/      durable queue and generation stages
+backend/internal/product/         product source configuration
+backend/internal/api/             routes, OpenAPI and optional built UI
+frontend/src/pages/               products, connections and passport
+frontend/src/components/          shared diagrams, scenarios and evidence
 ```
 
-Add product modules under `backend/internal/` and new SQL migration pairs under
-`backend/internal/db/migrations/`. Next steps are product registration, source evidence,
-a durable job queue, provider adapters and approved content revisions. Keep LLM requests
-outside database transactions. Treat imported repository text as data, not instructions.
+The gateway adapts the vault, quota limiter and URL handling from Antares
+`backend/internal/llmgateway`; its application-specific stores are not copied.
+
+## Build and checks
+
+```sh
+mise exec -- just check
+mise exec -- just test
+mise exec -- just backend::test-race
+mise exec -- just backend::audit
+mise exec -- just check-web
+mise exec -- just frontend::build
+mise exec -- just generate-api  # after changing Go API contracts
+```
+
+OpenAPI types are generated with openapi-typescript, not maintained by hand.
+CI configuration remains disabled; these commands run locally.
+
+```sh
+# Compose reads .env; set a stable LLM_MASTER_KEY there first.
+docker compose up --build api
+```
+
+Open [the built portal](http://127.0.0.1:8080). The image includes the Go API,
+built UI, Node and Repomix, runs as a non-root user, and persists SQLite in the
+`onboarding-data` volume. Source workspaces are private and removed after collection.
+
+## MVP limits
+
+This is a local, single-operator MVP. It has no login, product permissions or
+publication approval workflow. Keep it on localhost; add authentication before
+shared deployment. Source facts, inferred claims and unknowns are shown separately,
+but an evidence link does not prove the model interpreted that evidence correctly.
+
+Repomix 1.18.0 currently pulls a braces advisory through globby/micromatch. No
+patched braces release was available during implementation. User glob patterns
+are evaluated in Go; only escaped, catalog-verified exact paths reach Repomix.
+Recheck `npm audit` when updating the packager dependency.

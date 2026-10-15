@@ -1,0 +1,514 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, KeyRound, Pencil, Plug, Plus, ShieldCheck } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Badge, Dialog, EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
+import {
+  api,
+  message,
+  protocolLabels,
+  type Connection,
+  type ConnectionConfig,
+  type FactoryStatus,
+  type ModelConfig,
+  type Parameter,
+  type ProbeResult,
+} from '../lib/api';
+
+function defaultConfig(): ConnectionConfig {
+  return {
+    name: '',
+    enabled: true,
+    protocol: 'openai_responses',
+    endpoint_url: 'https://api.openai.com/v1',
+    endpoint_mode: 'base',
+    auth_mode: 'header',
+    auth_header: 'Authorization',
+    auth_prefix: 'Bearer ',
+    secret: '',
+    headers: [],
+    query_params: [],
+    models: [{ id: '', output_mode: 'json_schema', max_output_tokens: 12_000 }],
+    timeout_seconds: 180,
+    max_concurrent: 2,
+    quota_group: '',
+  };
+}
+
+export function Connections() {
+  const queryClient = useQueryClient();
+  const status = useQuery({
+    queryKey: ['factory-status'],
+    queryFn: ({ signal }) => api<FactoryStatus>('/factory/status', { signal }),
+  });
+  const connections = useQuery({
+    queryKey: ['connections'],
+    queryFn: ({ signal }) => api<Connection[]>('/llm-connections', { signal }),
+    enabled: status.data?.connections_enabled === true,
+  });
+  const [editing, setEditing] = useState<Connection | 'new' | null>(null);
+  const [checks, setChecks] = useState<Record<string, string | undefined>>({});
+  const probe = useMutation({
+    mutationFn: ({ id, model }: Readonly<{ id: string; model: string }>) =>
+      api<ProbeResult>(`/llm-connections/${id}/test`, {
+        method: 'POST',
+        body: JSON.stringify({ model }),
+      }),
+    onSuccess: (_, input) =>
+      setChecks((old) => ({
+        ...old,
+        [`${input.id}:${input.model}`]: 'Structured output check passed',
+      })),
+    onError: (error, input) =>
+      setChecks((old) => ({ ...old, [`${input.id}:${input.model}`]: message(error) })),
+  });
+  return (
+    <>
+      <PageHeading
+        eyebrow="Factory settings"
+        title="Your models. Your endpoints."
+        description="Connect a provider, a compatible gateway or an approved local endpoint."
+        action={
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => setEditing('new')}
+            disabled={status.data?.connections_enabled !== true}
+          >
+            <Plus size={17} />
+            Add connection
+          </button>
+        }
+      />
+      <div className="intro-strip">
+        <ShieldCheck size={19} aria-hidden="true" />
+        <p>
+          Keys are encrypted on the server. Each passport run uses a fixed connection revision and
+          model.
+        </p>
+      </div>
+      {status.data?.connections_enabled === false && (
+        <div className="notice warning">
+          <KeyRound size={19} aria-hidden="true" />
+          <div>
+            <strong>Connection storage needs a master key.</strong>
+            <p>
+              Set LLM_MASTER_KEY to a stable secret of at least 32 characters and restart the API.
+              Keep it safe: it decrypts your saved connections.
+            </p>
+          </div>
+        </div>
+      )}
+      {(status.isPending || connections.isFetching) && <Loading />}
+      {(status.isError || connections.isError) && (
+        <ErrorNotice error={status.error ?? connections.error} />
+      )}
+      {connections.data?.length === 0 && (
+        <EmptyState
+          title="Connect a model endpoint"
+          action={
+            <button type="button" className="button primary" onClick={() => setEditing('new')}>
+              <Plus size={17} />
+              Add connection
+            </button>
+          }
+        >
+          Use your own URL, credentials and model names. Multiple connections can expose the same
+          model.
+        </EmptyState>
+      )}
+      <div className="connection-list">
+        {connections.data?.map((connection) => (
+          <article className="connection-card" key={connection.id}>
+            <div className="connection-heading">
+              <div className="connection-title">
+                <span className="small-icon">
+                  <Plug size={20} aria-hidden="true" />
+                </span>
+                <div>
+                  <h2>{connection.config.name}</h2>
+                  <p>{protocolLabels[connection.config.protocol]}</p>
+                </div>
+              </div>
+              <div className="row-actions">
+                <Badge>{connection.config.enabled ? 'Enabled' : 'Disabled'}</Badge>
+                <button
+                  type="button"
+                  className="button quiet"
+                  onClick={() => setEditing(connection)}
+                >
+                  <Pencil size={15} />
+                  Edit
+                </button>
+              </div>
+            </div>
+            <p className="endpoint">{connection.config.endpoint_url}</p>
+            <div className="connection-models">
+              {connection.config.models?.map((model) => (
+                <div className="model-row" key={model.id}>
+                  <div>
+                    <code>{model.id}</code>
+                    <span className="meta">
+                      {model.output_mode.replaceAll('_', ' ')} ·{' '}
+                      {model.max_output_tokens.toLocaleString()} output tokens
+                    </span>
+                    {checks[`${connection.id}:${model.id}`] !== undefined && (
+                      <p className="check-result" role="status">
+                        {checks[`${connection.id}:${model.id}`]}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={!connection.config.enabled || probe.isPending}
+                    onClick={() => probe.mutate({ id: connection.id, model: model.id })}
+                  >
+                    {probe.isPending &&
+                    probe.variables.id === connection.id &&
+                    probe.variables.model === model.id
+                      ? 'Checking…'
+                      : 'Check connection'}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="connection-foot">
+              <KeyRound size={14} aria-hidden="true" />
+              {connection.has_secret ? 'Key saved' : 'No authentication'}
+              <span>Revision {connection.revision}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+      {editing !== null && (
+        <ConnectionEditor
+          connection={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            await queryClient.invalidateQueries({ queryKey: ['connections'] });
+            setEditing(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function ConnectionEditor({
+  connection,
+  onClose,
+  onSaved,
+}: Readonly<{
+  connection: Connection | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}>) {
+  const [config, setConfig] = useState<ConnectionConfig>(() =>
+    connection === null ? defaultConfig() : structuredClone(connection.config)
+  );
+  const [headers, setHeaders] = useState(() =>
+    JSON.stringify(connection?.config.headers ?? [], null, 2)
+  );
+  const [query, setQuery] = useState(() =>
+    JSON.stringify(connection?.config.query_params ?? [], null, 2)
+  );
+  const [formError, setFormError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: (input: ConnectionConfig) =>
+      api<Connection>(
+        connection === null ? '/llm-connections' : `/llm-connections/${connection.id}`,
+        { method: connection === null ? 'POST' : 'PATCH', body: JSON.stringify(input) }
+      ),
+    onSuccess: onSaved,
+  });
+  function set<K extends keyof ConnectionConfig>(key: K, value: ConnectionConfig[K]) {
+    setConfig((old) => ({ ...old, [key]: value }));
+  }
+  function model(index: number, update: Partial<ModelConfig>) {
+    set(
+      'models',
+      (config.models ?? []).map((item, i) => (i === index ? { ...item, ...update } : item))
+    );
+  }
+  function preset(protocol: string) {
+    const anthropic = protocol === 'anthropic_messages';
+    setConfig((old) => ({
+      ...old,
+      protocol,
+      endpoint_url: anthropic ? 'https://api.anthropic.com' : 'https://api.openai.com/v1',
+      endpoint_mode: 'base',
+      auth_mode: 'header',
+      auth_header: anthropic ? 'X-Api-Key' : 'Authorization',
+      auth_prefix: anthropic ? '' : 'Bearer ',
+    }));
+  }
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    try {
+      const parsedHeaders = JSON.parse(headers) as Parameter[];
+      const parsedQuery = JSON.parse(query) as Parameter[];
+      if (!Array.isArray(parsedHeaders) || !Array.isArray(parsedQuery)) {
+        throw new TypeError('Headers and query parameters must be JSON arrays.');
+      }
+      setFormError(null);
+      save.mutate({ ...config, headers: parsedHeaders, query_params: parsedQuery });
+    } catch {
+      setFormError('Check the JSON arrays in the additional HTTP settings.');
+    }
+  }
+  return (
+    <Dialog
+      wide
+      title={connection === null ? 'Add LLM connection' : 'Edit LLM connection'}
+      onClose={onClose}
+    >
+      <form onSubmit={submit} className="connection-form">
+        <div className="preset-row">
+          {Object.entries(protocolLabels).map(([key, label]) => (
+            <button
+              type="button"
+              key={key}
+              className={`preset ${config.protocol === key ? 'selected' : ''}`}
+              onClick={() => preset(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label>
+          Connection name
+          <input
+            required
+            value={config.name}
+            maxLength={100}
+            onChange={(event) => set('name', event.target.value)}
+            placeholder="e.g. Company gateway"
+          />
+        </label>
+        <div className="form-grid">
+          <label>
+            API protocol
+            <select
+              value={config.protocol}
+              onChange={(event) => set('protocol', event.target.value)}
+            >
+              {Object.entries(protocolLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            URL type
+            <select
+              value={config.endpoint_mode}
+              onChange={(event) => set('endpoint_mode', event.target.value)}
+            >
+              <option value="base">Base URL</option>
+              <option value="full">Full endpoint URL</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Endpoint URL
+          <input
+            required
+            type="url"
+            value={config.endpoint_url}
+            onChange={(event) => set('endpoint_url', event.target.value)}
+          />
+        </label>
+        <p className="field-help">
+          Private or HTTP endpoints need an exact origin in the server’s LLM_ALLOWED_PRIVATE_ORIGINS
+          setting.
+        </p>
+        <label>
+          Authentication
+          <select
+            value={config.auth_mode}
+            onChange={(event) => set('auth_mode', event.target.value)}
+          >
+            <option value="header">API key in a header</option>
+            <option value="none">No authentication</option>
+          </select>
+        </label>
+        {config.auth_mode === 'header' && (
+          <>
+            <div className="form-grid">
+              <label>
+                Header name
+                <input
+                  required
+                  value={config.auth_header}
+                  onChange={(event) => set('auth_header', event.target.value)}
+                />
+              </label>
+              <label>
+                Header prefix
+                <input
+                  value={config.auth_prefix}
+                  onChange={(event) => set('auth_prefix', event.target.value)}
+                  placeholder="Empty, or Bearer followed by a space"
+                />
+              </label>
+            </div>
+            <label>
+              API key
+              <input
+                type="password"
+                autoComplete="off"
+                value={config.secret}
+                required={!connection?.has_secret}
+                onChange={(event) => set('secret', event.target.value)}
+                placeholder={
+                  connection?.has_secret === true
+                    ? 'Leave empty to keep the saved key'
+                    : 'Provider or gateway key'
+                }
+              />
+            </label>
+          </>
+        )}
+        <div className="subheading">
+          <h3>Models</h3>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() =>
+              set('models', [
+                ...(config.models ?? []),
+                { id: '', output_mode: 'json_schema', max_output_tokens: 12_000 },
+              ])
+            }
+          >
+            <Plus size={14} />
+            Add model
+          </button>
+        </div>
+        {config.models?.map((item, index) => (
+          <div className="model-form" key={index}>
+            <label>
+              Model ID
+              <input
+                required
+                value={item.id}
+                onChange={(event) => model(index, { id: event.target.value })}
+                placeholder="The exact model name or deployment alias"
+              />
+            </label>
+            <div className="form-grid">
+              <label>
+                Output mode
+                <select
+                  value={item.output_mode}
+                  onChange={(event) => model(index, { output_mode: event.target.value })}
+                >
+                  <option value="json_schema">Native JSON Schema</option>
+                  <option value="tool_call">Tool call</option>
+                  <option value="prompt_json">JSON by instruction</option>
+                </select>
+              </label>
+              <label>
+                Output token limit
+                <input
+                  required
+                  type="number"
+                  min={256}
+                  max={64_000}
+                  value={item.max_output_tokens}
+                  onChange={(event) =>
+                    model(index, { max_output_tokens: Number(event.target.value) })
+                  }
+                />
+              </label>
+            </div>
+            {(config.models?.length ?? 0) > 1 && (
+              <button
+                type="button"
+                className="text-button destructive"
+                onClick={() => set('models', config.models?.filter((_, i) => i !== index) ?? [])}
+              >
+                Remove model
+              </button>
+            )}
+          </div>
+        ))}
+        <details className="advanced">
+          <summary>Additional HTTP settings and limits</summary>
+          <p className="field-help">
+            Use arrays of {JSON.stringify({ name: 'X-Organization', value: '', secret: true })}.
+            Empty secret values keep their saved value when editing.
+          </p>
+          <label>
+            Additional headers
+            <textarea
+              rows={4}
+              className="code-input"
+              value={headers}
+              onChange={(event) => setHeaders(event.target.value)}
+            />
+          </label>
+          <label>
+            Query parameters
+            <textarea
+              rows={4}
+              className="code-input"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div className="form-grid">
+            <label>
+              Timeout in seconds
+              <input
+                type="number"
+                min={10}
+                max={600}
+                value={config.timeout_seconds}
+                onChange={(event) => set('timeout_seconds', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Concurrent requests
+              <input
+                type="number"
+                min={1}
+                max={16}
+                value={config.max_concurrent}
+                onChange={(event) => set('max_concurrent', Number(event.target.value))}
+              />
+            </label>
+          </div>
+          <label>
+            Shared quota group
+            <input
+              value={config.quota_group}
+              onChange={(event) => set('quota_group', event.target.value)}
+              placeholder="Optional"
+            />
+          </label>
+        </details>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.enabled}
+            onChange={(event) => set('enabled', event.target.checked)}
+          />
+          Enable this connection
+        </label>
+        {formError !== null && <ErrorNotice error={new Error(formError)} />}
+        {save.isError && <ErrorNotice error={save.error} />}
+        <div className="form-actions">
+          <button type="button" className="button quiet" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="button primary" disabled={save.isPending}>
+            <Check size={17} />
+            {save.isPending ? 'Saving…' : 'Save connection'}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}

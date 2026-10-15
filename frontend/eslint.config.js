@@ -17,7 +17,7 @@ const __dirname = import.meta.dirname ?? dirname(fileURLToPath(import.meta.url))
 
 export default tseslint.config(
   // Global ignores
-  { ignores: ['dist', 'node_modules', 'coverage', '*.config.js', '*.config.ts', '.pnp.*', '.yarn/', 'src/vite-env.d.ts'] },
+  { ignores: ['dist', 'node_modules', 'coverage', '*.config.js', '*.config.ts', '.pnp.*', '.yarn/', 'src/vite-env.d.ts', 'src/api.generated.ts'] },
 
   // Base configs for all TS/TSX files
   {

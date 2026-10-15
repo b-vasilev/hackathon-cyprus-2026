@@ -7,13 +7,13 @@ mod proxy 'services/llm-proxy'
 default:
     @just --list --list-submodules
 
-# Download Go dependencies after mise install. UI dependencies are opt-in.
-setup: backend::deps
+# Install the dependencies used by the API, UI and source packager.
+setup: backend::deps frontend::deps
 
 # Show startup instructions; do not start services implicitly.
 dev:
     @echo 'Backend: mise exec -- just backend::run'
-    @echo 'React placeholder: mise exec -- just frontend::deps && mise exec -- just frontend::dev'
+    @echo 'Frontend: mise exec -- just frontend::dev'
 
 fmt: backend::fmt
 lint: backend::lint
@@ -23,5 +23,6 @@ audit: backend::audit
 build: backend::build
 ci: check backend::test-race audit build
 
-# Frontend checks are separate while the UI is only a placeholder.
 check-web: frontend::check
+
+generate-api: backend::spec frontend::generate-api

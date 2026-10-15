@@ -14,3 +14,6 @@ check:
     npm run format:check
     npm run lint
     npm run typecheck
+
+generate-api:
+    npm run generate:api

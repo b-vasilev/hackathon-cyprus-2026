@@ -1,9 +1,19 @@
-# React placeholder
+# Portal
 
-React + Vite + TypeScript only. The entry point renders an empty root; no screens or product logic exist.
-ESLint, Biome and TypeScript rules come from Antares, with unused shared UI and test settings removed.
-Run `mise exec -- just frontend::deps` once, then `mise exec -- just frontend::dev` from the repository root.
-`mise exec -- just frontend::check` checks formatting, lint and types.
-`mise exec -- just frontend::build` builds the placeholder.
-Vite proxies `/api`, `/healthz` and `/readyz` to the local Go server.
-The current Go Docker image only serves the API. Static asset embedding and generated API types are future work.
+React, TypeScript and Vite with shared product passport rendering.
+
+```sh
+npm ci
+npm run dev
+```
+
+The dev server binds to `127.0.0.1:5173` and proxies API traffic to port 8080.
+`npm run build` creates `dist/` for the Go server or container.
+
+- React Query loads API data and polls active generation runs.
+- React Flow + ELK render model references and trace scenario steps.
+- API types come from `npm run generate:api` (openapi-typescript).
+- `npm run format:check`, `npm run lint`, `npm run typecheck` verify the UI.
+- The portal follows `.agents/skills/brandkit.md` in the repository root.
+
+See the root README for connection setup, source limits and the full workflow.

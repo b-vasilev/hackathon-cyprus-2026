@@ -43,3 +43,6 @@ deps:
 
 tidy:
     go mod tidy
+
+spec:
+    go run ./cmd/spec
