@@ -335,7 +335,7 @@ mise exec -- just generate-api  # after changing Go API contracts
 ```
 
 OpenAPI types are generated with openapi-typescript, not maintained by hand.
-CI configuration remains disabled; these commands run locally.
+Check and test CI remains disabled; these commands run locally.
 
 ```sh
 # Compose reads .env; set a stable CONNECTION_MASTER_KEY there first.
@@ -345,6 +345,26 @@ docker compose up --build api
 Open [the built portal](http://127.0.0.1:8080). The image includes the Go API,
 built UI, Node and Repomix, runs as a non-root user, and persists SQLite in the
 `onboarding-data` volume. Source workspaces are private and removed after collection.
+
+## Deployment
+
+Every push to `main` runs [the Deploy workflow](.github/workflows/deploy.yml). It builds
+the image on GitHub, loads it on the Azure VM over SSH and restarts
+[the production stack](deploy/compose.yaml): the API behind Caddy, which obtains and
+renews the Let's Encrypt certificate. Run it manually from the Actions tab if needed.
+
+| Item | Value |
+| --- | --- |
+| Portal | https://wayfinder-t1a.eastus2.cloudapp.azure.com |
+| VM | `wayfinder-vm` (Ubuntu 24.04, Standard_B2s) in resource group `rg-bv-wayfinder`, East US 2 |
+| Stack | `/opt/wayfinder` as `azureuser`; data in the `wayfinder_onboarding-data` volume |
+| GitHub | `production` environment: secrets `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`; variables `DEPLOY_HOST`, `DEPLOY_USER` |
+
+`/opt/wayfinder/.env` on the VM holds `SITE_HOST`, `CONNECTION_MASTER_KEY` and any
+optional settings from `.env.example`; it is not in Git. Back up the master key
+and the data volume. After editing `.env`, run `docker compose up -d` in `/opt/wayfinder`.
+Builds from the last week stay on the VM. To roll back, run
+`docker tag wayfinder:<sha> wayfinder:current && docker compose up -d` there.
 
 ## MVP limits
 

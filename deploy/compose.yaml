@@ -1,0 +1,42 @@
+# Production stack on the Azure VM. The deploy workflow copies this file to
+# /opt/wayfinder and tags the deployed build as wayfinder:current.
+# /opt/wayfinder/.env holds SITE_HOST, CONNECTION_MASTER_KEY and any optional
+# settings from .env.example.
+services:
+  api:
+    image: wayfinder:current
+    env_file: .env
+    environment:
+      HTTP_ADDR: 0.0.0.0:8080
+      DATABASE_PATH: /app/data/onboarding.db
+      LOG_FORMAT: json
+      CORS_ORIGINS: https://${SITE_HOST:?set SITE_HOST in .env}
+    volumes:
+      - onboarding-data:/app/data
+    init: true
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/readyz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  # Terminates HTTPS with an automatic Let's Encrypt certificate for SITE_HOST.
+  caddy:
+    image: caddy:2.10.2
+    command: caddy reverse-proxy --from ${SITE_HOST} --to api:8080
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  onboarding-data:
+  caddy-data:
+  caddy-config:
