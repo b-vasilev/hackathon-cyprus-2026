@@ -1,4 +1,4 @@
-FROM node:24-alpine AS web
+FROM node:25-alpine AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -12,7 +12,7 @@ RUN go mod download
 COPY backend/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /onboarding-api ./cmd/api
 
-FROM node:24-alpine
+FROM node:25-alpine
 RUN apk add --no-cache ca-certificates tzdata && \
     addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -G app app && \
     mkdir -p /app/data && chown app:app /app/data
