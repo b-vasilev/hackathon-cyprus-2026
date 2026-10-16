@@ -37,6 +37,7 @@ func Specification() ([]byte, error) {
 		"Connection": passport.Schema[llmgateway.Connection], "ConnectionConfig": passport.Schema[llmgateway.Config], "Model": passport.Schema[llmgateway.Model], "Parameter": passport.Schema[llmgateway.Parameter],
 		"Product": passport.Schema[product.Product], "ProductInput": passport.Schema[product.Input], "SourceInput": passport.Schema[source.Input],
 		"GenerationInput": passport.Schema[generation.Input], "Run": passport.Schema[generation.Run], "Revision": passport.Schema[generation.Revision], "RevisionInfo": passport.Schema[generation.RevisionInfo], "EvidenceView": passport.Schema[generation.EvidenceView],
+		"Review": passport.Schema[generation.Review], "ReviewActivity": passport.Schema[generation.ReviewActivity], "CommentInput": passport.Schema[generation.CommentInput], "FlagInput": passport.Schema[generation.FlagInput], "ChapterEdit": passport.Schema[passport.ChapterEdit],
 		"GenerationEvent": passport.Schema[generation.Event],
 		"User":            passport.Schema[access.User], "Me": passport.Schema[access.Me], "Membership": passport.Schema[access.Membership], "Member": passport.Schema[access.Member], "Credentials": passport.Schema[access.Credentials], "MemberInput": passport.Schema[access.MemberInput], "RoleInput": passport.Schema[access.RoleInput],
 		"Passport": passport.Schema[passport.Passport], "ProductModel": passport.Schema[passport.Model], "ProductObject": passport.Schema[passport.Object], "Claim": passport.Schema[passport.Claim], "Evidence": passport.Schema[passport.Evidence], "Relation": passport.Schema[passport.Relation], "Scenario": passport.Schema[passport.Scenario], "Section": passport.Schema[passport.Section], "Diagram": passport.Schema[passport.Diagram],
@@ -104,8 +105,13 @@ func Specification() ([]byte, error) {
 		{methodGet, "/api/products/{id}/passport", "getPublishedPassport", "", "Revision", 200, false},
 		{methodGet, "/api/products/{id}/passport-revisions", "listRevisions", "", "RevisionInfo", 200, true},
 		{methodGet, "/api/passport-revisions/{id}", "getRevision", "", "Revision", 200, false},
-		{methodPost, "/api/passport-revisions/{id}/approve", "approveRevision", "", "Revision", 200, false},
 		{methodPost, "/api/passport-revisions/{id}/publish", "publishRevision", "", "Revision", 200, false},
+		{methodPost, "/api/passport-revisions/{id}/unpublish", "unpublishRevision", "", "Revision", 200, false},
+		{methodGet, "/api/passport-revisions/{id}/review", "getRevisionReview", "", "Review", 200, false},
+		{"put", "/api/passport-revisions/{id}/flag", "flagRevision", "FlagInput", "Review", 200, false},
+		{"delete", "/api/passport-revisions/{id}/flag", "resolveRevisionFlag", "", "Review", 200, false},
+		{methodPost, "/api/passport-revisions/{id}/comments", "commentOnRevision", "CommentInput", "Review", 200, false},
+		{"put", "/api/passport-revisions/{id}/chapters/{chapterId}", "editRevisionChapter", "ChapterEdit", "Revision", 200, false},
 		{methodGet, "/api/passport-revisions/{id}/evidence/{evidenceId}", "getEvidence", "", "EvidenceView", 200, false},
 	} {
 		output := map[string]any{"$ref": "#/components/schemas/" + route.output}

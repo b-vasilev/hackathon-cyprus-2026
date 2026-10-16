@@ -1,13 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, FileCode2, GitBranch, Play, RefreshCw, Square, Trash2 } from 'lucide-react';
+import {
+  ArrowRight,
+  FileCode2,
+  GitBranch,
+  Pencil,
+  Play,
+  RefreshCw,
+  Square,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ChapterEditor } from '../components/ChapterEditor';
 import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { DocumentContent } from '../components/DocumentContent';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
 import { PartialResearchNotice } from '../components/PartialResearchNotice';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
-import { PassportPublication } from '../components/PassportPublication';
+import { PassportReview } from '../components/PassportReview';
 import { ProductAccess } from '../components/ProductAccess';
 import { ProductBrandSources, ProductIdentity } from '../components/ProductIdentity';
 import { SourceCoverage } from '../components/SourceCoverage';
@@ -62,6 +72,8 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
   const [modelId, setModelId] = useState('');
   const [selectedRevision, setSelectedRevision] = useState('');
   const [sectionId, setSectionId] = useState('');
+  // Identifies the chapter being edited; changing version or chapter ends editing.
+  const [editingKey, setEditingKey] = useState('');
   const readingPane = useRef<HTMLDivElement>(null);
   function selectSection(nextId: string) {
     setSectionId(nextId);
@@ -90,7 +102,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
       void queryClient.invalidateQueries({ queryKey: ['products'] });
     }
   }, [run.data?.status, id, queryClient]);
-  const { drafts, revisionId, revision, revisionRun } = usePassportRevision({
+  const { revisionId, revision, revisionRun } = usePassportRevision({
     id,
     selectedRevision,
     publishedView,
@@ -170,7 +182,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
       {!publishedView && (
         <nav className="passport-tabs" aria-label="Passport views">
           <Link to={`/products/${id}`} className="active" aria-current="page">
-            Drafts
+            Review
           </Link>
           <Link to={`/published/${id}`}>Published</Link>
         </nav>
@@ -256,7 +268,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
             pending={cancelGeneration.isPending}
             onCancel={() => cancelGeneration.mutate()}
           />
-          <VersionSelect history={drafts} value={revisionId} onChange={setSelectedRevision} />
+          <VersionSelect history={history.data} value={revisionId} onChange={setSelectedRevision} />
         </div>
       )}
       {!publishedView && (
@@ -285,10 +297,11 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
       {revision.isError && <ErrorNotice error={revision.error} />}
       {history.isError && <ErrorNotice error={history.error} />}
       {manage && revision.data !== undefined && (
-        <PassportPublication
+        <PassportReview
           key={revision.data.id}
           revision={revision.data}
-          history={history.data ?? []}
+          chapters={chapters ?? []}
+          currentChapterId={chapter?.id ?? ''}
         />
       )}
       {publishedView && revisionId === '' && !product.isFetching && (
@@ -300,27 +313,20 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
         revision.data === undefined &&
         !busy &&
         !revision.isFetching &&
-        run.data?.status !== 'failed' && (
-          <EmptyDraft hasPublished={product.data.published_revision_id !== ''} />
-        )}
+        run.data?.status !== 'failed' && <EmptyDraft />}
       {revision.data !== undefined && selected !== undefined && (
         <>
           {!publishedView && (
             <div className="revision-meta">
               <span>Version {revision.data.version}</span>
               <span>{date(revision.data.created_at)}</span>
-              {revision.data.published && <span>Published {date(revision.data.published_at)}</span>}
+              <span>{revision.data.published ? 'Published' : 'Draft'}</span>
               {revisionRun.data !== undefined && (
                 <span>
                   {revisionRun.data.model} · connection revision{' '}
                   {revisionRun.data.connection_revision}
                 </span>
               )}
-              <span>
-                {revision.data.approved_at === ''
-                  ? 'Expert review pending'
-                  : `Approved ${date(revision.data.approved_at)}`}
-              </span>
             </div>
           )}
           <PartialResearchNotice
@@ -352,13 +358,33 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
               ))}
             </nav>
             <div className="passport-reading-pane" ref={readingPane}>
-              {chapter !== undefined && (
+              {chapter !== undefined && editingKey === `${revision.data.id}:${chapter.id}` && (
+                <ChapterEditor
+                  key={`${revision.data.id}:${chapter.id}`}
+                  revision={revision.data}
+                  chapter={chapter}
+                  onDone={() => setEditingKey('')}
+                />
+              )}
+              {chapter !== undefined && editingKey !== `${revision.data.id}:${chapter.id}` && (
                 <DocumentContent
                   key={`${revision.data.id}:${chapter.id}`}
                   chapter={chapter}
                   revision={revision.data}
                   onObject={setObject}
                   onEvidence={setEvidenceId}
+                  action={
+                    manage && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => setEditingKey(`${revision.data.id}:${chapter.id}`)}
+                      >
+                        <Pencil size={16} aria-hidden="true" />
+                        Edit chapter
+                      </button>
+                    )
+                  }
                 />
               )}
               {section !== undefined && (
@@ -547,10 +573,11 @@ function VersionSelect({
 }
 
 function revisionStatus(revision: RevisionInfo): string {
+  let status = 'Draft';
   if (revision.published) {
-    return 'Published';
+    status = revision.unpublished_changes ? 'Published · unpublished edits' : 'Published';
   }
-  return revision.approved_at === '' ? 'Draft' : 'Approved';
+  return revision.flagged ? `${status} · flagged` : status;
 }
 
 function MissingConnectionNotice({
@@ -585,29 +612,24 @@ function MissingConnectionNotice({
   );
 }
 
-function EmptyDraft({ hasPublished }: Readonly<{ hasPublished: boolean }>) {
+function EmptyDraft() {
   return (
-    <EmptyState
-      title={hasPublished ? 'No unpublished drafts' : 'Your sources are ready to explore'}
-    >
-      {hasPublished
-        ? 'Generate a new version to update the published passport.'
-        : 'Choose a connection and model, then generate a passport.'}
+    <EmptyState title="Your sources are ready to explore">
+      Choose a connection and model, then generate a passport.
     </EmptyState>
   );
 }
 
-function selectedDraftId(
-  drafts: RevisionInfo[] | undefined,
+// Reviewers start on the newest version, whether it is a draft or published.
+function selectedRevisionId(
+  history: RevisionInfo[] | undefined,
   product: Product | undefined,
   selected: string
 ): string {
-  if (drafts !== undefined) {
-    return drafts.find((item) => item.id === selected)?.id ?? drafts.at(0)?.id ?? '';
+  if (history !== undefined) {
+    return history.find((item) => item.id === selected)?.id ?? history.at(0)?.id ?? '';
   }
-  return product?.latest_revision_id === product?.published_revision_id
-    ? ''
-    : (product?.latest_revision_id ?? '');
+  return product?.latest_revision_id ?? '';
 }
 
 function PassportHeader({
@@ -661,9 +683,9 @@ function PassportHeader({
             pending={pending}
             version={revision?.version}
             hasDraft={hasRevision}
-            approvedAt={revision?.approved_at}
             emptyLabel="No drafts yet"
             published={revision?.published}
+            needsAttention={revision?.unpublished_changes}
           />
         )}
       </div>
@@ -684,9 +706,8 @@ function usePassportRevision({
   product: Product | undefined;
   history: RevisionInfo[] | undefined;
 }>) {
-  const drafts = history?.filter((item) => !item.published);
-  const draftRevisionId = selectedDraftId(drafts, product, selectedRevision);
-  const revisionId = publishedView ? (product?.published_revision_id ?? '') : draftRevisionId;
+  const reviewRevisionId = selectedRevisionId(history, product, selectedRevision);
+  const revisionId = publishedView ? (product?.published_revision_id ?? '') : reviewRevisionId;
   const revision = useQuery({
     queryKey: [publishedView ? 'published-revision' : 'revision', revisionId],
     queryFn: ({ signal }) =>
@@ -701,5 +722,5 @@ function usePassportRevision({
     queryFn: ({ signal }) => api<Run>(`/generations/${revision.data?.run_id ?? ''}`, { signal }),
     enabled: !publishedView && revision.data !== undefined,
   });
-  return { drafts, revisionId, revision, revisionRun };
+  return { revisionId, revision, revisionRun };
 }

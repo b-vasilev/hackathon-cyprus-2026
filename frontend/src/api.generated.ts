@@ -294,6 +294,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/passport-revisions/{id}/chapters/{chapterId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['editRevisionChapter'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/passport-revisions/{id}/comments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['commentOnRevision'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/passport-revisions/{id}/evidence/{evidenceId}': {
     parameters: {
       query?: never;
@@ -310,6 +342,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/passport-revisions/{id}/flag': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['flagRevision'];
+    post?: never;
+    delete: operations['resolveRevisionFlag'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/passport-revisions/{id}/publish': {
     parameters: {
       query?: never;
@@ -320,6 +368,38 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['publishRevision'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/passport-revisions/{id}/review': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getRevisionReview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/passport-revisions/{id}/unpublish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['unpublishRevision'];
     delete?: never;
     options?: never;
     head?: never;
@@ -511,12 +591,21 @@ export interface components {
     AvailableModel: {
       id: string;
     };
+    ChapterEdit: {
+      title: string;
+      /** @description Replacement text for each Markdown block, in chapter order. */
+      markdown: null | string[];
+    };
     Claim: {
       id: string;
       text: string;
       /** @description One of source_backed, inferred, unknown. A source pointer is not expert approval. */
       basis: string;
       evidence_ids: null | string[];
+    };
+    CommentInput: {
+      chapter_id: string;
+      body: string;
     };
     Connection: {
       id: string;
@@ -666,6 +755,9 @@ export interface components {
     };
     FactoryStatus: {
       connections_enabled: boolean;
+    };
+    FlagInput: {
+      reason: string;
     };
     GenerationEvent: {
       id: number;
@@ -1126,6 +1218,34 @@ export interface components {
       /** @description Optional specific protocol, payload or artifact contract. */
       contract?: string;
     };
+    Review: {
+      revision_id: string;
+      flag_reason: string;
+      flagged_by: string;
+      flagged_at: string;
+      edited_by: string;
+      edited_at: string;
+      activity:
+        | null
+        | {
+            id: string;
+            /** @description One of comment, edit, flag, resolve, publish, unpublish. */
+            kind: string;
+            chapter_id: string;
+            body: string;
+            author: string;
+            created_at: string;
+          }[];
+    };
+    ReviewActivity: {
+      id: string;
+      /** @description One of comment, edit, flag, resolve, publish, unpublish. */
+      kind: string;
+      chapter_id: string;
+      body: string;
+      author: string;
+      created_at: string;
+    };
     Revision: {
       id: string;
       product_id: string;
@@ -1133,11 +1253,10 @@ export interface components {
       version: number;
       schema_version: string;
       created_at: string;
-      approved_by: string;
-      approved_at: string;
       published_by: string;
       published_at: string;
       published: boolean;
+      unpublished_changes: boolean;
       content: {
         model: {
           title: string;
@@ -1320,8 +1439,9 @@ export interface components {
       id: string;
       version: number;
       created_at: string;
-      approved_at: string;
       published: boolean;
+      unpublished_changes: boolean;
+      flagged: boolean;
     };
     RoleInput: {
       /** @description admin or user */
@@ -2245,6 +2365,77 @@ export interface operations {
       };
     };
   };
+  editRevisionChapter: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        chapterId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChapterEdit'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Revision'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  commentOnRevision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CommentInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Review'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   getEvidence: {
     parameters: {
       query?: never;
@@ -2277,7 +2468,135 @@ export interface operations {
       };
     };
   };
+  flagRevision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FlagInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Review'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  resolveRevisionFlag: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Review'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   publishRevision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Revision'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getRevisionReview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Review'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  unpublishRevision: {
     parameters: {
       query?: never;
       header?: never;

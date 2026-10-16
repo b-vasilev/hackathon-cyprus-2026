@@ -20,11 +20,16 @@ GitHub SHA + optional context
 The passport starts with product purpose and outcomes, repository relationships,
 logical architecture, end-to-end flows and technologies. Useful supporting sections
 cover data, runtime, development, operations, decisions and ownership. Missing evidence
-stays explicit. Generated revisions start as drafts. In Product studio, an admin
-or product lead approves a specific version, then publishes it. Approval and
-publication record the actor and time. New drafts keep the published version in
-place until another approved version is published. Publishing stays inside the
-portal's existing product access; it does not create a public link.
+stays explicit. Generated revisions start as drafts; a version is either draft or
+published. In the product's Review tab, an admin or product lead can edit chapter
+titles and text, comment on the passport or a chapter, flag a version for review
+and publish or unpublish it. A flagged version cannot be published until the flag
+is resolved. Edits to a published version stay unpublished until you publish the
+changes; learners keep reading the published copy. Edits, comments, flags and
+publication record the actor and time. Diagrams, flows, tables and evidence stay
+as generated, and older section-based versions cannot be edited. Learners only
+see the published version. Publishing stays inside the portal's existing product
+access; it does not create a public link.
 Product studio is available to admins and product leads. The separate Published
 passports tab is available to all signed-in users for their assigned products.
 
@@ -293,7 +298,8 @@ stream when the run finishes. A stream heartbeat does not mean worker progress.
 | `/api/generations/{id}` | Stage, error, document count and token usage |
 | `/api/products/{id}/passport`, `/passport-revisions` | Published content and revision history |
 | `/api/passport-revisions/{id}`, `/{id}/evidence/{evidenceId}` | Frozen content and exact source excerpts |
-| `/api/passport-revisions/{id}/approve`, `/{id}/publish` | Lead/admin approval and publication of one version |
+| `/api/passport-revisions/{id}/publish`, `/{id}/unpublish` | Lead/admin publication of one version |
+| `/api/passport-revisions/{id}/review`, `/{id}/comments`, `/{id}/flag`, `/{id}/chapters/{chapterId}` | Lead/admin review notes, flags and chapter edits |
 
 ```text
 backend/internal/source/          GitHub catalog, pinned Git + Repomix
