@@ -21,10 +21,10 @@ func validateArchitecture(objects []Object, diagrams []Diagram, v2 bool) error {
 		if d.ScopeObjectID != "" {
 			scope, ok := byID[d.ScopeObjectID]
 			if !ok || scope.Kind == "repository" || d.Kind == repositoriesCategory {
-				return fmt.Errorf("invalid diagram scope: %s", d.ID)
+				return fmt.Errorf("invalid diagram scope: %s; scope_object_id %q must identify an existing non-repository object and repositories views must have no scope", d.ID, d.ScopeObjectID)
 			}
 			if v2 && d.Kind == "containers" && scope.ArchitectureRole != "" && scope.ArchitectureRole != "software_system" {
-				return fmt.Errorf("diagram scope has an incompatible architecture role: %s", d.ID)
+				return fmt.Errorf("diagram scope has an incompatible architecture role: %s; scope %q (%s) has architecture_role %q; containers requires a software_system scope", d.ID, scope.ID, scope.Name, scope.ArchitectureRole)
 			}
 		}
 		if !v2 || !slices.Contains([]string{"context", "containers", "components"}, d.Kind) {
@@ -38,7 +38,7 @@ func validateArchitecture(objects []Object, diagrams []Diagram, v2 bool) error {
 			if d.ScopeObjectID != "" {
 				for parent := o.ParentID; parent != "" && parent != d.ScopeObjectID; parent = byID[parent].ParentID {
 					if byID[parent].ParentID == d.ScopeObjectID {
-						return fmt.Errorf("diagram skips an architectural level: %s", d.ID)
+						return fmt.Errorf("diagram skips an architectural level: %s; node %q (%s) has parent %q, but scope %q requires immediate children; show ancestor %q here and move this node to a separate drilldown", d.ID, o.ID, o.Name, o.ParentID, d.ScopeObjectID, parent)
 					}
 				}
 				if o.ParentID != d.ScopeObjectID {
@@ -46,7 +46,7 @@ func validateArchitecture(objects []Object, diagrams []Diagram, v2 bool) error {
 				}
 			}
 			if o.ArchitectureRole != "" && o.ArchitectureRole != expectedRole {
-				return fmt.Errorf("diagram mixes architectural levels: %s", d.ID)
+				return fmt.Errorf("diagram mixes architectural levels: %s; node %q (%s) has architecture_role %q; %s view with scope %q requires %q for in-scope nodes; move this object to a separate view or explain it in markdown, preserving its canonical role", d.ID, o.ID, o.Name, o.ArchitectureRole, d.Kind, d.ScopeObjectID, expectedRole)
 			}
 		}
 	}
