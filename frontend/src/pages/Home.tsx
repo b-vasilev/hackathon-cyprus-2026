@@ -215,7 +215,11 @@ export function Home() {
               key={product.id}
             >
               <Link className="product-card-content" to={`/published/${product.id}`}>
-                <ProductIdentity name={product.name} theme={product.card_theme} />
+                <ProductIdentity
+                  name={product.name}
+                  theme={product.card_theme}
+                  icon={product.icon_url}
+                />
                 <h2>{product.name}</h2>
                 <ArrowUpRight size={20} aria-hidden="true" />
               </Link>

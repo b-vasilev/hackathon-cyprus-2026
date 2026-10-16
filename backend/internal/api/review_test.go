@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,54 +17,78 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// TestPassportReview covers the reviewer workflow and what learners can read at each step.
-func TestPassportReview(t *testing.T) {
-	t.Parallel()
-	database, err := db.Open(t.Context(), filepath.Join(t.TempDir(), "review.db"))
+// testPortal serves the API over a fresh database with an admin, a lead and a
+// learner on one product. request fails the test on an unexpected status.
+type testPortal struct {
+	t                    *testing.T
+	handler              http.Handler
+	database             *sql.DB
+	content              *content.Store
+	admin, lead, learner *http.Cookie
+	productID            string
+}
+
+func newTestPortal(t *testing.T) *testPortal {
+	t.Helper()
+	database, err := db.Open(t.Context(), filepath.Join(t.TempDir(), "portal.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer database.Close()
+	t.Cleanup(func() { _ = database.Close() })
 	if migrationErr := db.RunMigrations(database); migrationErr != nil {
 		t.Fatal(migrationErr)
 	}
 	store := &content.Store{Dir: t.TempDir()}
 	service := generation.New(database, nil, nil, nil, zerolog.Nop(), store)
-	handler := New(database, zerolog.Nop(), nil, &Factory{Access: &access.Store{DB: database}, Service: service})
-	request := func(method, path, body string, cookie *http.Cookie, status int) string {
-		t.Helper()
-		r := httptest.NewRequest(method, path, strings.NewReader(body))
-		r.Header.Set("Content-Type", "application/json")
-		if cookie != nil {
-			r.AddCookie(cookie)
-		}
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, r)
-		if w.Code != status {
-			t.Fatalf("%s %s: %d %s", method, path, w.Code, w.Body.String())
-		}
-		return w.Body.String()
-	}
-	register := func(email string) *http.Cookie {
-		t.Helper()
-		r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(`{"email":"`+email+`","password":"correct-horse"}`))
-		r.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, r)
-		return w.Result().Cookies()[0]
-	}
-	admin := register("admin@example.com")
-	lead := register("lead@example.com")
-	learner := register("learner@example.com")
+	p := &testPortal{t: t, database: database, content: store, handler: New(database, zerolog.Nop(), nil, &Factory{Access: &access.Store{DB: database}, Service: service})}
+	p.admin, p.lead, p.learner = p.register("admin@example.com"), p.register("lead@example.com"), p.register("learner@example.com")
 	var product struct {
 		ID string `json:"id"`
 	}
-	if decodeErr := json.Unmarshal([]byte(request(http.MethodPost, "/api/products", `{"name":"Example","sources":[{"kind":"text","text":"Purpose"}]}`, admin, http.StatusCreated)), &product); decodeErr != nil {
+	if decodeErr := json.Unmarshal([]byte(p.request(http.MethodPost, "/api/products", `{"name":"Example","sources":[{"kind":"text","text":"Purpose"}]}`, p.admin, http.StatusCreated)), &product); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
+	p.productID = product.ID
 	members := "/api/products/" + product.ID + "/members"
-	request(http.MethodPut, members, `{"email":"lead@example.com","role":"lead"}`, admin, http.StatusOK)
-	request(http.MethodPut, members, `{"email":"learner@example.com","role":"learner"}`, admin, http.StatusOK)
+	p.request(http.MethodPut, members, `{"email":"lead@example.com","role":"lead"}`, p.admin, http.StatusOK)
+	p.request(http.MethodPut, members, `{"email":"learner@example.com","role":"learner"}`, p.admin, http.StatusOK)
+	return p
+}
+
+func (p *testPortal) request(method, path, body string, cookie *http.Cookie, status int) string {
+	p.t.Helper()
+	r := httptest.NewRequest(method, path, strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	if cookie != nil {
+		r.AddCookie(cookie)
+	}
+	w := httptest.NewRecorder()
+	p.handler.ServeHTTP(w, r)
+	if w.Code != status {
+		p.t.Fatalf("%s %s: %d %s", method, path, w.Code, w.Body.String())
+	}
+	return w.Body.String()
+}
+
+func (p *testPortal) register(email string) *http.Cookie {
+	p.t.Helper()
+	r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(`{"email":"`+email+`","password":"correct-horse"}`))
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	p.handler.ServeHTTP(w, r)
+	if w.Code != http.StatusCreated {
+		p.t.Fatalf("register %s: %d %s", email, w.Code, w.Body.String())
+	}
+	return w.Result().Cookies()[0]
+}
+
+// TestPassportReview covers the reviewer workflow and what learners can read at each step.
+func TestPassportReview(t *testing.T) {
+	t.Parallel()
+	portal := newTestPortal(t)
+	database, store, request := portal.database, portal.content, portal.request
+	admin, lead, learner := portal.admin, portal.lead, portal.learner
+	product := struct{ ID string }{portal.productID}
 
 	draft := passport.Passport{Views: passport.Views{Document: &passport.Document{Version: 2, Chapters: []passport.Chapter{{
 		ID: "overview", Title: "Overview", Question: "What is it?",

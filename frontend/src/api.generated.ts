@@ -454,6 +454,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/products/{id}/icon': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['setProductIcon'];
+    post?: never;
+    delete: operations['removeProductIcon'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/products/{id}/members': {
     parameters: {
       query?: never;
@@ -787,6 +803,10 @@ export interface components {
       /** @enum {string} */
       status: 'ok' | 'ready' | 'unavailable';
     };
+    IconInput: {
+      /** @description Base64-encoded SVG, PNG, JPEG or GIF image, up to 256 KB. */
+      data: string;
+    };
     LearningState: {
       modules: {
         [key: string]: {
@@ -1087,6 +1107,8 @@ export interface components {
               url: string;
             }[];
       };
+      /** @description Custom product icon as a data URI, or empty to use the passport logo. */
+      icon_url: string;
       created_at: string;
       latest_revision_id: string;
       published_revision_id: string;
@@ -2773,6 +2795,72 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Run'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  setProductIcon: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IconInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Product'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  removeProductIcon: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Product'];
         };
       };
       /** @description Request failed */

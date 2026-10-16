@@ -97,6 +97,13 @@ func (f *Factory) register(mux *http.ServeMux) {
 		value, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
+	mux.HandleFunc("PUT /api/products/{id}/icon", withInput(f, pathProduct, func(r *http.Request, input product.IconInput) (any, error) {
+		return f.Service.Products.SetIcon(r.Context(), r.PathValue("id"), input)
+	}))
+	mux.HandleFunc("DELETE /api/products/{id}/icon", f.product(true, pathProduct, func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.Products.RemoveIcon(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	}))
 	mux.HandleFunc("POST /api/products/{id}/generations", f.product(true, pathProduct, f.startGeneration))
 	mux.HandleFunc("POST /api/generations/{id}/cancel", f.product(true, runProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Cancel(r.Context(), r.PathValue("id"))

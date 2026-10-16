@@ -19,7 +19,11 @@ import { PartialResearchNotice } from '../components/PartialResearchNotice';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
 import { PassportReview } from '../components/PassportReview';
 import { ProductAccess } from '../components/ProductAccess';
-import { ProductBrandSources, ProductIdentity } from '../components/ProductIdentity';
+import {
+  ProductBrandSources,
+  ProductIconControl,
+  ProductIdentity,
+} from '../components/ProductIdentity';
 import { SourceCoverage } from '../components/SourceCoverage';
 import { DisclosureHint, EmptyState, ErrorNotice, ExternalLink, Loading } from '../components/ui';
 import {
@@ -178,6 +182,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
         pending={generate.isPending}
         publishedView={publishedView}
         hasRevision={revisionId !== ''}
+        manage={manage}
       />
       {!publishedView && (
         <nav className="passport-tabs" aria-label="Passport views">
@@ -639,6 +644,7 @@ function PassportHeader({
   pending,
   publishedView,
   hasRevision,
+  manage,
 }: Readonly<{
   product: Product;
   revision: Revision | undefined;
@@ -646,6 +652,7 @@ function PassportHeader({
   pending: boolean;
   publishedView: boolean;
   hasRevision: boolean;
+  manage: boolean;
 }>) {
   return (
     <>
@@ -660,10 +667,15 @@ function PassportHeader({
           <p className="eyebrow">Product passport</p>
           <div className="passport-identity">
             <div className="passport-product-mark">
-              <ProductIdentity name={product.name} theme={revision?.content.views.card_theme} />
+              <ProductIdentity
+                name={product.name}
+                theme={revision?.content.views.card_theme}
+                icon={product.icon_url}
+              />
             </div>
             <h1>{revision?.content.model.title ?? product.name}</h1>
           </div>
+          {manage && <ProductIconControl product={product} />}
           <p className="page-description">
             {revision?.content.model.tagline ??
               'Connect the sources. Generate the picture. Inspect the evidence.'}

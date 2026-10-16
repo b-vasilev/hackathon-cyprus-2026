@@ -780,6 +780,19 @@
         ],
         "type": "object"
       },
+      "IconInput": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "string",
+            "description": "Base64-encoded SVG, PNG, JPEG or GIF image, up to 256 KB."
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
       "LearningState": {
         "type": "object",
         "properties": {
@@ -1998,6 +2011,10 @@
             ],
             "additionalProperties": false
           },
+          "icon_url": {
+            "type": "string",
+            "description": "Custom product icon as a data URI, or empty to use the passport logo."
+          },
           "created_at": {
             "type": "string"
           },
@@ -2018,6 +2035,7 @@
           "id",
           "name",
           "sources",
+          "icon_url",
           "created_at",
           "latest_revision_id",
           "published_revision_id",
@@ -5619,6 +5637,88 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Run"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/icon": {
+      "delete": {
+        "operationId": "removeProductIcon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setProductIcon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IconInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
                 }
               }
             },

@@ -273,6 +273,11 @@ Brand accents apply to the card, passport heading, sections, diagrams and scenar
 steps. Portal navigation, fonts, shared actions and semantic states remain shared.
 Generate a new passport to discover branding for an existing product.
 
+Admins and the product's leads can upload a custom product icon (SVG, PNG, JPEG
+or GIF, up to 256 KB) from the product page. It replaces the discovered logo on
+product tiles and the passport heading, and it survives regeneration. Uploaded
+images pass the same safety checks as discovered logos.
+
 ## API and modules
 
 The full [OpenAPI contract](backend/internal/api/openapi.json) is served at
@@ -294,6 +299,7 @@ stream when the run finishes. A stream heartbeat does not mean worker progress.
 | `/api/factory/status` | Connection setup availability |
 | `/api/llm-connections`, `/{id}`, `/{id}/test` | Save, edit, list and check connections |
 | `/api/products`, `/{id}` | Register and inspect product sources |
+| `/api/products/{id}/icon` | Lead/admin upload or removal of a custom product icon |
 | `/api/products/{id}/generations` | Queue generation; returns 202 |
 | `/api/generations/{id}` | Stage, error, document count and token usage |
 | `/api/products/{id}/passport`, `/passport-revisions` | Published content and revision history |

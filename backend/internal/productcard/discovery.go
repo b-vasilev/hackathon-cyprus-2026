@@ -359,6 +359,10 @@ func logoLinks(ref Reference) []string {
 	return result
 }
 
+// IconData validates an uploaded product icon with the same checks as discovered
+// logos and returns it as a data URI, or "" when the image is unsafe or too large.
+func IconData(data []byte) string { return logoData(data) }
+
 func logoData(data []byte) string {
 	if len(data) == 0 || len(data) > maxLogoBytes {
 		return ""

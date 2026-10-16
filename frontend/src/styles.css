@@ -459,6 +459,27 @@ code {
   align-items: center;
   gap: 16px;
 }
+.product-icon-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 16px;
+  margin-top: 8px;
+}
+.product-icon-control label {
+  flex-direction: row;
+  gap: 6px;
+  margin: 0;
+  cursor: pointer;
+}
+.product-icon-control input:focus-visible + label {
+  outline: 2px solid var(--of-brand);
+  outline-offset: 4px;
+}
+.product-icon-control .notice {
+  flex-basis: 100%;
+  margin: 8px 0 0;
+}
 .passport-product-mark {
   display: flex;
   align-items: center;
