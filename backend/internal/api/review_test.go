@@ -13,6 +13,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learningpack"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/rs/zerolog"
 )
@@ -40,7 +41,8 @@ func newTestPortal(t *testing.T) *testPortal {
 	}
 	store := &content.Store{Dir: t.TempDir()}
 	service := generation.New(database, nil, nil, nil, zerolog.Nop(), store)
-	p := &testPortal{t: t, database: database, content: store, handler: New(database, zerolog.Nop(), nil, &Factory{Access: &access.Store{DB: database}, Service: service})}
+	packs := &learningpack.Service{DB: database, Passports: service}
+	p := &testPortal{t: t, database: database, content: store, handler: New(database, zerolog.Nop(), nil, &Factory{Access: &access.Store{DB: database}, Service: service, Packs: packs})}
 	p.admin, p.lead, p.learner = p.register("admin@example.com"), p.register("lead@example.com"), p.register("learner@example.com")
 	var product struct {
 		ID string `json:"id"`

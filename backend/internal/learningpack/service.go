@@ -79,9 +79,9 @@ func (s *Service) Get(ctx context.Context, revisionID string) (View, error) {
 	return view, err
 }
 
-// Published returns the most recently published pack of a product for learners.
+// Published returns only the practice for the product's published passport.
 func (s *Service) Published(ctx context.Context, productID string) (View, error) {
-	return s.read(ctx, "p.product_id=? AND p.published_at<>'' ORDER BY p.published_at DESC LIMIT 1", productID, true)
+	return s.read(ctx, "p.product_id=? AND p.revision_id=(SELECT published_revision_id FROM products WHERE id=p.product_id) AND p.published_at<>''", productID, true)
 }
 
 func (s *Service) read(ctx context.Context, where, arg string, published bool) (View, error) {
@@ -154,7 +154,9 @@ func (s *Service) run(ownerID string, revision generation.Revision) {
 
 // Publish shows the current working copy to learners.
 func (s *Service) Publish(ctx context.Context, revisionID, userID string) (View, error) {
-	result, err := s.DB.ExecContext(ctx, "UPDATE learning_packs SET published_content_json=content_json, published_by=?, published_at=? WHERE revision_id=? AND content_json<>'' AND status<>?", userID, now(), revisionID, statusRunning)
+	result, err := s.DB.ExecContext(ctx, `UPDATE learning_packs SET published_content_json=content_json, published_by=?,
+ published_at=CASE WHEN published_content_json=content_json AND published_at<>'' THEN published_at ELSE ? END
+ WHERE revision_id=? AND content_json<>'' AND status<>?`, userID, now(), revisionID, statusRunning)
 	if err != nil {
 		return View{}, fmt.Errorf("publish learning pack: %w", err)
 	}
