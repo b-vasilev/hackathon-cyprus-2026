@@ -16,10 +16,10 @@ export function installConsoleEgg() {
   // eslint-disable-next-line no-console -- the greeting is the easter egg
   console.info(
     '%cW%c Wayfinder\n\n%cHi, curious engineer. You opened DevTools: that was lesson 1 of HTTP and APIs.\nType %cwayfinder.explore()%c and press Enter.',
-    'color:#ffffff;background:#6a45f5;font-weight:700;font-size:18px;padding:2px 8px;border-radius:6px',
-    'color:#6a45f5;font-weight:600;font-size:16px',
+    'color:#ffffff;background:#664ccd;font-weight:700;font-size:18px;padding:2px 8px;border-radius:6px',
+    'color:#664ccd;font-weight:600;font-size:16px',
     'color:inherit;font-size:13px',
-    'color:#6a45f5;font-family:monospace;font-size:13px;font-weight:600',
+    'color:#664ccd;font-family:monospace;font-size:13px;font-weight:600',
     'color:inherit;font-size:13px'
   );
 }

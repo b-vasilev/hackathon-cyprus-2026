@@ -1,35 +1,35 @@
 :root {
   font-family: var(--of-font);
+  font-weight: var(--of-weight-regular);
   color: var(--of-ink);
   background: var(--of-canvas);
   font-synthesis: none;
-  --of-brand: #6a45f5;
-  --of-brand-hover: #7957ff;
-  --of-brand-press: #4a2bc4;
-  --of-brand-strong: #3b2496;
-  --of-brand-soft: #eee9ff;
+  --of-brand: #664ccd;
+  --of-brand-hover: #765ed4;
+  --of-brand-strong: #3c2d76;
+  --of-brand-soft: #f0eef9;
   --of-accent: #ff6a3d;
   --of-accent-soft: #ffe8df;
   --of-accent-strong: #b33d16;
   --of-canvas: #ffffff;
   --of-surface: #ffffff;
-  --of-surface-subtle: #f3f1fa;
-  --of-diagram-surface: #f5f3fc;
-  --of-ink: #1d1933;
-  --of-muted: #5c5772;
-  --of-border: #e5e1f2;
-  --of-border-strong: #cfc7ec;
-  --of-control-border: #8a82ab;
+  --of-surface-subtle: #f5f4f9;
+  --of-diagram-surface: #f7f7fb;
+  --of-ink: #1f1b32;
+  --of-muted: #605c70;
+  --of-border: #e9e7f0;
+  --of-border-strong: #d5d1e5;
+  --of-control-border: #8983a0;
   --of-on-brand: #ffffff;
   --of-font: "Lexend", Arial, sans-serif;
   --of-font-mono: "DM Mono", ui-monospace, monospace;
+  --of-weight-regular: 300;
+  --of-weight-medium: 400;
+  --of-weight-semibold: 500;
+  --of-weight-bold: 600;
   --of-radius-control: 12px;
   --of-radius-card: 18px;
   --of-radius-panel: 24px;
-  /* Quest surfaces sit on a solid bottom edge instead of a blurred shadow. */
-  --of-raise: 0 4px 0 var(--of-border);
-  --of-raise-control: 0 3px 0 var(--of-border);
-  --of-raise-brand: 0 4px 0 var(--of-brand-press);
 }
 * {
   box-sizing: border-box;
@@ -79,10 +79,15 @@ p {
 }
 h1,
 h2 {
-  font-weight: 700;
+  font-weight: var(--of-weight-bold);
+}
+strong,
+b,
+th {
+  font-weight: var(--of-weight-semibold);
 }
 h3 {
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
 }
 h1 {
   font-size: clamp(32px, 4vw, 46px);
@@ -139,7 +144,7 @@ code {
   letter-spacing: -0.03em;
 }
 .brand strong {
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
 }
 .header-inner nav {
   display: flex;
@@ -149,7 +154,7 @@ code {
 }
 .header-inner nav a {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   display: flex;
   align-items: center;
   color: var(--of-muted);
@@ -203,7 +208,7 @@ code {
 .eyebrow {
   color: var(--of-brand);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 14px;
@@ -222,43 +227,31 @@ code {
   min-height: 44px;
   padding: 10px 18px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
   border-radius: var(--of-radius-control);
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background: transparent;
   white-space: nowrap;
   transition:
     background 0.15s,
-    transform 0.08s,
-    box-shadow 0.08s;
+    border-color 0.15s;
 }
 .button.primary {
   color: var(--of-on-brand);
   background: var(--of-brand);
-  box-shadow: var(--of-raise-brand);
 }
 .button.primary:hover {
   background: var(--of-brand-hover);
-}
-.button.primary:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--of-brand-press);
 }
 .button.primary:disabled {
   background: var(--of-surface-subtle);
   color: var(--of-muted);
   border-color: var(--of-border);
-  box-shadow: none;
 }
 .button.secondary {
-  border-color: var(--of-border-strong);
+  border-color: var(--of-control-border);
   color: var(--of-ink);
   background: var(--of-surface);
-  box-shadow: 0 3px 0 var(--of-border-strong);
-}
-.button.secondary:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--of-border-strong);
 }
 .button.secondary:hover,
 .button.quiet:hover {
@@ -275,7 +268,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   color: var(--of-brand);
   background: none;
   border: 0;
@@ -589,7 +582,7 @@ code {
 .product-card-brandkit-fields legend {
   padding: 0 12px 0 0;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .product-card-brandkit-description {
   margin: 0 0 20px;
@@ -653,7 +646,7 @@ code {
   border-radius: 999px;
   background: var(--of-surface-subtle);
   color: var(--of-muted);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .product-card-statuses {
   display: flex;
@@ -747,7 +740,7 @@ code {
   color: #825115;
 }
 .notice strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .notice p {
   line-height: 1.6;
@@ -773,14 +766,14 @@ label {
   flex-direction: column;
   gap: 8px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   margin-bottom: 20px;
 }
 input,
 select,
 textarea {
   width: 100%;
-  border: 2px solid var(--of-control-border);
+  border: 1px solid var(--of-control-border);
   border-radius: var(--of-radius-control);
   background: var(--of-surface);
   color: var(--of-ink);
@@ -864,7 +857,7 @@ input[type="checkbox"] {
 }
 .connections-section-heading h2 {
   font-size: 20px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .connections-section-heading p {
   margin-top: 8px;
@@ -1043,7 +1036,7 @@ input[type="checkbox"] {
 summary {
   cursor: pointer;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   min-height: 44px;
   padding: 12px 0;
 }
@@ -1112,7 +1105,7 @@ summary {
   font-size: 14px;
 }
 .progress-heading strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .stage-route {
   display: flex;
@@ -1203,7 +1196,7 @@ summary {
 .research-heading h3 {
   gap: 8px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   margin: 0;
 }
 .research-heading h3 svg {
@@ -1221,7 +1214,7 @@ summary {
 .research-scope-summary strong,
 .research-budget-numbers strong {
   color: var(--of-ink);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .research-focus {
   border-left: 2px solid var(--of-brand);
@@ -1231,7 +1224,7 @@ summary {
 }
 .research-label {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   color: var(--of-muted);
 }
 .research-focus p {
@@ -1346,7 +1339,7 @@ summary {
 }
 .research-questions strong {
   display: block;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .research-questions p {
   margin: 4px 0;
@@ -1414,7 +1407,7 @@ summary {
   padding: 10px 16px;
   border-radius: var(--of-radius-control);
   color: var(--of-muted);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .passport-tabs a:hover {
   color: var(--of-ink);
@@ -1456,7 +1449,7 @@ summary {
 .review-comments summary {
   min-height: 44px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .review-activity {
   list-style: none;
@@ -1487,7 +1480,7 @@ summary {
   color: var(--of-muted);
 }
 .review-activity-meta strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   color: var(--of-ink);
 }
 .review-comment-chapter {
@@ -1552,7 +1545,7 @@ summary {
   align-items: center;
   text-align: left;
   gap: 12px;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   padding: 12px;
   border-radius: var(--of-radius-control);
   background: transparent;
@@ -1567,7 +1560,7 @@ summary {
   color: var(--of-brand-strong);
   background: var(--of-brand-soft);
   border-color: var(--of-border-strong);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .section-nav button:hover {
   background: var(--of-surface-subtle);
@@ -1701,7 +1694,7 @@ summary {
 .diagram-node strong {
   display: block;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
@@ -1768,7 +1761,7 @@ summary {
 .architecture-toolbar h3 {
   margin: 0;
   font-size: 23px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   letter-spacing: -0.035em;
 }
 .architecture-frame {
@@ -1857,7 +1850,7 @@ summary {
 }
 .architecture-node strong {
   font-size: 17px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   line-height: 1.3;
   letter-spacing: -0.02em;
 }
@@ -1943,7 +1936,7 @@ summary {
   list-style: none;
   color: var(--of-ink);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .diagram-explanation > summary::-webkit-details-marker {
   display: none;
@@ -2059,7 +2052,7 @@ summary {
   border: 1px solid var(--of-control-border);
   border-radius: var(--of-radius-control);
   background: var(--of-surface);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   text-decoration: none;
 }
 .source-action:hover,
@@ -2139,7 +2132,7 @@ summary {
   background: none;
   color: var(--of-muted);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   white-space: nowrap;
 }
 .scenario-tabs button:hover {
@@ -2184,7 +2177,7 @@ summary {
 .scenario-step strong {
   display: block;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   margin-bottom: 12px;
 }
 .scenario-step > span:last-child {
@@ -2256,7 +2249,7 @@ summary {
   overflow-wrap: anywhere;
 }
 .source-row strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .source-row .field-help {
   margin: 12px 0 0;
@@ -2269,7 +2262,7 @@ summary {
   flex-wrap: wrap;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .analyzed-sources > summary > svg {
   flex-shrink: 0;
@@ -2292,7 +2285,7 @@ summary {
 }
 .source-snapshot-identity > strong {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   overflow-wrap: anywhere;
 }
 .source-snapshot-meta {
@@ -2503,7 +2496,7 @@ summary {
   padding: 18px 20px;
   overflow-x: auto;
   background: var(--of-surface-subtle);
-  border: 2px solid var(--of-border);
+  border: 1px solid var(--of-border);
   border-radius: 14px;
   font-size: 13px;
   line-height: 1.65;
@@ -2535,7 +2528,7 @@ summary {
   margin-top: 4px;
 }
 .lesson-callout strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .lesson-callout p {
   margin-top: 4px;
@@ -2559,7 +2552,7 @@ summary {
   line-height: 1.6;
 }
 .lesson-table th {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   color: var(--of-muted);
   font-size: 13px;
 }
@@ -2599,7 +2592,7 @@ summary {
 }
 .quiz-options legend {
   font-size: 17px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   line-height: 1.5;
   margin-bottom: 14px;
   padding: 0;
@@ -2617,7 +2610,7 @@ summary {
   border-radius: var(--of-radius-control);
   background: var(--of-surface);
   font-size: 14px;
-  font-weight: 400;
+  font-weight: var(--of-weight-regular);
   line-height: 1.6;
   color: var(--of-ink);
   cursor: pointer;
@@ -2673,7 +2666,7 @@ summary {
   color: #b42335;
 }
 .quiz-feedback strong {
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
 }
 .quiz .form-actions {
   justify-content: flex-start;
@@ -2724,7 +2717,7 @@ summary {
 }
 .quiz-prompt {
   font-size: 17px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   line-height: 1.5;
   margin-bottom: 16px;
 }
@@ -2758,7 +2751,7 @@ summary {
   display: flex;
   gap: 8px;
   align-items: flex-start;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   line-height: 1.45;
 }
 .mock-card-head svg {
@@ -2832,7 +2825,7 @@ summary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
 }
 .mock-card.wrong .mock-card-verdict {
   color: #b42335;
@@ -2893,7 +2886,7 @@ summary {
 .gap-fix {
   font-size: 13px;
   color: var(--of-brand-strong);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .chip-tray {
   display: flex;
@@ -2968,7 +2961,7 @@ summary {
 }
 .branch-choice {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   margin-top: 4px;
 }
 .branch-outcome {
@@ -3085,7 +3078,7 @@ summary {
   color: var(--of-muted);
 }
 .patch-comment strong {
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
 }
 .patch-row.missed .patch-comment strong {
   color: #b42335;
@@ -3113,7 +3106,7 @@ summary {
 .git-diagram {
   margin: 0;
   padding: 20px;
-  border: 2px solid var(--of-border);
+  border: 1px solid var(--of-border);
   border-radius: var(--of-radius-card);
   background: var(--of-diagram-surface);
 }
@@ -3124,7 +3117,7 @@ summary {
   padding: 4px;
   border-radius: 16px;
   background: var(--of-surface);
-  border: 2px solid var(--of-border);
+  border: 1px solid var(--of-border);
   margin-bottom: 12px;
 }
 .git-diagram-tabs button {
@@ -3135,7 +3128,7 @@ summary {
   background: transparent;
   color: var(--of-muted);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .git-diagram-tabs button:hover {
   background: var(--of-surface-subtle);
@@ -3143,7 +3136,6 @@ summary {
 .git-diagram-tabs button.active {
   background: var(--of-brand);
   color: var(--of-on-brand);
-  box-shadow: 0 3px 0 var(--of-brand-press);
 }
 .git-diagram-canvas {
   overflow-x: auto;
@@ -3170,7 +3162,7 @@ summary {
 }
 .git-commit text {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .git-commit.main rect {
   fill: var(--of-surface);
@@ -3228,7 +3220,7 @@ summary {
   color: var(--of-ink);
 }
 .git-diagram figcaption strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .git-diagram-legend {
   display: flex;
@@ -3264,7 +3256,7 @@ summary {
 }
 .scene-title {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   margin-bottom: 10px;
 }
 .scene-canvas {
@@ -3325,7 +3317,7 @@ summary {
   color: var(--of-ink);
   font-family: var(--of-font-mono);
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   line-height: 1.3;
   text-align: center;
   white-space: nowrap;
@@ -3459,7 +3451,7 @@ summary {
   background: var(--of-surface);
   color: var(--of-ink);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .code-tools-run:hover:not(:disabled) {
   background: var(--of-surface-subtle);
@@ -3551,7 +3543,7 @@ summary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   color: var(--of-brand-strong);
 }
 @media (max-width: 860px) {
@@ -3699,7 +3691,7 @@ summary {
   align-items: center;
   gap: 6px;
   font-family: var(--of-font-mono);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   font-size: 13px;
 }
 .issue-sim-results li.closes .issue-sim-badge {
@@ -3757,7 +3749,7 @@ summary {
   border: 1px solid var(--of-border);
 }
 .anatomy-explanation strong {
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
 }
 /* SemVer */
 .semver-row {
@@ -3799,7 +3791,7 @@ summary {
   background: var(--of-surface);
   font-family: var(--of-font-mono);
   font-size: 28px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .semver-part.up .semver-number {
   background: var(--of-brand);
@@ -3838,7 +3830,7 @@ summary {
   background: var(--of-surface);
   font-family: var(--of-font-mono);
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   text-align: center;
 }
 .sequence-body {
@@ -3915,7 +3907,7 @@ summary {
 }
 .sequence-message.tone-brand .sequence-label {
   color: var(--of-brand-strong);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .sequence-message.tone-danger .sequence-arrow {
   background: #b42335;
@@ -3928,7 +3920,7 @@ summary {
 }
 .sequence-message.tone-danger .sequence-label {
   color: #b42335;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .sequence-message.tone-warning .sequence-label {
   color: #825115;
@@ -3992,7 +3984,7 @@ summary {
   margin-top: 6px;
   font-family: var(--of-font-mono);
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .range-state {
   display: inline-flex;
@@ -4230,7 +4222,7 @@ summary {
   border-radius: var(--of-radius-control);
   color: var(--of-muted);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .foundations-tabs a:hover {
   color: var(--of-ink);
@@ -4276,7 +4268,7 @@ summary {
 .achievement-summary strong {
   display: block;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .achievement-summary-label {
   display: block;
@@ -4352,11 +4344,11 @@ summary {
 }
 .picture-line.ok {
   color: #fdfcfd;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .picture-line.fail {
   color: #ff9aa8;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .picture-line.muted {
   color: #a19fab;
@@ -4385,7 +4377,7 @@ summary {
 }
 .achievement-card-title strong {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .achievement-joke {
   margin-top: 10px;
@@ -4456,7 +4448,7 @@ summary {
 }
 .achievement-toast strong {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .achievement-toast .icon-button {
   flex-shrink: 0;
@@ -4566,7 +4558,7 @@ summary {
 .route-question {
   font-family: var(--of-font-mono);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
   fill: var(--of-muted);
 }
 .not-found-actions {
@@ -4624,7 +4616,7 @@ summary {
   gap: 2px;
 }
 .person-row strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   overflow-wrap: anywhere;
 }
 .inline-label {
@@ -4708,7 +4700,7 @@ details[open] > summary .disclosure-chevron {
 }
 .passport-table caption {
   text-align: left;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   margin-bottom: 16px;
 }
 .passport-table th,
@@ -4726,7 +4718,7 @@ details[open] > summary .disclosure-chevron {
 }
 .passport-table thead th {
   color: var(--of-muted);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .passport-table .source-link {
   text-align: left;
@@ -4774,7 +4766,7 @@ details[open] > summary .disclosure-chevron {
 }
 .document-prose :is(h3, h4, h5, h6) {
   margin: 28px 0 12px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   line-height: 1.4;
 }
 .document-prose h3 {
@@ -4898,7 +4890,7 @@ details[open] > summary .disclosure-chevron {
 .landing-route {
   padding: 28px;
   border-radius: var(--of-radius-panel);
-  border: 2px solid var(--of-border);
+  border: 1px solid var(--of-border);
   background: var(--of-diagram-surface);
 }
 .route-steps {
@@ -4948,7 +4940,7 @@ details[open] > summary .disclosure-chevron {
   background: transparent;
   color: var(--of-ink);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   text-align: left;
 }
 .route-steps button:hover {
@@ -4956,7 +4948,7 @@ details[open] > summary .disclosure-chevron {
 }
 .route-steps button.active {
   background: var(--of-surface);
-  box-shadow: inset 0 0 0 2px var(--of-border);
+  box-shadow: inset 0 0 0 1px var(--of-border);
 }
 .route-dot {
   position: relative;
@@ -4969,11 +4961,11 @@ details[open] > summary .disclosure-chevron {
   height: 30px;
   margin-left: 4px;
   border-radius: 50%;
-  border: 2.5px solid var(--of-control-border);
+  border: 2px solid var(--of-control-border);
   background: var(--of-surface);
   color: var(--of-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--of-weight-semibold);
   font-variant-numeric: tabular-nums;
 }
 .route-steps li.reached .route-dot {
@@ -4995,11 +4987,11 @@ details[open] > summary .disclosure-chevron {
   padding: 16px 18px;
   border-radius: 16px;
   background: var(--of-surface);
-  border: 2px solid var(--of-border);
+  border: 1px solid var(--of-border);
   min-height: 112px;
 }
 .route-detail strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .route-detail p {
   margin-top: 6px;
@@ -5031,7 +5023,7 @@ details[open] > summary .disclosure-chevron {
 .landing-features strong {
   display: block;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .landing-problems p,
 .landing-features p {
@@ -5144,7 +5136,7 @@ details[open] > summary .disclosure-chevron {
 }
 .landing-next strong {
   display: block;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   color: var(--of-ink);
 }
 .landing-cta {
@@ -5243,7 +5235,7 @@ details[open] > summary .disclosure-chevron {
   color: var(--of-brand);
 }
 .home-outcome strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   color: var(--of-ink);
 }
 .home-mission .button {
@@ -5411,49 +5403,4 @@ details[open] > summary .disclosure-chevron {
 }
 .home-mission {
   justify-content: flex-start;
-}
-/* Raised surfaces: Quest cards and choices sit on a solid bottom edge. */
-.product-card,
-.home-mission,
-.home-panel,
-.object-card,
-.connection-card,
-.form-panel,
-.landing-audiences > div,
-.achievement-summary,
-.achievement-card,
-.mock-card,
-.quiz-option {
-  border-width: 2px;
-  box-shadow: var(--of-raise);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s,
-    transform 0.15s;
-}
-.achievement-card.locked {
-  box-shadow: none;
-}
-.product-card:hover,
-.object-card:hover,
-.achievement-summary:hover,
-.mock-card:hover:not(:disabled, .right, .wrong),
-.quiz-option:hover {
-  border-color: var(--of-border-strong);
-  box-shadow: 0 6px 0 var(--of-border-strong);
-  transform: translateY(-2px);
-}
-.quiz-option.chosen {
-  box-shadow: 0 4px 0 var(--of-border-strong);
-}
-@media (prefers-reduced-motion: reduce) {
-  .button,
-  .product-card,
-  .object-card,
-  .achievement-summary,
-  .mock-card,
-  .quiz-option {
-    transition: none;
-    transform: none !important;
-  }
 }
