@@ -1,4 +1,4 @@
-// Package githubconnection stores the shared GitHub source account securely.
+// Package githubconnection stores personal GitHub source accounts securely.
 package githubconnection
 
 import (
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/credentialvault"
 )
 
@@ -38,7 +39,7 @@ type credential struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
-// Store holds a single shared source account, matching the portal's shared settings.
+// Store holds one source account per user.
 type Store struct {
 	db     *sql.DB
 	vault  *credentialvault.Vault
@@ -55,7 +56,7 @@ func NewStore(database *sql.DB, masterKey string) (*Store, error) {
 
 func (s *Store) Status(ctx context.Context) (Status, error) {
 	value := Status{Enabled: true}
-	err := s.db.QueryRowContext(ctx, "SELECT login,auth_method,connected_at FROM github_connection WHERE id=1").Scan(&value.Login, &value.AuthMethod, &value.ConnectedAt)
+	err := s.db.QueryRowContext(ctx, "SELECT login,auth_method,connected_at FROM github_connection WHERE owner_id=?", connectionowner.UserID(ctx)).Scan(&value.Login, &value.AuthMethod, &value.ConnectedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return value, nil
 	}
@@ -103,7 +104,7 @@ func (s *Store) Connect(ctx context.Context, token, method string, expiresAt tim
 		return Status{}, fmt.Errorf("prepare GitHub credential: %w", err)
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	_, err = s.db.ExecContext(ctx, "INSERT INTO github_connection(id,login,auth_method,encrypted_token,connected_at) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET login=excluded.login,auth_method=excluded.auth_method,encrypted_token=excluded.encrypted_token,connected_at=excluded.connected_at", user.Login, method, sealed, now)
+	_, err = s.db.ExecContext(ctx, "INSERT INTO github_connection(owner_id,login,auth_method,encrypted_token,connected_at) VALUES(?,?,?,?,?) ON CONFLICT(owner_id) DO UPDATE SET login=excluded.login,auth_method=excluded.auth_method,encrypted_token=excluded.encrypted_token,connected_at=excluded.connected_at", connectionowner.UserID(ctx), user.Login, method, sealed, now)
 	if err != nil {
 		return Status{}, fmt.Errorf("save GitHub connection: %w", err)
 	}
@@ -113,7 +114,7 @@ func (s *Store) Connect(ctx context.Context, token, method string, expiresAt tim
 // Token loads credentials at the start of each collection; disconnected accounts return none.
 func (s *Store) Token(ctx context.Context) (string, error) {
 	var sealed []byte
-	err := s.db.QueryRowContext(ctx, "SELECT encrypted_token FROM github_connection WHERE id=1").Scan(&sealed)
+	err := s.db.QueryRowContext(ctx, "SELECT encrypted_token FROM github_connection WHERE owner_id=?", connectionowner.UserID(ctx)).Scan(&sealed)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
@@ -136,7 +137,7 @@ func (s *Store) Token(ctx context.Context) (string, error) {
 }
 
 func (s *Store) Disconnect(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM github_connection WHERE id=1")
+	_, err := s.db.ExecContext(ctx, "DELETE FROM github_connection WHERE owner_id=?", connectionowner.UserID(ctx))
 	if err != nil {
 		return fmt.Errorf("disconnect GitHub: %w", err)
 	}

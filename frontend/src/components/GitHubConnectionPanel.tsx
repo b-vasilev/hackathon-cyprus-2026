@@ -51,8 +51,7 @@ export function GitHubConnectionPanel() {
           <Badge>{connection.data?.connected ? 'Connected' : 'Not connected'}</Badge>
         </div>
         <p className="github-connection-description">
-          This is a shared source connection for this portal. Public repositories work without
-          login.
+          This is your personal source connection. Public repositories work without login.
           {connection.data?.connected &&
             ` Connected with ${connection.data.auth_method === 'oauth' ? 'GitHub sign-in' : 'a personal access token'}.`}
         </p>

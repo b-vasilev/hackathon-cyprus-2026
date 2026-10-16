@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/bmatcuk/doublestar/v4"
 	git "github.com/go-git/go-git/v5"
 )
@@ -145,7 +146,7 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 		if err != nil {
 			return Collection{}, fmt.Errorf("load GitHub connection: %w", err)
 		}
-		if token == "" {
+		if token == "" && connectionowner.UserID(ctx) == "" {
 			token = c.GitHubToken
 		}
 		ctx = context.WithValue(ctx, githubTokenKey{}, token)
@@ -209,7 +210,7 @@ func (c *Collector) CollectSelected(ctx context.Context, inputs []Input, choose 
 }
 
 func (c *Collector) repositoryFiles(ctx context.Context, input Input, sha string, choose SelectFiles, budget int) (map[string]string, bool, error) {
-	key := fmt.Sprintf("product-brand-v1|%s|%s|%s|%s|%d|%d", c.CacheScope, input.Locator, sha, input.Include, budget, c.MaxFiles)
+	key := fmt.Sprintf("product-brand-v1|%s|%s|%s|%s|%d|%d", c.CacheScope+"|"+connectionowner.UserID(ctx), input.Locator, sha, input.Include, budget, c.MaxFiles)
 	c.cacheMu.Lock()
 	files, cached := c.cache[key]
 	c.cacheMu.Unlock()

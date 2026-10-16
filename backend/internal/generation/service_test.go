@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
@@ -172,8 +173,9 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 	runs := make([]Run, 0, 2)
 	for index, protocol := range []string{"openai_responses", "anthropic_messages", "openai_chat_completions"} {
 		name := []string{"Payment service", "Issue tracker", "Automatic brand"}[index]
+		ownerCtx := connectionowner.WithUser(ctx, protocol)
 		config := llmgateway.Config{Name: protocol, Enabled: true, Protocol: protocol, EndpointURL: "https://example.com/v1", EndpointMode: "base", AuthMode: "header", AuthHeader: "Authorization", AuthPrefix: "Bearer ", Secret: "original-key", Models: []llmgateway.Model{{ID: "same-model", OutputMode: "json_schema", MaxOutputTokens: 12000}}, TimeoutSeconds: 30, MaxConcurrent: 1}
-		connection, err := connections.Save(ctx, "", config)
+		connection, err := connections.Save(ownerCtx, "", config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -195,7 +197,7 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 				t.Fatal(updateErr)
 			}
 		}
-		run, err := service.Start(ctx, p.ID, Input{ConnectionID: connection.ID, Model: "same-model"})
+		run, err := service.Start(ownerCtx, p.ID, Input{ConnectionID: connection.ID, Model: "same-model"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -206,11 +208,11 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 			}
 		}
 		runs = append(runs, run)
-		if _, err := service.Start(ctx, p.ID, Input{ConnectionID: connection.ID, Model: "same-model"}); !errors.Is(err, ErrActive) {
+		if _, err := service.Start(ownerCtx, p.ID, Input{ConnectionID: connection.ID, Model: "same-model"}); !errors.Is(err, ErrActive) {
 			t.Fatal("duplicate active generation was accepted", err)
 		}
 		config.Secret = "rotated-key"
-		if _, err := connections.Save(ctx, connection.ID, config); err != nil {
+		if _, err := connections.Save(ownerCtx, connection.ID, config); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -271,7 +273,7 @@ func TestDurableFactoryAcrossProductsAndConnections(t *testing.T) {
 		}
 	}
 	generator.fail.Store(true)
-	failed, err := service.Start(ctx, runs[0].ProductID, Input{ConnectionID: runs[0].ConnectionID, Model: "same-model"})
+	failed, err := service.Start(connectionowner.WithUser(ctx, "openai_responses"), runs[0].ProductID, Input{ConnectionID: runs[0].ConnectionID, Model: "same-model"})
 	if err != nil {
 		t.Fatal(err)
 	}

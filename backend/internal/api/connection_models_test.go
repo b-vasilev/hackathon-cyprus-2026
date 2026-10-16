@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
@@ -42,9 +43,14 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 	service := generation.New(database, store, client, nil, zerolog.Nop(), &content.Store{Dir: t.TempDir()})
 	users := &access.Store{DB: database}
 	admin := signInAdmin(t, users)
+	user, err := users.Authenticate(t.Context(), admin.Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerCtx := connectionowner.WithUser(t.Context(), user.ID)
 	handler := New(database, zerolog.Nop(), nil, &Factory{Access: users, Service: service})
 	config := llmgateway.Config{Name: "Saved", Enabled: true, Protocol: "openai_chat_completions", EndpointURL: upstream.URL + "/v1", EndpointMode: "base", AuthMode: "header", AuthHeader: "Authorization", AuthPrefix: "Bearer ", Secret: "private-key", Headers: []llmgateway.Parameter{{Name: "X-Tenant", Value: "private-header", Secret: true}}, QueryParams: []llmgateway.Parameter{{Name: "token", Value: "private-query", Secret: true}}, Models: []llmgateway.Model{{ID: "custom-model", OutputMode: "json_schema", MaxOutputTokens: 1024}}, TimeoutSeconds: 10, MaxConcurrent: 1}
-	saved, err := store.Save(t.Context(), "", config)
+	saved, err := store.Save(ownerCtx, "", config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,13 +70,13 @@ func TestDiscoverModelsWithDraftAndSavedSecrets(t *testing.T) {
 			t.Fatalf("discovery: %d %s", response.Code, response.Body.String())
 		}
 	}
-	current, err := store.Get(t.Context(), saved.ID)
+	current, err := store.Get(ownerCtx, saved.ID)
 	if err != nil || current.Revision != saved.Revision {
 		t.Fatal("discovery changed the connection", err)
 	}
 	disabled := saved.Config
 	disabled.Enabled = false
-	if _, saveErr := store.Save(t.Context(), saved.ID, disabled); saveErr != nil {
+	if _, saveErr := store.Save(ownerCtx, saved.ID, disabled); saveErr != nil {
 		t.Fatal(saveErr)
 	}
 	body, err := json.Marshal(ModelDiscoveryInput{ConnectionID: saved.ID, Config: saved.Config})

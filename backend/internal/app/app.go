@@ -13,6 +13,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/analysis"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/api"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/config"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
@@ -71,18 +72,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 		collector.Token = githubStore.Token
 	}
 	workerCtx, stopWorker := context.WithCancel(ctx)
-	packs := &learningpack.Service{DB: database, Passports: factory, Logger: logger, Background: workerCtx, Token: func(ctx context.Context) (string, error) {
-		if githubStore != nil {
-			token, tokenErr := githubStore.Token(ctx)
-			if tokenErr != nil {
-				return "", fmt.Errorf("read GitHub connection token: %w", tokenErr)
-			}
-			if token != "" {
-				return token, nil
-			}
-		}
-		return cfg.GitHubToken, nil
-	}}
+	packs := &learningpack.Service{DB: database, Passports: factory, Logger: logger, Background: workerCtx, Token: sourceToken(githubStore, cfg.GitHubToken)}
 	if recoverErr := packs.Recover(ctx); recoverErr != nil {
 		stopWorker()
 		return fmt.Errorf("start learning packs: %w", recoverErr)
@@ -126,4 +116,23 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 		return fmt.Errorf("serve HTTP during shutdown: %w", err)
 	}
 	return nil
+}
+
+// sourceToken keeps server credentials out of signed-in users' tasks.
+func sourceToken(store *githubconnection.Store, fallback string) func(context.Context) (string, error) {
+	return func(ctx context.Context) (string, error) {
+		if store != nil {
+			token, err := store.Token(ctx)
+			if err != nil {
+				return "", fmt.Errorf("read GitHub connection token: %w", err)
+			}
+			if token != "" {
+				return token, nil
+			}
+		}
+		if connectionowner.UserID(ctx) != "" {
+			return "", nil
+		}
+		return fallback, nil
+	}
 }

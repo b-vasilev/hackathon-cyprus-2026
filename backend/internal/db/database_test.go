@@ -41,7 +41,7 @@ func TestOpenAndMigrate(t *testing.T) {
 		if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 			t.Fatal(err)
 		}
-		if version != 14 || dirty != 0 {
+		if version != 15 || dirty != 0 {
 			t.Fatalf("migration state = %d/%d", version, dirty)
 		}
 		if err := database.Close(); err != nil {
@@ -56,6 +56,60 @@ func TestOpenRejectsDirectory(t *testing.T) {
 	if err == nil {
 		_ = database.Close()
 		t.Fatal("expected opening a directory to fail")
+	}
+}
+
+func TestPersonalConnectionsMigration(t *testing.T) {
+	t.Parallel()
+	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "personal.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	sourceDriver, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	databaseDriver, err := sqlite.WithInstance(database, &sqlite.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrator, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite", databaseDriver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if migrationErr := migrator.Migrate(14); migrationErr != nil {
+		t.Fatal(migrationErr)
+	}
+	for _, statement := range []string{
+		`INSERT INTO users VALUES('admin','admin@example.com','hash','admin','2026-01-02'),('user','user@example.com','hash','user','2026-01-01'),('later-admin','later@example.com','hash','admin','2026-01-03')`,
+		`INSERT INTO llm_connections(id,name,created_at) VALUES('llm','LLM','now')`,
+		`INSERT INTO llm_connection_revisions VALUES('llm',1,X'1234','now')`,
+		`INSERT INTO products(id,name,sources_json,created_at) VALUES('product','Product','[]','now')`,
+		`INSERT INTO generation_runs(id,product_id,connection_id,connection_revision,model,status,stage,input_json,created_at) VALUES('run','product','llm',1,'model','queued','queued','[]','now')`,
+		`INSERT INTO github_connection VALUES(1,'octocat','token',X'5678','now')`,
+	} {
+		if _, insertErr := database.ExecContext(t.Context(), statement); insertErr != nil {
+			t.Fatal(insertErr)
+		}
+	}
+	for range 2 {
+		if migrationErr := migrator.Migrate(15); migrationErr != nil {
+			t.Fatal(migrationErr)
+		}
+		for _, table := range []string{"llm_connections", "generation_runs", "github_connection"} {
+			var owner string
+			if queryErr := database.QueryRowContext(t.Context(), "SELECT owner_id FROM "+table).Scan(&owner); queryErr != nil || owner != "admin" {
+				t.Fatalf("%s owner=%q: %v", table, owner, queryErr)
+			}
+		}
+		var sealed string
+		if queryErr := database.QueryRowContext(t.Context(), "SELECT hex(encrypted_token) FROM github_connection").Scan(&sealed); queryErr != nil || sealed != "5678" {
+			t.Fatal("migration changed the saved GitHub credential", queryErr)
+		}
+		if migrationErr := migrator.Steps(-1); migrationErr != nil {
+			t.Fatal(migrationErr)
+		}
 	}
 }
 
@@ -101,7 +155,7 @@ func TestPollingIndexesMigrationPreservesExistingIndexes(t *testing.T) {
 			if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 				t.Fatal(err)
 			}
-			if version != 14 || dirty != 0 {
+			if version != 15 || dirty != 0 {
 				t.Fatalf("migration state = %d/%d", version, dirty)
 			}
 			if err := database.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('source_snapshots_run_id', 'llm_calls_run_tokens')").Scan(&indexes); err != nil {

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
@@ -192,7 +193,7 @@ func (s *Service) Start(ctx context.Context, productID string, input Input) (Run
 	if checkErr := tx.QueryRowContext(ctx, "SELECT id FROM llm_connections WHERE id=? AND enabled=1 AND deleted=0", c.ID).Scan(&enabledConnection); checkErr != nil {
 		return Run{}, fmt.Errorf("check generation connection: %w", checkErr)
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO generation_runs(id,product_id,connection_id,connection_revision,model,request_timeout_seconds,status,stage,input_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", run.ID, run.ProductID, run.ConnectionID, run.ConnectionRevision, run.Model, run.RequestTimeoutSeconds, run.Status, run.Stage, string(manifest), run.CreatedAt)
+	_, err = tx.ExecContext(ctx, "INSERT INTO generation_runs(id,product_id,connection_id,connection_revision,model,request_timeout_seconds,status,stage,input_json,created_at,owner_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)", run.ID, run.ProductID, run.ConnectionID, run.ConnectionRevision, run.Model, run.RequestTimeoutSeconds, run.Status, run.Stage, string(manifest), run.CreatedAt, connectionowner.UserID(ctx))
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: generation_runs.product_id") {
 			return Run{}, ErrActive
@@ -368,6 +369,11 @@ func (s *Service) process(ctx context.Context, run Run) error {
 	if s.Connections == nil {
 		return errors.New("connection storage is unavailable; configure CONNECTION_MASTER_KEY and start a new run")
 	}
+	var ownerID string
+	if err := s.DB.QueryRowContext(ctx, "SELECT owner_id FROM generation_runs WHERE id=?", run.ID).Scan(&ownerID); err != nil {
+		return fmt.Errorf("load generation owner: %w", err)
+	}
+	ctx = connectionowner.WithUser(ctx, ownerID)
 	var status string
 	if err := s.DB.QueryRowContext(ctx, `SELECT status,request_timeout_seconds,
  (SELECT COUNT(*) FROM source_documents d JOIN source_snapshots ss ON ss.id=d.snapshot_id WHERE ss.run_id=g.id)

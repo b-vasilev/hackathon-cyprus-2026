@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { LogOut, Zap } from 'lucide-react';
 import { lazy, Suspense } from 'react';
-import { Link, Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom';
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AchievementCenter } from './components/Achievements';
 import { Badge, Brand, ErrorNotice, Loading } from './components/ui';
 import { syncLearning } from './foundations/sync';
@@ -51,6 +51,8 @@ function signOut() {
 }
 
 function SignedInApp({ me }: Readonly<{ me: Me }>) {
+  const location = useLocation();
+  const authMessage = (location.state as { authMessage?: string } | null)?.authMessage;
   const admin = isAdmin(me);
   const studio = canUseStudio(me);
   // Learning progress lives in the account; pages render once the browser copy is merged with it.
@@ -71,7 +73,7 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
             <NavLink to="/published">Products</NavLink>
             {studio && <NavLink to="/products">Studio</NavLink>}
             <NavLink to="/foundations">Foundations</NavLink>
-            {admin && <NavLink to="/connections">Connections</NavLink>}
+            <NavLink to="/connections">Connections</NavLink>
             {admin && <NavLink to="/access">People</NavLink>}
           </nav>
           <div className="header-account">
@@ -96,6 +98,11 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
         </div>
       </header>
       <main className="main-content">
+        {authMessage !== undefined && authMessage !== '' && (
+          <div className="notice" role="status">
+            {authMessage}
+          </div>
+        )}
         <Suspense fallback={<Loading label="Loading page…" />}>
           <Routes>
             <Route path="/ai-connections" element={<AIConnections />} />
@@ -109,7 +116,7 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
             <Route path="/foundations" element={<Foundations />} />
             <Route path="/foundations/achievements" element={<FoundationAchievements />} />
             <Route path="/foundations/:id" element={<FoundationModulePage />} />
-            {admin && <Route path="/connections" element={<Connections />} />}
+            <Route path="/connections" element={<Connections />} />
             {admin && <Route path="/access" element={<People />} />}
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Navigate to="/" replace />} />

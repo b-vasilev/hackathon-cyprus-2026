@@ -11,8 +11,53 @@ import (
 	"testing"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 )
+
+func TestPersonalGitHubConnections(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	store.Client.Transport = roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusOK, `{"login":"octocat"}`), nil
+	})
+	alice := connectionowner.WithUser(t.Context(), "alice")
+	bob := connectionowner.WithUser(t.Context(), "bob")
+	if _, err := store.Connect(alice, "alice-key", "token", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := store.Status(bob); err != nil || status.Connected {
+		t.Fatal("another user's GitHub account is visible", err)
+	}
+	if token, err := store.Token(bob); err != nil || token != "" {
+		t.Fatal("another user's token is available", err)
+	}
+	if _, err := store.Connect(bob, "bob-key", "token", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Disconnect(bob); err != nil {
+		t.Fatal(err)
+	}
+	if token, err := store.Token(alice); err != nil || token != "alice-key" {
+		t.Fatal("disconnect affected another user", err)
+	}
+	config := OAuthConfig{ClientID: "id", ClientSecret: "secret", RedirectURL: "https://portal.example/callback"}
+	authorization, cookie, err := store.Begin(alice, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	location, err := url.Parse(authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Client.Transport = roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		t.Fatal("a different user reached the OAuth token exchange")
+		return jsonResponse(http.StatusInternalServerError, `{}`), nil
+	})
+	if err := store.Complete(bob, config, cookie, location.Query().Get("state"), "code"); err == nil {
+		t.Fatal("OAuth state was accepted for another user")
+	}
+}
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
@@ -60,7 +105,7 @@ func TestTokenConnectionEncryptionAndReplacement(t *testing.T) {
 		t.Fatalf("unsafe account metadata: %s", public)
 	}
 	var sealed []byte
-	if checkErr := store.db.QueryRowContext(t.Context(), "SELECT encrypted_token FROM github_connection WHERE id=1").Scan(&sealed); checkErr != nil {
+	if checkErr := store.db.QueryRowContext(t.Context(), "SELECT encrypted_token FROM github_connection WHERE owner_id=''").Scan(&sealed); checkErr != nil {
 		t.Fatal(checkErr)
 	}
 	if strings.Contains(string(sealed), "accepted-token") {
@@ -87,7 +132,7 @@ func TestOAuthStatePKCEAndEncryptedCredential(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
 	config := OAuthConfig{ClientID: "client-id", ClientSecret: "server-secret", RedirectURL: "https://portal.example/api/git-connection/oauth/callback"}
-	authorization, cookie, err := store.Begin(config)
+	authorization, cookie, err := store.Begin(t.Context(), config)
 	if err != nil {
 		t.Fatal(err)
 	}

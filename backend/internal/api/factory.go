@@ -83,20 +83,20 @@ func (f *Factory) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/factory/status", f.signedIn(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, FactoryStatus{ConnectionsEnabled: f.Service.Connections != nil})
 	}))
-	// Leads read connections to choose a model; only admins change them.
-	mux.HandleFunc("GET /api/llm-connections", f.lead(f.connections))
-	mux.HandleFunc("POST /api/llm-connections", f.admin(f.createConnection))
-	mux.HandleFunc("POST /api/llm-connections/models", f.admin(f.listConnectionModels))
-	mux.HandleFunc("GET /api/llm-connections/{id}", f.lead(f.connection))
-	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.admin(f.updateConnection))
-	mux.HandleFunc("DELETE /api/llm-connections/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
+	// Every signed-in user manages only their own connections.
+	mux.HandleFunc("GET /api/llm-connections", f.signedIn(f.connections))
+	mux.HandleFunc("POST /api/llm-connections", f.signedIn(f.createConnection))
+	mux.HandleFunc("POST /api/llm-connections/models", f.signedIn(f.listConnectionModels))
+	mux.HandleFunc("GET /api/llm-connections/{id}", f.signedIn(f.connection))
+	mux.HandleFunc("PATCH /api/llm-connections/{id}", f.signedIn(f.updateConnection))
+	mux.HandleFunc("DELETE /api/llm-connections/{id}", f.signedIn(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireConnections(w) {
 			return
 		}
 		value, err := f.Service.Connections.Delete(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.admin(f.testConnection))
+	mux.HandleFunc("POST /api/llm-connections/{id}/test", f.signedIn(f.testConnection))
 	mux.HandleFunc("GET /api/products", f.signedIn(f.products))
 	mux.HandleFunc("POST /api/products", f.admin(f.createProduct))
 	mux.HandleFunc("DELETE /api/products/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
