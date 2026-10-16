@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
@@ -114,6 +115,9 @@ func (s *Service) Start(ctx context.Context, revisionID, userID string) (View, e
 	if err != nil {
 		return View{}, fmt.Errorf("load passport version: %w", err)
 	}
+	if _, _, connectionErr := s.connection(ctx, revision.RunID); connectionErr != nil {
+		return View{}, connectionErr
+	}
 	stamp := now()
 	result, err := s.DB.ExecContext(ctx, `INSERT INTO learning_packs(id,product_id,revision_id,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?)
 		ON CONFLICT(revision_id) DO UPDATE SET status=excluded.status, error_message='', created_by=excluded.created_by, updated_at=excluded.updated_at WHERE learning_packs.status<>?`,
@@ -124,12 +128,12 @@ func (s *Service) Start(ctx context.Context, revisionID, userID string) (View, e
 	if changed, _ := result.RowsAffected(); changed == 0 {
 		return View{}, fmt.Errorf("%w: the learning pack is already being generated", generation.ErrActive)
 	}
-	go s.run(revision)
+	go s.run(connectionowner.UserID(ctx), revision)
 	return s.Get(ctx, revisionID)
 }
 
-func (s *Service) run(revision generation.Revision) {
-	ctx, cancel := context.WithTimeout(s.Background, 20*time.Minute)
+func (s *Service) run(ownerID string, revision generation.Revision) {
+	ctx, cancel := context.WithTimeout(connectionowner.WithUser(s.Background, ownerID), 20*time.Minute)
 	defer cancel()
 	pack, err := s.generate(ctx, revision)
 	status, message, content := statusReady, "", ""

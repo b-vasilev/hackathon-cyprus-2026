@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 )
 
 const sessionCookie = "wayfinder_session"
@@ -139,7 +140,7 @@ func (f *Factory) signedIn(next http.HandlerFunc) http.HandlerFunc {
 			respond(w, r, nil, err)
 			return
 		}
-		next(w, r.WithContext(context.WithValue(r.Context(), userKey{}, user)))
+		next(w, r.WithContext(context.WithValue(connectionowner.WithUser(r.Context(), user.ID), userKey{}, user)))
 	}
 }
 

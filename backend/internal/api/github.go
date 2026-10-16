@@ -16,7 +16,7 @@ type OAuthURL struct {
 }
 
 func (f *Factory) registerGitHub(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/git-connection", f.admin(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/git-connection", f.signedIn(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		if f.GitHub == nil {
 			writeJSON(w, http.StatusOK, githubconnection.Status{})
@@ -26,7 +26,7 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 		value.OAuthEnabled = f.GitHubOAuth.Enabled()
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("PUT /api/git-connection", f.admin(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("PUT /api/git-connection", f.signedIn(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireGitHub(w) {
 			return
 		}
@@ -38,14 +38,14 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 		value.OAuthEnabled = f.GitHubOAuth.Enabled()
 		respond(w, r, value, err)
 	}))
-	mux.HandleFunc("DELETE /api/git-connection", f.admin(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("DELETE /api/git-connection", f.signedIn(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireGitHub(w) {
 			return
 		}
 		err := f.GitHub.Disconnect(r.Context())
 		respond(w, r, githubconnection.Status{Enabled: true, OAuthEnabled: f.GitHubOAuth.Enabled()}, err)
 	}))
-	mux.HandleFunc("POST /api/git-connection/oauth/start", f.admin(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/git-connection/oauth/start", f.signedIn(func(w http.ResponseWriter, r *http.Request) {
 		if !f.requireGitHub(w) {
 			return
 		}
@@ -53,7 +53,7 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 			problem(w, http.StatusServiceUnavailable, "github_oauth_disabled", "GitHub browser sign-in is not configured on this server.")
 			return
 		}
-		authorization, cookie, err := f.GitHub.Begin(f.GitHubOAuth)
+		authorization, cookie, err := f.GitHub.Begin(r.Context(), f.GitHubOAuth)
 		if err != nil {
 			respond(w, r, nil, err)
 			return
@@ -62,7 +62,7 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 		w.Header().Set("Cache-Control", "no-store")
 		writeJSON(w, http.StatusOK, OAuthURL{URL: authorization})
 	}))
-	mux.HandleFunc("GET /api/git-connection/oauth/callback", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/git-connection/oauth/callback", f.signedIn(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		f.setGitHubCookie(w, "", -1)
@@ -76,7 +76,7 @@ func (f *Factory) registerGitHub(mux *http.ServeMux) {
 			return
 		}
 		http.Redirect(w, r, "/connections?github=connected", http.StatusSeeOther)
-	})
+	}))
 }
 
 func (f *Factory) requireGitHub(w http.ResponseWriter) bool {

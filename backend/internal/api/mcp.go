@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/mcpauth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -65,7 +66,7 @@ func (f *Factory) registerMCP(mux *http.ServeMux) {
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-		handler.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey{}, user)))
+		handler.ServeHTTP(w, r.WithContext(context.WithValue(connectionowner.WithUser(r.Context(), user.ID), userKey{}, user)))
 	}
 	mux.HandleFunc("POST /mcp", authenticated)
 	mux.HandleFunc("GET /mcp", authenticated)

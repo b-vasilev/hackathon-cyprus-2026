@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ErrorNotice, PageHeading } from '../components/ui';
 import { api, type Me } from '../lib/api';
+import { setSignedInUser } from '../lib/auth';
 
 export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const registering = mode === 'register';
@@ -17,7 +19,17 @@ export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
         body: JSON.stringify({ email, password }),
       }),
     // The app shell renders the signed-in routes once the user is known.
-    onSuccess: (me) => queryClient.setQueryData(['me'], me),
+    onSuccess: async (me) => {
+      await setSignedInUser(queryClient, me);
+      void navigate('/', {
+        replace: true,
+        state: {
+          authMessage: registering
+            ? 'Account created. You are signed in.'
+            : 'Signed in successfully.',
+        },
+      });
+    },
   });
   function onSubmit(event: FormEvent) {
     event.preventDefault();

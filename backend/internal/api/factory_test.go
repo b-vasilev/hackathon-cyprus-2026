@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/access"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/content"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/db"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
@@ -38,6 +39,11 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 	service := generation.New(database, store, nil, nil, zerolog.Nop(), &content.Store{Dir: filepath.Join(t.TempDir(), "content")})
 	users := &access.Store{DB: database}
 	admin := signInAdmin(t, users)
+	user, err := users.Authenticate(t.Context(), admin.Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerCtx := connectionowner.WithUser(t.Context(), user.ID)
 	handler := New(database, zerolog.Nop(), nil, &Factory{Access: users, Service: service, Network: policy})
 	request := func(method, path, body string, status int) *httptest.ResponseRecorder {
 		t.Helper()
@@ -61,7 +67,7 @@ func TestFactoryHTTPBoundaries(t *testing.T) {
 		t.Fatal(decodeErr)
 	}
 	request(http.MethodPatch, "/api/llm-connections/"+connection.ID, `{"name":"Renamed"}`, http.StatusOK)
-	loaded, err := store.Load(t.Context(), connection.ID, 2)
+	loaded, err := store.Load(ownerCtx, connection.ID, 2)
 	if err != nil || loaded.Secret != "private-key" {
 		t.Fatal("patch lost the saved credential", err)
 	}

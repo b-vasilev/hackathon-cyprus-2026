@@ -1,7 +1,15 @@
 import { createContext, useContext } from 'react';
 import type { Me } from './api';
+import type { QueryClient } from '@tanstack/react-query';
 
 export const MeContext = createContext<Me | null>(null);
+
+/** Replace account data while keeping the app shell subscribed to its session query. */
+export async function setSignedInUser(client: QueryClient, me: Me): Promise<void> {
+  await client.cancelQueries();
+  client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' });
+  client.setQueryData(['me'], me);
+}
 
 /** Returns the signed-in user. Only use below the signed-in app shell. */
 export function useMe(): Me {

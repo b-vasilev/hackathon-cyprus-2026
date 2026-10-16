@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -100,6 +101,9 @@ type githubTokenKey struct{}
 func (c *Collector) githubToken(ctx context.Context) string {
 	if token, ok := ctx.Value(githubTokenKey{}).(string); ok {
 		return token
+	}
+	if connectionowner.UserID(ctx) != "" {
+		return ""
 	}
 	return c.GitHubToken
 }

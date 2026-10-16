@@ -7,9 +7,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
+
+func TestPersonalGitHubTokenDoesNotFallBackToServer(t *testing.T) {
+	t.Parallel()
+	collector := &Collector{GitHubToken: "server-key"}
+	ctx := connectionowner.WithUser(t.Context(), "alice")
+	if token := collector.githubToken(ctx); token != "" {
+		t.Fatal("personal task received the server token")
+	}
+	ctx = context.WithValue(ctx, githubTokenKey{}, "alice-key")
+	if token := collector.githubToken(ctx); token != "alice-key" {
+		t.Fatal("personal task did not receive its own token")
+	}
+}
 
 func TestGitBlobBoundaries(t *testing.T) {
 	t.Parallel()
