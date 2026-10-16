@@ -129,13 +129,13 @@ func (s Store) Put(ctx context.Context, userID string, state State) (State, erro
 	case err != nil:
 		return State{}, fmt.Errorf("load learning progress: %w", err)
 	default:
-		if err := json.Unmarshal([]byte(raw), &saved); err != nil {
-			return State{}, fmt.Errorf("decode learning progress: %w", err)
+		if decodeErr := json.Unmarshal([]byte(raw), &saved); decodeErr != nil {
+			return State{}, fmt.Errorf("decode learning progress: %w", decodeErr)
 		}
 	}
 	merged := merge(saved, state).normalized()
-	if err := merged.Validate(); err != nil {
-		return State{}, err
+	if validateErr := merged.Validate(); validateErr != nil {
+		return State{}, validateErr
 	}
 	data, err := json.Marshal(merged)
 	if err != nil {

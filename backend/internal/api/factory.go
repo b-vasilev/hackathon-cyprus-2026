@@ -22,6 +22,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/mcpauth"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
 	"github.com/rs/zerolog"
 )
 
@@ -105,6 +106,16 @@ func (f *Factory) register(mux *http.ServeMux) {
 	}))
 	mux.HandleFunc("GET /api/products/{id}", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
+		if err == nil && currentUser(r).Role != access.RoleAdmin {
+			role, roleErr := f.Access.ProductRole(r.Context(), currentUser(r).ID, value.ID)
+			if roleErr != nil {
+				respond(w, r, nil, fmt.Errorf("read product role: %w", roleErr))
+				return
+			}
+			if role != access.RoleLead {
+				value = learnerProduct(value)
+			}
+		}
 		respond(w, r, value, err)
 	}))
 	mux.HandleFunc("PUT /api/products/{id}/icon", withInput(f, pathProduct, func(r *http.Request, input product.IconInput) (any, error) {
@@ -162,11 +173,25 @@ func (f *Factory) visibleProducts(ctx context.Context, user access.User) ([]prod
 	}
 	visible := make([]product.Product, 0, len(memberships))
 	for _, item := range value {
-		if slices.ContainsFunc(memberships, func(m access.Membership) bool { return m.ProductID == item.ID }) {
+		member := slices.IndexFunc(memberships, func(m access.Membership) bool { return m.ProductID == item.ID })
+		switch {
+		case member < 0:
+		case memberships[member].Role == access.RoleLead:
 			visible = append(visible, item)
+		default:
+			visible = append(visible, learnerProduct(item))
 		}
 	}
 	return visible, nil
+}
+
+// learnerProduct hides source configuration, branding inputs and draft run state from
+// learners; they only need what identifies the product and its published passport.
+func learnerProduct(p product.Product) product.Product {
+	return product.Product{
+		ID: p.ID, Name: p.Name, Sources: []source.Input{}, CardTheme: p.CardTheme, IconURL: p.IconURL,
+		CreatedAt: p.CreatedAt, PublishedRevisionID: p.PublishedRevisionID,
+	}
 }
 
 func (f *Factory) requireConnections(w http.ResponseWriter) bool {
