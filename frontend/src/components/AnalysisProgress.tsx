@@ -74,7 +74,16 @@ export function AnalysisProgress({
           return { ...task, status };
         }));
   const completed = tasks.filter((task) => task.status === 'done').length;
-  const remaining = tasks.length - completed;
+  const started = tasks.filter((task) => task.status === 'active').length;
+  const waiting = tasks.length - completed - started;
+  // Name started steps the same way as each step's own status, so the summary matches the list.
+  const startedLabel = running ? 'running' : 'stopped';
+  const remainingSummary = [
+    started > 0 ? `${started} ${startedLabel}` : '',
+    waiting > 0 ? `${waiting} waiting` : '',
+  ]
+    .filter((part) => part !== '')
+    .join(' · ');
   const lastSave = events.findLast((event) => {
     if (event.type !== 'analysis_progress') {
       return false;
@@ -110,9 +119,7 @@ export function AnalysisProgress({
             <strong>
               {completed} of {tasks.length} analysis steps completed
             </strong>
-            <span>
-              {remaining === 0 ? 'Analysis complete' : `${remaining} analysis steps remaining`}
-            </span>
+            <span>{completed === tasks.length ? 'Analysis complete' : remainingSummary}</span>
           </p>
           <ol className="analysis-steps" aria-label="Analysis steps">
             {tasks.map((task, index) => (
