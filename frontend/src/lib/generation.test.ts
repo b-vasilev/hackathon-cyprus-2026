@@ -16,6 +16,7 @@ function run(overrides: Partial<Run> = {}): Run {
     connection_id: 'connection-one',
     connection_revision: 1,
     model: 'fixture',
+    generate_quiz: false,
     request_timeout_seconds: 60,
     status: 'queued',
     stage: 'queued',

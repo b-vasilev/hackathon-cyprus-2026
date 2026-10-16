@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, EyeOff, Flag, MessageSquare, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { api, date, type Review, type ReviewActivity, type Revision } from '../lib/api';
+import {
+  api,
+  date,
+  type LearningPack,
+  type Review,
+  type ReviewActivity,
+  type Revision,
+} from '../lib/api';
+import { packKey } from '../lib/learningPack';
 import { DisclosureHint, ErrorNotice } from './ui';
 
 interface ChapterOption {
@@ -21,6 +29,12 @@ export function PassportReview({
     queryFn: ({ signal }) => api<Review>(`/passport-revisions/${revision.id}/review`, { signal }),
   });
   const [flagging, setFlagging] = useState(false);
+  const practice = useQuery({
+    queryKey: [packKey, revision.id],
+    queryFn: ({ signal }) =>
+      api<LearningPack>(`/passport-revisions/${revision.id}/learning-pack`, { signal }),
+    refetchInterval: (query) => (query.state.data?.status === 'generating' ? 4000 : false),
+  });
   const refresh = async (productId: string) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['review', revision.id] }),
@@ -28,6 +42,7 @@ export function PassportReview({
       queryClient.invalidateQueries({ queryKey: ['published-revision'] }),
       queryClient.invalidateQueries({ queryKey: ['product', productId] }),
       queryClient.invalidateQueries({ queryKey: ['products'] }),
+      queryClient.invalidateQueries({ queryKey: [packKey] }),
     ]);
   };
   const publication = useMutation({
@@ -52,7 +67,11 @@ export function PassportReview({
   });
   const flagged = (review.data?.flagged_at ?? '') !== '';
   const busy = publication.isPending || flag.isPending;
-  const canPublish = !revision.published || revision.unpublished_changes;
+  const readyPractice = practice.data?.status === 'ready' && Boolean(practice.data.content);
+  const canPublish =
+    !revision.published ||
+    revision.unpublished_changes ||
+    (readyPractice && (!practice.data?.published || practice.data.unpublished_changes));
   let title = `Draft · version ${revision.version}`;
   let description = 'Learners cannot see this version. Review, edit and publish it when ready.';
   if (revision.published) {
@@ -67,6 +86,10 @@ export function PassportReview({
         <div aria-live="polite">
           <h2>{title}</h2>
           <p>{description}</p>
+          {readyPractice && <p>Publishing this passport also publishes its quiz and first task.</p>}
+          {practice.data?.status === 'generating' && (
+            <p>The quiz is still generating. You can publish both when it is ready.</p>
+          )}
           {review.data !== undefined && review.data.edited_at !== '' && (
             <p>
               Last edited {date(review.data.edited_at)}
@@ -111,7 +134,9 @@ export function PassportReview({
             <button
               type="button"
               className="button primary"
-              disabled={busy || flagged || review.isPending}
+              disabled={
+                busy || flagged || review.isPending || practice.data?.status === 'generating'
+              }
               onClick={() => publication.mutate('publish')}
             >
               {publication.isPending ? (

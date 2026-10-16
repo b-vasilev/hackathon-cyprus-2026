@@ -50,7 +50,7 @@ type retryFixture struct {
 	config    llmgateway.Config
 }
 
-func newRetryFixture(t *testing.T) retryFixture {
+func newRetryFixture(t *testing.T, options ...bool) retryFixture {
 	t.Helper()
 	database, err := db.Open(t.Context(), filepath.Join(t.TempDir(), "retry.db"))
 	if err != nil {
@@ -75,7 +75,7 @@ func newRetryFixture(t *testing.T) retryFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	run, err := service.Start(t.Context(), p.ID, Input{ConnectionID: connection.ID, Model: "fixture"})
+	run, err := service.Start(t.Context(), p.ID, Input{ConnectionID: connection.ID, Model: "fixture", GenerateQuiz: len(options) > 0 && options[0]})
 	if err != nil {
 		t.Fatal(err)
 	}

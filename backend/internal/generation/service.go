@@ -47,12 +47,14 @@ type Input struct {
 	ConnectionID          string `json:"connection_id"`
 	Model                 string `json:"model"`
 	ResumeRunID           string `json:"resume_run_id,omitempty"`
+	GenerateQuiz          bool   `json:"generate_quiz"`
 	RequestTimeoutSeconds int    `json:"request_timeout_seconds,omitempty"` // Zero uses the frozen connection timeout; otherwise 20..900 seconds.
 }
 
 type sourceManifest struct {
 	Sources      []source.Input        `json:"sources"`
 	CardBrandkit *productcard.Brandkit `json:"card_brandkit,omitempty"`
+	GenerateQuiz bool                  `json:"generate_quiz,omitempty"`
 }
 
 // decodeManifest preserves queued runs created before brand kit support.
@@ -77,6 +79,7 @@ type Run struct {
 	ConnectionID          string            `json:"connection_id"`
 	ConnectionRevision    int               `json:"connection_revision"`
 	Model                 string            `json:"model"`
+	GenerateQuiz          bool              `json:"generate_quiz"`
 	RequestTimeoutSeconds int               `json:"request_timeout_seconds"`
 	Status                string            `json:"status"`
 	Stage                 string            `json:"stage"`
@@ -145,6 +148,7 @@ type Service struct {
 	Products    product.Store
 	Content     *content.Store
 	Logger      zerolog.Logger
+	StartQuiz   func(context.Context, string) error
 	queue       *goqite.Queue
 	active      sync.Map // run ID -> context.CancelFunc
 }
@@ -179,7 +183,7 @@ func (s *Service) Start(ctx context.Context, productID string, input Input) (Run
 	if _, modelErr := llmgateway.ModelByID(c.Config, input.Model); modelErr != nil {
 		return Run{}, fmt.Errorf("prepare generation: %w", modelErr)
 	}
-	manifest, err := json.Marshal(sourceManifest{Sources: p.Sources, CardBrandkit: p.CardBrandkit})
+	manifest, err := json.Marshal(sourceManifest{Sources: p.Sources, CardBrandkit: p.CardBrandkit, GenerateQuiz: input.GenerateQuiz})
 	if err != nil {
 		return Run{}, fmt.Errorf("freeze source manifest: %w", err)
 	}
@@ -222,8 +226,9 @@ func (s *Service) GetRun(ctx context.Context, id string) (Run, error) {
 	defer func() { _ = tx.Rollback() }()
 	err = tx.QueryRowContext(ctx, `SELECT id,product_id,connection_id,connection_revision,model,request_timeout_seconds,status,stage,error_code,error_message,created_at,started_at,stage_started_at,COALESCE(finished_at,''),
  (SELECT COUNT(*) FROM source_documents d JOIN source_snapshots ss ON ss.id=d.snapshot_id WHERE ss.run_id=g.id),
- COALESCE((SELECT SUM(input_tokens) FROM llm_calls WHERE run_id=g.id),0),COALESCE((SELECT SUM(output_tokens) FROM llm_calls WHERE run_id=g.id),0)
- FROM generation_runs g WHERE id=?`, id).Scan(&r.ID, &r.ProductID, &r.ConnectionID, &r.ConnectionRevision, &r.Model, &r.RequestTimeoutSeconds, &r.Status, &r.Stage, &r.ErrorCode, &r.ErrorMessage, &r.CreatedAt, &r.StartedAt, &r.StageStartedAt, &r.FinishedAt, &r.DocumentCount, &r.InputTokens, &r.OutputTokens)
+ COALESCE((SELECT SUM(input_tokens) FROM llm_calls WHERE run_id=g.id),0),COALESCE((SELECT SUM(output_tokens) FROM llm_calls WHERE run_id=g.id),0),
+ COALESCE(json_extract(input_json,'$.generate_quiz'),0)
+ FROM generation_runs g WHERE id=?`, id).Scan(&r.ID, &r.ProductID, &r.ConnectionID, &r.ConnectionRevision, &r.Model, &r.RequestTimeoutSeconds, &r.Status, &r.Stage, &r.ErrorCode, &r.ErrorMessage, &r.CreatedAt, &r.StartedAt, &r.StageStartedAt, &r.FinishedAt, &r.DocumentCount, &r.InputTokens, &r.OutputTokens, &r.GenerateQuiz)
 	if err != nil {
 		return r, fmt.Errorf("read generation: %w", err)
 	}
@@ -670,12 +675,10 @@ func (s *Service) saveRevision(ctx context.Context, run Run, p passport.Passport
 	if err != nil {
 		return fmt.Errorf("save passport file: %w", err)
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO passport_revisions(id,product_id,run_id,version,schema_version,content_json,content_path,content_hash,created_at) VALUES(?,?,?,?,'1','{}',?,?,?)", rand.Text(), run.ProductID, run.ID, version, path, hash, time.Now().UTC().Format(time.RFC3339Nano))
+	revisionID := rand.Text()
+	_, err = tx.ExecContext(ctx, "INSERT INTO passport_revisions(id,product_id,run_id,version,schema_version,content_json,content_path,content_hash,created_at) VALUES(?,?,?,?,'1','{}',?,?,?)", revisionID, run.ProductID, run.ID, version, path, hash, time.Now().UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return fmt.Errorf("save passport revision: %w", err)
-	}
-	if _, updateErr := tx.ExecContext(ctx, "UPDATE generation_runs SET status='succeeded',stage='complete',finished_at=? WHERE id=?", time.Now().UTC().Format(time.RFC3339Nano), run.ID); updateErr != nil {
-		return fmt.Errorf("complete generation: %w", updateErr)
 	}
 	themeJSON, err := json.Marshal(p.Views.CardTheme)
 	if err != nil {
@@ -690,11 +693,43 @@ func (s *Service) saveRevision(ctx context.Context, run Run, p passport.Passport
 	if err := recordEvent(ctx, tx, run.ID, "stage_completed", "validating", "Passport validation completed."); err != nil {
 		return err
 	}
-	if err := recordEvent(ctx, tx, run.ID, "run_succeeded", "complete", "Passport draft saved. Ready for review."); err != nil {
-		return err
-	}
 	if checkErr := tx.Commit(); checkErr != nil {
 		return fmt.Errorf("commit passport revision: %w", checkErr)
+	}
+	return s.completeGeneration(ctx, run, revisionID)
+}
+
+func (s *Service) completeGeneration(ctx context.Context, run Run, revisionID string) error {
+	// Start practice before completing the run, so the first Practice view sees it.
+	if run.GenerateQuiz && s.StartQuiz != nil {
+		message, eventType := "Product quiz generation started. Review it in Practice before publishing.", "quiz_generation_started"
+		if err := s.StartQuiz(ctx, revisionID); err != nil {
+			message, eventType = "Could not start the product quiz. Retry in Practice: "+err.Error(), "quiz_generation_failed"
+			s.Logger.Warn().Err(err).Str("run_id", run.ID).Msg("start product quiz")
+		}
+		if err := s.event(ctx, run.ID, eventType, "validating", message); err != nil {
+			return err
+		}
+	}
+	finishTx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin generation completion: %w", err)
+	}
+	defer func() { _ = finishTx.Rollback() }()
+	result, err := finishTx.ExecContext(ctx, "UPDATE generation_runs SET status='succeeded',stage='complete',finished_at=? WHERE id=? AND status IN ('queued','running')", time.Now().UTC().Format(time.RFC3339Nano), run.ID)
+	if err != nil {
+		return fmt.Errorf("complete generation: %w", err)
+	}
+	if changed, err := result.RowsAffected(); err != nil {
+		return fmt.Errorf("check generation completion: %w", err)
+	} else if changed == 0 {
+		return context.Canceled
+	}
+	if checkErr := recordEvent(ctx, finishTx, run.ID, "run_succeeded", "complete", "Passport draft saved. Ready for review."); checkErr != nil {
+		return checkErr
+	}
+	if checkErr := finishTx.Commit(); checkErr != nil {
+		return fmt.Errorf("commit generation completion: %w", checkErr)
 	}
 	return nil
 }

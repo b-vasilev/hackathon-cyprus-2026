@@ -1140,6 +1140,16 @@ summary {
   margin-left: auto;
   min-width: 120px;
 }
+.generation-controls .generation-quiz-option {
+  flex: 1 1 100%;
+  min-height: 44px;
+}
+.generation-quiz-option small {
+  display: block;
+  color: var(--of-muted);
+  font-size: 12px;
+  font-weight: var(--of-weight-regular);
+}
 .generation-controls select {
   font-size: 13px;
 }
