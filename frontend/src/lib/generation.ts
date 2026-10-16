@@ -38,7 +38,11 @@ export function mergeRun(previous: Run | undefined, incoming: Run): Run {
   }
   const previousId = previous.events.at(-1)?.id ?? 0;
   const incomingId = incoming.events.at(-1)?.id ?? 0;
-  if (previousId > incomingId || (!activeRun(previous.status) && activeRun(incoming.status))) {
+  // An older or equally old active snapshot must not revive a finished run. A resumed run
+  // keeps its id but records a newer run_resumed event, so newer data is accepted.
+  const staleRevival =
+    previousId >= incomingId && !activeRun(previous.status) && activeRun(incoming.status);
+  if (previousId > incomingId || staleRevival) {
     return previous;
   }
   const events = new Map(previous.events.map((event) => [event.id, event]));

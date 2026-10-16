@@ -224,6 +224,9 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 			return err
 		}
 		windowContext += "\nContinue the current synthesis step using the retained conversation. Application instructions are already in the system prompt. Do not reread instructions, research batches or model entities already present in the conversation. Save related objects, claims, evidence and relations together in a coherent part. Finish this step when its requested outputs are saved; do not expand its scope."
+		if s.lastTruncated {
+			windowContext += "\nYour previous response reached the output limit before its action was complete, so nothing was saved. Save smaller parts: one component or flow with its claims and evidence per action, then continue with the next part."
+		}
 		if s.lastToolFailure != "" {
 			failure, _ := json.Marshal(s.lastToolFailure)
 			windowContext += "\nLast rejected action (diagnostic data): " + string(failure) + "\nCorrect this specific field or reference. Save one small draft entity first; supporting claims and evidence can be attached in later parts. Do not repeat unrelated discovery or recreate the full model."
@@ -311,11 +314,12 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 			reported++
 		}
 	}
-	maxOutput := int64(6000)
+	// Room for a coherent save action; a truncated response discards its tool call entirely.
+	maxOutput := int64(16000)
 	if selected, err := llmgateway.ModelByID(config, modelID); err == nil && selected.MaxOutputTokens > 0 {
 		maxOutput = min(maxOutput, int64(selected.MaxOutputTokens))
 	}
-	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: prompt, Messages: recent, MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{func(steps []fantasy.StepResult) bool {
+	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: prompt, Messages: pairedToolTurns(recent), MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{func(steps []fantasy.StepResult) bool {
 		cp := s.store.Checkpoint()
 		return len(steps) >= maxSteps || cp.Finalized || !slices.ContainsFunc(cp.Tasks, func(t Task) bool { return t.ID == s.current.ID && t.Status == TaskActive })
 	}}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
@@ -342,6 +346,7 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 		return stepCtx, fantasy.PrepareStepResult{}, nil
 	}})
 	if errors.Is(err, errAnalysisWindowFull) {
+		s.lastTruncated = truncated(completed)
 		s.emit("Starting a fresh bounded analysis window; saved work is retained")
 		return recentAnalysisMessages(recent, completed), nil
 	}
@@ -349,10 +354,20 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 		if prepareFailure != nil {
 			return nil, prepareFailure
 		}
-		return nil, errors.New("analysis model request failed through the selected connection; accepted parts and source reads are saved for retry")
+		// Keep the provider's reason (rate limit, balance, overload) visible, as research does.
+		return nil, fmt.Errorf("analysis model request failed through the selected connection; accepted parts and source reads are saved for retry: %w", err)
 	}
 	report(response.Steps)
+	s.lastTruncated = truncated(response.Steps)
+	if s.lastTruncated {
+		s.emit("Model response reached the output limit; asking for a smaller save next")
+	}
 	return recentAnalysisMessages(recent, response.Steps), nil
+}
+
+// truncated reports whether the last step stopped at the output limit.
+func truncated(steps []fantasy.StepResult) bool {
+	return len(steps) > 0 && steps[len(steps)-1].FinishReason == fantasy.FinishReasonLength
 }
 
 func recentAnalysisMessages(previous []fantasy.Message, steps []fantasy.StepResult) []fantasy.Message {
@@ -372,7 +387,7 @@ func recentAnalysisMessages(previous []fantasy.Message, steps []fantasy.StepResu
 		}
 		recent = candidate
 	}
-	if len(recent) > 0 {
+	if recent = pairedToolTurns(recent); len(recent) > 0 {
 		return recent
 	}
 	return []fantasy.Message{fantasy.NewUserMessage("The previous complete tool turn exceeded the carry-history budget. Accepted mutations and exact source read ranges are durably saved. Inspect saved entities or page only the relevant original ranges; no source text was clipped.")}
