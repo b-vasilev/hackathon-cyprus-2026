@@ -71,6 +71,10 @@ func (g *fixtureGenerator) Generate(_ context.Context, c llmgateway.Config, r ll
 				if block.Kind == "scenario_ref" {
 					part.ScenarioIDs = []string{block.ReferenceID}
 				}
+				if block.Kind == "diagram_ref" {
+					diagram := fixtureViews().Diagrams[0]
+					part.Diagram = &compositionDiagramPlan{Kind: diagram.Kind, ScopeObjectID: diagram.ScopeObjectID}
+				}
 				plan.Parts = append(plan.Parts, part)
 			}
 		}

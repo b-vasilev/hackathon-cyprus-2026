@@ -9,7 +9,7 @@ import (
 )
 
 // PromptVersion is persisted with each model call for reproducibility.
-const PromptVersion = "passport-v13-balanced-architecture"
+const PromptVersion = "passport-v14-validated-diagram-plans"
 
 //go:embed prompts/system.md
 var systemPrompt string

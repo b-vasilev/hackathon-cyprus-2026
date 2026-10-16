@@ -40,13 +40,19 @@ type chapterPlan struct {
 
 // Each planned part produces exactly one block. IDs select its source context.
 type compositionPart struct {
-	Title        string   `json:"title"`
-	Instructions string   `json:"instructions"`
-	Kind         string   `json:"kind" enum:"markdown,diagram_ref,scenario_ref,object_table"`
-	ObjectIDs    []string `json:"object_ids"`
-	ClaimIDs     []string `json:"claim_ids"`
-	ScenarioIDs  []string `json:"scenario_ids"`
-	TableStyle   string   `json:"table_style,omitempty" enum:"objects,repositories,technologies"`
+	Title        string                  `json:"title"`
+	Instructions string                  `json:"instructions"`
+	Kind         string                  `json:"kind" enum:"markdown,diagram_ref,scenario_ref,object_table"`
+	ObjectIDs    []string                `json:"object_ids"`
+	ClaimIDs     []string                `json:"claim_ids"`
+	ScenarioIDs  []string                `json:"scenario_ids"`
+	TableStyle   string                  `json:"table_style,omitempty" enum:"objects,repositories,technologies"`
+	Diagram      *compositionDiagramPlan `json:"diagram"`
+}
+
+type compositionDiagramPlan struct {
+	Kind          string `json:"kind" enum:"repositories,context,containers,components,domain,data,deployment,states"`
+	ScopeObjectID string `json:"scope_object_id"`
 }
 
 type compositionFragment struct {
@@ -269,6 +275,40 @@ func (c *composer) checkPart(id string, part compositionPart) error {
 			return fmt.Errorf("unknown scenario: %s", scenarioID)
 		}
 	}
+	if part.Kind == "diagram_ref" {
+		return c.checkDiagramPlan(id, part)
+	}
+	if part.Diagram != nil {
+		return errors.New("only diagram_ref parts may have a diagram plan; otherwise return diagram=null")
+	}
+	return nil
+}
+
+// Validate the planned nodes before spending requests on individual fragments.
+func (c *composer) checkDiagramPlan(chapterID string, part compositionPart) error {
+	if part.Diagram == nil {
+		return errors.New("diagram_ref needs a diagram plan with kind and scope_object_id")
+	}
+	scope := part.Diagram.ScopeObjectID
+	if scope != "" && !slices.Contains(part.ObjectIDs, scope) {
+		return fmt.Errorf("diagram plan %q: include scope object %q in object_ids", part.Title, scope)
+	}
+	nodes := []string{}
+	for _, id := range part.ObjectIDs {
+		if id != scope {
+			nodes = append(nodes, id)
+		}
+	}
+	if len(nodes) == 0 {
+		return fmt.Errorf("diagram plan %q needs at least one node besides its scope", part.Title)
+	}
+	fragment := compositionFragment{
+		Block:   passport.DocumentBlock{Kind: "diagram_ref"},
+		Diagram: &passport.Diagram{Kind: part.Diagram.Kind, ScopeObjectID: scope, NodeIDs: nodes},
+	}
+	if err := c.checkFragment(chapterID, "diagram-plan-check", part, fragment); err != nil {
+		return fmt.Errorf("diagram plan %q: %w; split incompatible objects into separate views or explain them in markdown; preserve canonical roles and parents", part.Title, err)
+	}
 	return nil
 }
 
@@ -326,6 +366,17 @@ func (c *composer) checkFragment(chapterID, taskID string, part compositionPart,
 	if part.Kind == "diagram_ref" {
 		if fragment.Diagram == nil {
 			return errors.New("diagram_ref needs one diagram")
+		}
+		if part.Diagram == nil {
+			return errors.New("diagram_ref needs a validated diagram plan")
+		}
+		if fragment.Diagram.Kind != part.Diagram.Kind || fragment.Diagram.ScopeObjectID != part.Diagram.ScopeObjectID {
+			return fmt.Errorf("diagram must keep planned kind %q and scope_object_id %q; got kind %q and scope_object_id %q", part.Diagram.Kind, part.Diagram.ScopeObjectID, fragment.Diagram.Kind, fragment.Diagram.ScopeObjectID)
+		}
+		for _, id := range fragment.Diagram.NodeIDs {
+			if id == part.Diagram.ScopeObjectID || !slices.Contains(part.ObjectIDs, id) {
+				return fmt.Errorf("diagram node %q is not a planned node; use object_ids excluding scope_object_id %q", id, part.Diagram.ScopeObjectID)
+			}
 		}
 		diagram := *fragment.Diagram
 		diagram.ID = taskID + "-diagram"
