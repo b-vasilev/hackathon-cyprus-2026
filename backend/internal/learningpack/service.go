@@ -44,6 +44,7 @@ type View struct {
 	Published          bool   `json:"published"`
 	PublishedAt        string `json:"published_at"`
 	UnpublishedChanges bool   `json:"unpublished_changes"`
+	Stale              bool   `json:"stale" jsonschema:"Practice was generated from different passport content and must be generated again."`
 	Content            *Pack  `json:"content,omitempty"`
 }
 
@@ -81,22 +82,26 @@ func (s *Service) Get(ctx context.Context, revisionID string) (View, error) {
 
 // Published returns only the practice for the product's published passport.
 func (s *Service) Published(ctx context.Context, productID string) (View, error) {
-	return s.read(ctx, "p.product_id=? AND p.revision_id=(SELECT published_revision_id FROM products WHERE id=p.product_id) AND p.published_at<>''", productID, true)
+	return s.read(ctx, `p.product_id=? AND p.revision_id=(SELECT published_revision_id FROM products WHERE id=p.product_id)
+ AND p.published_at<>'' AND p.published_source_content_hash<>''
+ AND p.published_source_content_hash=COALESCE(NULLIF(r.published_content_hash,''),r.content_hash)`, productID, true)
 }
 
 func (s *Service) read(ctx context.Context, where, arg string, published bool) (View, error) {
 	var v View
-	var working, learner string
-	err := s.DB.QueryRowContext(ctx, "SELECT p.id,p.product_id,p.revision_id,r.version,p.status,p.error_message,p.updated_at,p.published_at,p.content_json,p.published_content_json FROM learning_packs p JOIN passport_revisions r ON r.id=p.revision_id WHERE "+where, arg).
-		Scan(&v.ID, &v.ProductID, &v.RevisionID, &v.RevisionVersion, &v.Status, &v.Error, &v.UpdatedAt, &v.PublishedAt, &working, &learner)
+	var working, learner, sourceHash, publishedHash, currentHash string
+	err := s.DB.QueryRowContext(ctx, "SELECT p.id,p.product_id,p.revision_id,r.version,p.status,p.error_message,p.updated_at,p.published_at,p.content_json,p.published_content_json,p.source_content_hash,p.published_source_content_hash,r.content_hash FROM learning_packs p JOIN passport_revisions r ON r.id=p.revision_id WHERE "+where, arg).
+		Scan(&v.ID, &v.ProductID, &v.RevisionID, &v.RevisionVersion, &v.Status, &v.Error, &v.UpdatedAt, &v.PublishedAt, &working, &learner, &sourceHash, &publishedHash, &currentHash)
 	if err != nil {
 		return View{}, fmt.Errorf("read learning pack: %w", err)
 	}
 	v.Published = v.PublishedAt != ""
-	v.UnpublishedChanges = v.Published && working != learner
+	v.UnpublishedChanges = v.Published && (working != learner || sourceHash != publishedHash)
+	v.Stale = working != "" && (sourceHash == "" || sourceHash != currentHash)
 	content := working
 	if published {
 		content, v.Status, v.Error = learner, statusReady, ""
+		v.Stale = false
 	}
 	if content != "" {
 		var pack Pack
@@ -146,17 +151,22 @@ func (s *Service) run(ownerID string, revision generation.Revision) {
 	}
 	saveCtx, saveCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer saveCancel()
-	query := "UPDATE learning_packs SET status=?, error_message=?, updated_at=?, content_json=CASE WHEN ?='' THEN content_json ELSE ? END WHERE revision_id=?"
-	if _, err := s.DB.ExecContext(saveCtx, query, status, message, now(), content, content, revision.ID); err != nil {
+	query := `UPDATE learning_packs SET status=?, error_message=?, updated_at=?,
+ content_json=CASE WHEN ?='' THEN content_json ELSE ? END,
+ source_content_hash=CASE WHEN ?='' THEN source_content_hash ELSE ? END WHERE revision_id=?`
+	if _, err := s.DB.ExecContext(saveCtx, query, status, message, now(), content, content, content, revision.ContentHash, revision.ID); err != nil {
 		s.Logger.Error().Err(err).Str("revision_id", revision.ID).Msg("save learning pack")
 	}
 }
 
 // Publish shows the current working copy to learners.
 func (s *Service) Publish(ctx context.Context, revisionID, userID string) (View, error) {
-	result, err := s.DB.ExecContext(ctx, `UPDATE learning_packs SET published_content_json=content_json, published_by=?,
- published_at=CASE WHEN published_content_json=content_json AND published_at<>'' THEN published_at ELSE ? END
- WHERE revision_id=? AND content_json<>'' AND status<>?`, userID, now(), revisionID, statusRunning)
+	result, err := s.DB.ExecContext(ctx, `UPDATE learning_packs SET published_content_json=content_json, published_source_content_hash=source_content_hash, published_by=?,
+ published_at=CASE WHEN published_content_json=content_json AND published_source_content_hash=source_content_hash AND published_at<>'' THEN published_at ELSE ? END
+ WHERE revision_id=? AND content_json<>'' AND status<>? AND source_content_hash<>''
+ AND source_content_hash=(SELECT content_hash FROM passport_revisions WHERE id=revision_id)
+ AND (NOT EXISTS(SELECT 1 FROM products WHERE published_revision_id=revision_id)
+ OR source_content_hash=(SELECT COALESCE(NULLIF(published_content_hash,''),content_hash) FROM passport_revisions WHERE id=revision_id))`, userID, now(), revisionID, statusRunning)
 	if err != nil {
 		return View{}, fmt.Errorf("publish learning pack: %w", err)
 	}
@@ -168,7 +178,7 @@ func (s *Service) Publish(ctx context.Context, revisionID, userID string) (View,
 
 // Unpublish hides the pack from learners and keeps the working copy.
 func (s *Service) Unpublish(ctx context.Context, revisionID string) (View, error) {
-	if _, err := s.DB.ExecContext(ctx, "UPDATE learning_packs SET published_content_json='', published_by='', published_at='' WHERE revision_id=?", revisionID); err != nil {
+	if _, err := s.DB.ExecContext(ctx, "UPDATE learning_packs SET published_content_json='', published_source_content_hash='', published_by='', published_at='' WHERE revision_id=?", revisionID); err != nil {
 		return View{}, fmt.Errorf("unpublish learning pack: %w", err)
 	}
 	return s.Get(ctx, revisionID)

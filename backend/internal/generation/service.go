@@ -111,6 +111,7 @@ type Revision struct {
 	PublishedAt        string            `json:"published_at"`
 	Published          bool              `json:"published"`
 	UnpublishedChanges bool              `json:"unpublished_changes"`
+	ContentHash        string            `json:"-"`
 	Content            passport.Passport `json:"content"`
 	Snapshots          []source.Snapshot `json:"snapshots"`
 }
@@ -790,15 +791,15 @@ func (s *Service) PublishedRevision(ctx context.Context, productID string) (Revi
 
 func (s *Service) revision(ctx context.Context, where, arg, contentColumns string) (Revision, error) {
 	var r Revision
-	var path, hash string
+	var path string
 	// Callers pass fixed column and filter expressions; values stay bound.
 	err := s.DB.QueryRowContext(ctx, `SELECT r.id,r.product_id,r.run_id,r.version,r.schema_version,`+contentColumns+`,r.created_at,
  r.published_by,r.published_at,COALESCE(p.published_revision_id=r.id,0),`+unpublishedChanges+`
- FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE `+where, arg).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &hash, &r.CreatedAt, &r.PublishedBy, &r.PublishedAt, &r.Published, &r.UnpublishedChanges)
+ FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE `+where, arg).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &r.ContentHash, &r.CreatedAt, &r.PublishedBy, &r.PublishedAt, &r.Published, &r.UnpublishedChanges)
 	if err != nil {
 		return r, fmt.Errorf("get passport revision: %w", err)
 	}
-	if checkErr := s.Content.ReadJSON(path, hash, &r.Content); checkErr != nil {
+	if checkErr := s.Content.ReadJSON(path, r.ContentHash, &r.Content); checkErr != nil {
 		return r, fmt.Errorf("decode passport revision: %w", checkErr)
 	}
 	rows, err := s.DB.QueryContext(ctx, "SELECT id,locator,revision,coverage_json FROM source_snapshots WHERE run_id=?", r.RunID)

@@ -123,6 +123,33 @@ test('published passports can publish a newly ready quiz without text changes', 
   }
 });
 
+test('stale practice is not offered for publication with the passport', () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+  });
+  client.setQueryData(['review', 'revision'], { flagged_at: '', edited_at: '', activity: [] });
+  client.setQueryData(['learning-pack', 'revision'], {
+    status: 'ready',
+    content: { quiz: [] },
+    published: true,
+    unpublished_changes: false,
+    stale: true,
+  });
+  const html = renderToStaticMarkup(
+    <QueryClientProvider client={client}>
+      <PassportReview
+        revision={{ ...revision(), published: true }}
+        chapters={[]}
+        currentChapterId=""
+      />
+    </QueryClientProvider>
+  );
+  assert.ok(html.includes('The quiz needs updating'));
+  assert.ok(!html.includes('also publishes its quiz and first task'));
+  assert.ok(!html.includes('Publish changes'));
+  client.clear();
+});
+
 test('architectural roles label nodes and inspectors with a legacy kind fallback', () => {
   for (const role of ['software_system', 'runtime_unit', 'component', '']) {
     const item = { ...object('Example component'), architecture_role: role };
