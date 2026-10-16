@@ -17,6 +17,8 @@ const uploadDelay = 800;
 
 let owner: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
+let inflight: Promise<void> = Promise.resolve();
+const flushTimeout = 3000;
 
 function readOwner(): string | null {
   try {
@@ -84,7 +86,7 @@ function upload(keepalive = false): Promise<void> {
   if (sender === undefined) {
     return Promise.resolve();
   }
-  return api<LearningState>('/me/learning', {
+  const request = api<LearningState>('/me/learning', {
     method: 'PUT',
     body: JSON.stringify(localState()),
     keepalive,
@@ -97,15 +99,23 @@ function upload(keepalive = false): Promise<void> {
     .catch(() => {
       // The next change or visit retries; the local copy keeps the progress meanwhile.
     });
+  inflight = request;
+  return request;
 }
 
-/** Saves a pending change now, for example before signing out. */
+/**
+ * Saves a pending change now and waits for a save in progress, for example before
+ * signing out. A slow network never delays the caller by more than a few seconds.
+ */
 export function flushLearning(): Promise<void> {
-  if (timer === undefined) {
-    return Promise.resolve();
+  if (timer !== undefined) {
+    clearTimeout(timer);
+    void upload();
   }
-  clearTimeout(timer);
-  return upload();
+  const timeout = new Promise<void>((resolve) => {
+    setTimeout(resolve, flushTimeout);
+  });
+  return Promise.race([inflight, timeout]);
 }
 
 function scheduleUpload() {

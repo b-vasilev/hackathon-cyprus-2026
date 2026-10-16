@@ -60,12 +60,19 @@ type Service struct {
 	Logger     zerolog.Logger
 	Background context.Context
 	running    sync.WaitGroup
+	mu         sync.Mutex
+	closed     bool
 }
 
 func now() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
-// Wait blocks until background generations have saved their result, for shutdown.
-func (s *Service) Wait() { s.running.Wait() }
+// Wait refuses new generations and blocks until running ones have saved their result.
+func (s *Service) Wait() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.running.Wait()
+}
 
 // Recover marks packs interrupted by a restart as failed so they can be generated again.
 func (s *Service) Recover(ctx context.Context) error {
@@ -138,7 +145,13 @@ func (s *Service) Start(ctx context.Context, revisionID, userID string) (View, e
 	if changed, _ := result.RowsAffected(); changed == 0 {
 		return View{}, fmt.Errorf("%w: the learning pack is already being generated", generation.ErrActive)
 	}
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return View{}, errors.New("the server is shutting down; generate the learning pack again in a moment")
+	}
 	s.running.Go(func() { s.run(connectionowner.UserID(ctx), revision) })
+	s.mu.Unlock()
 	return s.Get(ctx, revisionID)
 }
 

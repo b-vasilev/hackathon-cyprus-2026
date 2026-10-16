@@ -93,11 +93,16 @@ export function Dialog({
   wide?: boolean;
 }>) {
   const ref = useRef<HTMLDialogElement>(null);
+  const mounted = useRef(false);
   const heading = useId();
   useEffect(() => {
     const dialog = ref.current;
+    mounted.current = true;
     dialog?.showModal();
-    return () => dialog?.close();
+    return () => {
+      mounted.current = false;
+      dialog?.close();
+    };
   }, []);
   return (
     <dialog
@@ -109,6 +114,16 @@ export function Dialog({
         // a natively closed dialog would stay mounted but invisible.
         event.preventDefault();
         onClose();
+      }}
+      onClose={() => {
+        // Browsers may close the dialog natively anyway (for example a repeated Escape).
+        // If the owner keeps it mounted, show it again instead of leaving it invisible.
+        onClose();
+        requestAnimationFrame(() => {
+          if (mounted.current && ref.current?.open === false) {
+            ref.current.showModal();
+          }
+        });
       }}
     >
       <div className="dialog-heading">

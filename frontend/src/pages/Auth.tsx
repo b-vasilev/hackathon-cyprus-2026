@@ -12,9 +12,13 @@ export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
   const location = useLocation();
   // A signed-out visitor to a deep link (an AI app's consent request, a shared passport)
   // returns there after signing in, with its query string intact.
-  const destination = ['/login', '/register'].includes(location.pathname)
-    ? '/'
-    : `${location.pathname}${location.search}`;
+  // Switching between sign-in and registration carries the destination along.
+  const carried = (location.state as { from?: string } | null)?.from;
+  const destination =
+    carried ??
+    (['/login', '/register'].includes(location.pathname)
+      ? '/'
+      : `${location.pathname}${location.search}${location.hash}`);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const registering = mode === 'register';
@@ -84,7 +88,11 @@ export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
         )}
         {submit.isError && <ErrorNotice error={submit.error} />}
         <div className="form-actions">
-          <Link className="text-link" to={registering ? '/login' : '/register'}>
+          <Link
+            className="text-link"
+            to={registering ? '/login' : '/register'}
+            state={{ from: destination }}
+          >
             {registering ? 'I already have an account' : 'Create an account'}
           </Link>
           <button className="button primary" disabled={submit.isPending}>

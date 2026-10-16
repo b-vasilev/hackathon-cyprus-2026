@@ -134,8 +134,10 @@ func (s Store) Put(ctx context.Context, userID string, state State) (State, erro
 		}
 	}
 	merged := merge(saved, state).normalized()
-	if validateErr := merged.Validate(); validateErr != nil {
-		return State{}, validateErr
+	if merged.Validate() != nil {
+		// The union of two valid copies can exceed the limits; keep the newest valid
+		// copy instead of rejecting every later save.
+		merged = state.normalized()
 	}
 	data, err := json.Marshal(merged)
 	if err != nil {

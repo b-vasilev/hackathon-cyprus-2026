@@ -47,7 +47,12 @@ func (f *Factory) registerAccess(mux *http.ServeMux) {
 		respond(w, r, value, err)
 	}))
 	mux.HandleFunc("DELETE /api/users/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
-		noContent(w, r, f.Access.DeleteUser(r.Context(), r.PathValue("id")))
+		err := f.Access.DeleteUser(r.Context(), r.PathValue("id"))
+		if errors.Is(err, access.ErrBusy) {
+			problem(w, http.StatusConflict, "account_busy", err.Error())
+			return
+		}
+		noContent(w, r, err)
 	}))
 	mux.HandleFunc("GET /api/products/{id}/sharing", f.product(true, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Access.Sharing(r.Context(), r.PathValue("id"))

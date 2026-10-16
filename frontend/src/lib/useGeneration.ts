@@ -15,7 +15,7 @@ export function useGeneration(runId: string) {
       mergeRun(previous as Run | undefined, incoming as Run),
     refetchInterval: (query) => {
       const needsUpdates =
-        query.state.status !== 'error' &&
+        !(query.state.status === 'error' && query.state.data === undefined) &&
         (query.state.data === undefined || activeRun(query.state.data.status));
       return needsUpdates && streamState !== 'live' ? 5000 : false;
     },

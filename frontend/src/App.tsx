@@ -63,16 +63,21 @@ function signOut() {
 function SignedInApp({ me }: Readonly<{ me: Me }>) {
   const location = useLocation();
   const navigate = useNavigate();
-  // Shown once after signing in; clearing the history state keeps it from returning on reload.
-  const [authMessage, setAuthMessage] = useState(
-    () => (location.state as { authMessage?: string } | null)?.authMessage
-  );
+  // Shown once after signing in: the message moves from history state into component
+  // state, so a reload does not show it again. The state can arrive after this mounts.
+  const incoming = (location.state as { authMessage?: string } | null)?.authMessage;
+  const [authMessage, setAuthMessage] = useState<string>();
   useEffect(() => {
-    if (authMessage !== undefined) {
-      void navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    if (incoming === undefined) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount; the message is already captured in state
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- moves a one-time message out of browser history
+    setAuthMessage(incoming);
+    void navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: null,
+    });
+  }, [incoming, location.pathname, location.search, location.hash, navigate]);
   const admin = isAdmin(me);
   const studio = canUseStudio(me);
   // Learning progress lives in the account; pages render once the browser copy is merged with it.
@@ -152,12 +157,20 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
   );
 }
 
+// The header's sign-in links return a deep-link visitor to where they started.
+function authReturn(location: { pathname: string; search: string; hash: string }) {
+  return ['/', '/login', '/register'].includes(location.pathname)
+    ? undefined
+    : { from: `${location.pathname}${location.search}${location.hash}` };
+}
+
 function StudioPassport() {
   const { id = '' } = useParams();
   return canManage(useMe(), id) ? <PassportPage /> : <Navigate to="/" replace />;
 }
 
 export function App() {
+  const location = useLocation();
   const me = useQuery({
     queryKey: ['me'],
     queryFn: ({ signal }) => api<Me>('/auth/me', { signal }),
@@ -177,10 +190,10 @@ export function App() {
         <div className="header-inner">
           <Brand />
           <div className="header-account">
-            <Link className="button primary" to="/login">
+            <Link className="button primary" to="/login" state={authReturn(location)}>
               Sign in
             </Link>
-            <Link className="button secondary" to="/register">
+            <Link className="button secondary" to="/register" state={authReturn(location)}>
               Create account
             </Link>
           </div>

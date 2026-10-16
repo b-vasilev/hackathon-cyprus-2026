@@ -45,6 +45,8 @@ var (
 	ErrUnknownUser = errors.New("no account uses this email; ask the person to register first")
 	// ErrSession identifies a missing, expired or revoked session.
 	ErrSession = errors.New("sign in to continue")
+	// ErrBusy means the account still has work in progress.
+	ErrBusy = errors.New("the account is busy")
 )
 
 // User is the public account projection; it never includes the password hash.
@@ -364,6 +366,14 @@ func (s Store) DeleteUser(ctx context.Context, userID string) error {
 	defer func() { _ = tx.Rollback() }()
 	if _, err := lockAdmin(ctx, tx, userID, false); err != nil {
 		return err
+	}
+	var active int
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM generation_runs WHERE owner_id=? AND status IN ('queued','running')", userID).Scan(&active); err != nil {
+		return fmt.Errorf("check account generations: %w", err)
+	}
+	if active > 0 {
+		// Running generations hold the account's decrypted credentials until they finish.
+		return fmt.Errorf("%w: stop this account's running generations before deleting it", ErrBusy)
 	}
 	// Personal connections hold encrypted secrets and have no foreign key to users, so
 	// remove them with the account: the GitHub token, and model connections the same way
