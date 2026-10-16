@@ -162,15 +162,14 @@ export function PracticeStudio({
 /** What learners take: the product quiz, then the mission and its final check. */
 export function PracticeLearner({
   pack,
-  productId,
   chapters,
   onChapter,
 }: Readonly<{
   pack: LearningPack;
-  productId: string;
   chapters: Chapter[];
   onChapter: (id: string) => void;
 }>) {
+  const progressKey = `practice:${pack.id}:${pack.published_at}`;
   return (
     <article aria-labelledby="practice-title" className="practice">
       <div className="section-title">
@@ -185,11 +184,11 @@ export function PracticeLearner({
       </div>
       {pack.content && (
         <PracticeContent
-          key={pack.published_at}
+          key={progressKey}
           pack={pack.content}
           chapters={chapters}
           onChapter={onChapter}
-          progressKey={`product:${productId}`}
+          progressKey={progressKey}
         />
       )}
     </article>
@@ -432,7 +431,5 @@ export function PracticePane({
   if (pack === undefined) {
     return null;
   }
-  return (
-    <PracticeLearner pack={pack} productId={productId} chapters={chapters} onChapter={onChapter} />
-  );
+  return <PracticeLearner pack={pack} chapters={chapters} onChapter={onChapter} />;
 }

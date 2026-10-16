@@ -142,7 +142,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 	}))
 }
 
-// products lists every product for admins and only member products for other users.
+// products lists every product for admins and member or shared products for other users.
 func (f *Factory) products(w http.ResponseWriter, r *http.Request) {
 	value, err := f.visibleProducts(r.Context(), currentUser(r))
 	respond(w, r, value, err)

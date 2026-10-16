@@ -108,7 +108,6 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
       void queryClient.invalidateQueries({ queryKey: ['products'] });
     }
   }, [run.data?.status, id, queryClient]);
-  const learnerPack = usePublishedPack(id, publishedView).data ?? undefined;
   const { revisionId, revision, revisionRun } = usePassportRevision({
     id,
     selectedRevision,
@@ -116,6 +115,8 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
     product: product.data,
     history: history.data,
   });
+  const learnerPack =
+    usePublishedPack(id, publishedView ? (revision.data?.id ?? '') : '').data ?? undefined;
   const generate = useMutation({
     // Resuming reuses the failed run's collected sources and saved research with its
     // original connection and model; a new run starts from the selected ones.

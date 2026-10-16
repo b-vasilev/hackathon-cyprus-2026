@@ -119,6 +119,12 @@ completes a module. Learning progress, quiz results and achievement unlocks are
 saved to the account in SQLite and synced with a browser copy. The home page shows
 the next learning step and available published passports.
 
+Product practice is shown only for the currently published passport version. If
+that version has no published practice, learners do not see an older version's
+quiz or mission. Progress belongs to each published practice: publishing changed
+content starts fresh, while reopening or republishing unchanged practice keeps it.
+Older product-wide progress has no practice version and is not reused.
+
 ## Connect AI
 
 Use **MCP** (the gradient button in the top bar) to open Connect AI and copy

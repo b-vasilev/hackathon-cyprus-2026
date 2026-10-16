@@ -41,7 +41,7 @@ func TestOpenAndMigrate(t *testing.T) {
 		if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 			t.Fatal(err)
 		}
-		if version != 15 || dirty != 0 {
+		if version != 16 || dirty != 0 {
 			t.Fatalf("migration state = %d/%d", version, dirty)
 		}
 		if err := database.Close(); err != nil {
@@ -155,7 +155,7 @@ func TestPollingIndexesMigrationPreservesExistingIndexes(t *testing.T) {
 			if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 				t.Fatal(err)
 			}
-			if version != 15 || dirty != 0 {
+			if version != 16 || dirty != 0 {
 				t.Fatalf("migration state = %d/%d", version, dirty)
 			}
 			if err := database.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('source_snapshots_run_id', 'llm_calls_run_tokens')").Scan(&indexes); err != nil {

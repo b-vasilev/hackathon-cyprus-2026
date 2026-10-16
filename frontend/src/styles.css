@@ -4730,6 +4730,15 @@ summary {
 .access-help {
   margin: 16px 0 8px;
 }
+.sharing-policy {
+  margin: 16px 0;
+}
+.sharing-policy .checkbox-label {
+  min-height: 44px;
+}
+.sharing-policy .field-help {
+  margin: 0 0 8px;
+}
 .member-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 180px auto;

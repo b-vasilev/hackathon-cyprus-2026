@@ -49,6 +49,18 @@ func (f *Factory) registerAccess(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/users/{id}", f.admin(func(w http.ResponseWriter, r *http.Request) {
 		noContent(w, r, f.Access.DeleteUser(r.Context(), r.PathValue("id")))
 	}))
+	mux.HandleFunc("GET /api/products/{id}/sharing", f.product(true, pathProduct, func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Access.Sharing(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	}))
+	mux.HandleFunc("PUT /api/products/{id}/sharing", f.admin(func(w http.ResponseWriter, r *http.Request) {
+		input, ok := decode[access.Sharing](w, r)
+		if !ok {
+			return
+		}
+		value, err := f.Access.SetSharing(r.Context(), r.PathValue("id"), input)
+		respond(w, r, value, err)
+	}))
 	mux.HandleFunc("GET /api/products/{id}/members", f.product(true, pathProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Access.Members(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)

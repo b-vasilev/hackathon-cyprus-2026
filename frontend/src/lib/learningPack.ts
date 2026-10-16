@@ -11,9 +11,9 @@ export const practiceId = 'practice';
 export const practiceTitle = 'Practice: quiz and first task';
 
 /** The published pack for learners; a missing pack is a normal state, not an error. */
-export function usePublishedPack(productId: string, enabled: boolean) {
+export function usePublishedPack(productId: string, revisionId: string) {
   return useQuery({
-    queryKey: [packKey, 'published', productId],
+    queryKey: [packKey, 'published', productId, revisionId],
     queryFn: async ({ signal }) => {
       try {
         return await api<LearningPack>(`/products/${productId}/learning-pack`, {
@@ -26,7 +26,8 @@ export function usePublishedPack(productId: string, enabled: boolean) {
         throw error;
       }
     },
-    enabled,
+    enabled: revisionId !== '',
+    select: (pack) => (pack?.revision_id === revisionId ? pack : null),
   });
 }
 

@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Global roles. Admins have full access; users only reach products they are members of.
+// Global roles. Admins have full access; users reach member and shared products.
 const (
 	RoleAdmin = "admin"
 	RoleUser  = "user"
@@ -85,6 +85,11 @@ type Credentials struct {
 type MemberInput struct {
 	Email string `json:"email"`
 	Role  string `json:"role" jsonschema:"lead or learner"`
+}
+
+// Sharing grants learner access to all current and future registered users.
+type Sharing struct {
+	SharedWithAll bool `json:"shared_with_all"`
 }
 
 // RoleInput changes a user's global role.
@@ -215,9 +220,16 @@ func (s Store) Logout(ctx context.Context, token string) error {
 	return nil
 }
 
-// Memberships lists a user's product roles.
+// Explicit roles take precedence over the learner role granted by sharing.
+// Joining users ensures shared products only grant access to registered accounts.
+const effectiveMemberships = `SELECT p.id,COALESCE(m.role,'learner') FROM products p
+ JOIN users u ON u.id=?
+ LEFT JOIN product_members m ON m.product_id=p.id AND m.user_id=u.id
+ WHERE (m.user_id IS NOT NULL OR p.shared_with_all=1)`
+
+// Memberships lists a user's effective product roles, including shared products.
 func (s Store) Memberships(ctx context.Context, userID string) ([]Membership, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT product_id,role FROM product_members WHERE user_id=? ORDER BY created_at", userID)
+	rows, err := s.DB.QueryContext(ctx, effectiveMemberships+" ORDER BY p.created_at,p.id", userID)
 	if err != nil {
 		return nil, fmt.Errorf("list memberships: %w", err)
 	}
@@ -239,7 +251,8 @@ func (s Store) Memberships(ctx context.Context, userID string) ([]Membership, er
 // ProductRole returns the user's role on a product, or an empty string without access.
 func (s Store) ProductRole(ctx context.Context, userID, productID string) (string, error) {
 	var role string
-	err := s.DB.QueryRowContext(ctx, "SELECT role FROM product_members WHERE user_id=? AND product_id=?", userID, productID).Scan(&role)
+	var id string
+	err := s.DB.QueryRowContext(ctx, effectiveMemberships+" AND p.id=?", userID, productID).Scan(&id, &role)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
@@ -247,6 +260,26 @@ func (s Store) ProductRole(ctx context.Context, userID, productID string) (strin
 		return "", fmt.Errorf("read product role: %w", err)
 	}
 	return role, nil
+}
+
+// Sharing reads the product's access policy.
+func (s Store) Sharing(ctx context.Context, productID string) (Sharing, error) {
+	var value Sharing
+	err := s.DB.QueryRowContext(ctx, "SELECT shared_with_all FROM products WHERE id=?", productID).Scan(&value.SharedWithAll)
+	if err != nil {
+		return Sharing{}, fmt.Errorf("read product sharing: %w", err)
+	}
+	return value, nil
+}
+
+// SetSharing changes broad access without modifying individual memberships.
+func (s Store) SetSharing(ctx context.Context, productID string, input Sharing) (Sharing, error) {
+	var value Sharing
+	err := s.DB.QueryRowContext(ctx, "UPDATE products SET shared_with_all=? WHERE id=? RETURNING shared_with_all", input.SharedWithAll, productID).Scan(&value.SharedWithAll)
+	if err != nil {
+		return Sharing{}, fmt.Errorf("save product sharing: %w", err)
+	}
+	return value, nil
 }
 
 // LeadsAny reports whether the user leads at least one product.

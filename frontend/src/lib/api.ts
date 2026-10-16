@@ -33,6 +33,7 @@ export type Me = components['schemas']['Me'];
 export type MCPSettings = components['schemas']['MCPSettings'];
 export type MCPClient = components['schemas']['MCPClient'];
 export type Member = components['schemas']['Member'];
+export type ProductSharing = components['schemas']['ProductSharing'];
 
 interface ErrorBody {
   code?: string;
