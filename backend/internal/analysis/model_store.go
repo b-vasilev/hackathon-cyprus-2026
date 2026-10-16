@@ -138,6 +138,7 @@ func (store *ModelStore) Apply(ctx context.Context, part ModelPart) error {
 	if area < 0 || store.state.Tasks[area].Status != TaskActive {
 		return errors.New("model part must belong to the active analysis area")
 	}
+	part.Evidence = repairDocumentIDs(part.Evidence, store.lines)
 	next := cloneCheckpoint(store.state)
 	ids, err := applyPart(&next, part)
 	if err != nil {
@@ -824,4 +825,63 @@ func updateModelQuestions(next *Checkpoint, part ModelPart) error {
 		*pair.target = slices.Clone(pair.values)
 	}
 	return nil
+}
+
+// repairDocumentIDs fixes source IDs the model copied with one or two wrong characters
+// (whitespace is already removed by the tool). Document IDs are random, so a single near
+// match is the intended source.
+func repairDocumentIDs(evidence []passport.Evidence, lines map[string]int) []passport.Evidence {
+	repaired := slices.Clone(evidence)
+	for i := range repaired {
+		repaired[i].DocumentID = resolveDocumentID(repaired[i].DocumentID, lines)
+	}
+	return repaired
+}
+
+func resolveDocumentID(id string, lines map[string]int) string {
+	if _, ok := lines[id]; ok {
+		return id
+	}
+	match := ""
+	for known := range lines {
+		if withinEdits(id, known, 2) {
+			if match != "" {
+				return id // Ambiguous: keep the original so validation explains the problem.
+			}
+			match = known
+		}
+	}
+	if match == "" {
+		return id
+	}
+	return match
+}
+
+// withinEdits reports whether a and b differ by at most limit insertions, deletions or substitutions.
+func withinEdits(a, b string, limit int) bool {
+	if a == "" || b == "" || len(a)-len(b) > limit || len(b)-len(a) > limit {
+		return false
+	}
+	previous := make([]int, len(b)+1)
+	for j := range previous {
+		previous[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		current := make([]int, len(b)+1)
+		current[0] = i
+		best := current[0]
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			current[j] = min(previous[j]+1, current[j-1]+1, previous[j-1]+cost)
+			best = min(best, current[j])
+		}
+		if best > limit {
+			return false
+		}
+		previous = current
+	}
+	return previous[len(b)] <= limit
 }

@@ -119,11 +119,18 @@ func (g githubClient) candidates(ctx context.Context, repository string) ([]Cand
 		}
 	}
 	// The list endpoint omits diff sizes, so read them for the inspected pull requests.
-	for i := range found {
-		if err := g.get(ctx, fmt.Sprintf("/repos/%s/pulls/%d", repository, found[i].pull.Number), &found[i].pull); err != nil {
-			return nil, err
+	// A pull request whose details fail to load is dropped rather than failing the list;
+	// when every request fails (for example a rate limit), the last error is returned.
+	var lastErr error
+	detailed := found[:0]
+	for _, item := range found {
+		if err := g.get(ctx, fmt.Sprintf("/repos/%s/pulls/%d", repository, item.pull.Number), &item.pull); err != nil {
+			lastErr = err
+			continue
 		}
+		detailed = append(detailed, item)
 	}
+	found = detailed
 	slices.SortStableFunc(found, func(a, b linked) int {
 		return cmp.Compare(a.pull.Additions+a.pull.Deletions, b.pull.Additions+b.pull.Deletions)
 	})
@@ -137,7 +144,8 @@ func (g githubClient) candidates(ctx context.Context, repository string) ([]Cand
 			Filename string `json:"filename"`
 		}
 		if err := g.get(ctx, fmt.Sprintf("/repos/%s/pulls/%d/files?per_page=30", repository, item.pull.Number), &files); err != nil {
-			return nil, err
+			lastErr = err
+			continue
 		}
 		candidate := Candidate{
 			Repository: repository, Number: issue.Number, Title: issue.Title, URL: issue.HTMLURL,
@@ -155,6 +163,9 @@ func (g githubClient) candidates(ctx context.Context, repository string) ([]Cand
 		if len(result) == candidateLimit {
 			break
 		}
+	}
+	if len(result) == 0 && lastErr != nil {
+		return nil, lastErr
 	}
 	return result, nil
 }

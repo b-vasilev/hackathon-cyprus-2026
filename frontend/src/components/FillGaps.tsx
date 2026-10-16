@@ -94,7 +94,7 @@ export function FillGaps({
         <button
           type="button"
           className={`gap ${state}`}
-          aria-label={chip === undefined ? `Gap ${gap + 1}, empty` : `Gap ${gap + 1}: ${chip.text}`}
+          aria-label={gapLabel(gap, chip?.text, checked ? results[gap] : undefined)}
           disabled={checked}
           onClick={() => clickGap(gap)}
           onDragOver={(event) => event.preventDefault()}
@@ -119,7 +119,7 @@ export function FillGaps({
         <div className="fill-template">{content}</div>
       )}
       {!checked && (
-        <div className="chip-tray" aria-label="Options">
+        <div className="chip-tray" role="group" aria-label="Options">
           {chips.map((chip) => (
             <button
               type="button"
@@ -152,4 +152,13 @@ export function FillGaps({
       )}
     </>
   );
+}
+
+// Screen readers hear the result too, not only the colour of the gap.
+function gapLabel(gap: number, text: string | undefined, correct: boolean | undefined) {
+  const content = text === undefined ? `Gap ${gap + 1}, empty` : `Gap ${gap + 1}: ${text}`;
+  if (correct === undefined) {
+    return content;
+  }
+  return `${content}, ${correct ? 'correct' : 'incorrect'}`;
 }

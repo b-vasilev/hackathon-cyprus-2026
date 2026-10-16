@@ -30,7 +30,11 @@ export function Products() {
   const query = useQuery({
     queryKey: ['products'],
     queryFn: ({ signal }) => api<Product[]>('/products', { signal }),
-    refetchInterval: 5000,
+    // Poll only while a generation is running.
+    refetchInterval: (current) =>
+      current.state.data?.some((product) => activeRun(product.latest_run_status)) === true
+        ? 5000
+        : false,
   });
   const products = query.data?.filter((product) => canManage(me, product.id));
   return (
@@ -85,7 +89,7 @@ export function Products() {
                 />
               </span>
               <h2>{product.name}</h2>
-              <div className="studio-card-statuses" role="status">
+              <div className="studio-card-statuses">
                 <span className="studio-card-status">
                   {product.published_revision_id !== '' && <Check size={14} aria-hidden="true" />}
                   {productStatus(product)}

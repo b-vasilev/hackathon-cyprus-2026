@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorNotice, PageHeading } from '../components/ui';
 import { api, type Me } from '../lib/api';
 import { setSignedInUser } from '../lib/auth';
@@ -9,6 +9,16 @@ import { setSignedInUser } from '../lib/auth';
 export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  // A signed-out visitor to a deep link (an AI app's consent request, a shared passport)
+  // returns there after signing in, with its query string intact.
+  // Switching between sign-in and registration carries the destination along.
+  const carried = (location.state as { from?: string } | null)?.from;
+  const destination =
+    carried ??
+    (['/login', '/register'].includes(location.pathname)
+      ? '/'
+      : `${location.pathname}${location.search}${location.hash}`);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const registering = mode === 'register';
@@ -21,7 +31,7 @@ export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
     // The app shell renders the signed-in routes once the user is known.
     onSuccess: async (me) => {
       await setSignedInUser(queryClient, me);
-      void navigate('/', {
+      void navigate(destination, {
         replace: true,
         state: {
           authMessage: registering
@@ -78,7 +88,11 @@ export function AuthPage({ mode }: Readonly<{ mode: 'login' | 'register' }>) {
         )}
         {submit.isError && <ErrorNotice error={submit.error} />}
         <div className="form-actions">
-          <Link className="text-link" to={registering ? '/login' : '/register'}>
+          <Link
+            className="text-link"
+            to={registering ? '/login' : '/register'}
+            state={{ from: destination }}
+          >
             {registering ? 'I already have an account' : 'Create an account'}
           </Link>
           <button className="button primary" disabled={submit.isPending}>

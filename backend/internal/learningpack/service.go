@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/connectionowner"
@@ -58,9 +59,20 @@ type Service struct {
 	GitHubBase string
 	Logger     zerolog.Logger
 	Background context.Context
+	running    sync.WaitGroup
+	mu         sync.Mutex
+	closed     bool
 }
 
 func now() string { return time.Now().UTC().Format(time.RFC3339Nano) }
+
+// Wait refuses new generations and blocks until running ones have saved their result.
+func (s *Service) Wait() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.running.Wait()
+}
 
 // Recover marks packs interrupted by a restart as failed so they can be generated again.
 func (s *Service) Recover(ctx context.Context) error {
@@ -133,7 +145,13 @@ func (s *Service) Start(ctx context.Context, revisionID, userID string) (View, e
 	if changed, _ := result.RowsAffected(); changed == 0 {
 		return View{}, fmt.Errorf("%w: the learning pack is already being generated", generation.ErrActive)
 	}
-	go s.run(connectionowner.UserID(ctx), revision)
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return View{}, errors.New("the server is shutting down; generate the learning pack again in a moment")
+	}
+	s.running.Go(func() { s.run(connectionowner.UserID(ctx), revision) })
+	s.mu.Unlock()
 	return s.Get(ctx, revisionID)
 }
 
@@ -262,7 +280,8 @@ func (s *Service) connection(ctx context.Context, runID string) (llmgateway.Conf
 	}
 	config, err := s.Passports.Connections.Load(ctx, connectionID, frozen)
 	if err != nil {
-		return llmgateway.Config{}, "", fmt.Errorf("the LLM connection that generated this passport (%s) is disabled or unavailable", model)
+		// Connections are personal, so another account's connection is not visible here.
+		return llmgateway.Config{}, "", fmt.Errorf("%w: practice uses the model connection that generated this passport (%s), and it is disabled or belongs to another account; generate the passport with your own connection first", llmgateway.ErrInvalid, model)
 	}
 	return config, model, nil
 }
@@ -289,7 +308,10 @@ func (s *Service) issueCandidates(ctx context.Context, revision generation.Revis
 		}
 		candidates, err := client.candidates(ctx, repository)
 		if err != nil {
-			return nil, repository, fmt.Errorf("read closed issues of %s: %w", repository, err)
+			// Rate limits, private repositories or an expired token should not block the
+			// pack: the prompt then builds the mission without an issue.
+			s.Logger.Warn().Err(err).Str("repository", repository).Msg("closed issues unavailable for learning pack")
+			return nil, repository, nil
 		}
 		return candidates, repository, nil
 	}

@@ -83,6 +83,8 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 		stopWorker()
 		return fmt.Errorf("start learning packs: %w", recoverErr)
 	}
+	// Deferred before stopWorker, so it runs after cancellation and before the database closes.
+	defer packs.Wait()
 	workerDone := make(chan struct{})
 	go func() { defer close(workerDone); factory.Work(workerCtx, cfg.GenerationWorkers) }()
 	defer func() { stopWorker(); <-workerDone }()

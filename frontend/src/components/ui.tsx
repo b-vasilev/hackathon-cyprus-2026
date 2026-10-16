@@ -93,18 +93,43 @@ export function Dialog({
   wide?: boolean;
 }>) {
   const ref = useRef<HTMLDialogElement>(null);
+  const mounted = useRef(false);
   const heading = useId();
   useEffect(() => {
     const dialog = ref.current;
+    mounted.current = true;
     dialog?.showModal();
-    return () => dialog?.close();
+    return () => {
+      mounted.current = false;
+      dialog?.close();
+    };
   }, []);
   return (
     <dialog
       ref={ref}
       className={`dialog ${wide ? 'wide' : ''}`}
       aria-labelledby={heading}
-      onCancel={onClose}
+      onCancel={(event) => {
+        // Escape must go through onClose, which can refuse while an action is running;
+        // a natively closed dialog would stay mounted but invisible.
+        event.preventDefault();
+        onClose();
+      }}
+      onClose={() => {
+        // Browsers may close the dialog natively anyway (for example a repeated Escape).
+        // The event arrives asynchronously, so ignore it when the dialog is open again
+        // (StrictMode remounts it) or already unmounted.
+        if (!mounted.current || ref.current?.open !== false) {
+          return;
+        }
+        onClose();
+        // If the owner keeps the dialog mounted, show it again instead of leaving it invisible.
+        requestAnimationFrame(() => {
+          if (mounted.current && ref.current?.open === false) {
+            ref.current.showModal();
+          }
+        });
+      }}
     >
       <div className="dialog-heading">
         <h2 id={heading}>{title}</h2>

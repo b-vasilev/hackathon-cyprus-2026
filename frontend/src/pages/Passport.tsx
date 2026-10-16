@@ -310,7 +310,6 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
       {!publishedView && (
         <MissingConnectionNotice
           manage={manage}
-          admin={isAdmin(me)}
           available={availableConnections.length}
           setupEnabled={setup.data?.connections_enabled}
           loading={connections.isPending}
@@ -633,13 +632,11 @@ function revisionStatus(revision: RevisionInfo): string {
 
 function MissingConnectionNotice({
   manage,
-  admin,
   available,
   setupEnabled,
   loading,
 }: Readonly<{
   manage: boolean;
-  admin: boolean;
   available: number;
   setupEnabled?: boolean;
   loading: boolean;
@@ -651,14 +648,10 @@ function MissingConnectionNotice({
   return (
     <div className="notice">
       <p>Add an enabled model connection to generate this passport.</p>
-      {admin ? (
-        <Link className="text-link" to="/connections">
-          Set up a connection
-          <ArrowRight size={15} />
-        </Link>
-      ) : (
-        <p>Ask an admin to set one up.</p>
-      )}
+      <Link className="text-link" to="/connections">
+        Set up your connection
+        <ArrowRight size={15} />
+      </Link>
     </div>
   );
 }

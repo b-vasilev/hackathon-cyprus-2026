@@ -5,6 +5,35 @@ repository evidence, review and publish it for your team, and work through
 Foundations lessons and quizzes. Each product gets its own content, model,
 scenarios and diagrams through shared renderers.
 
+| | |
+| --- | --- |
+| **Category** | Inside the Crew: collaboration inside T1A |
+| **Live portal** | https://wayfinder-t1a.eastus2.cloudapp.azure.com |
+
+Wayfinder helps T1A teams onboard each other onto internal products: product leads
+publish reviewed, source-backed passports and practice, and newcomers from any team
+learn from the same checked material instead of asking around. After signing up on
+the live portal you can explore three demo product passports and take their
+quizzes. New accounts do not get admin access, so Product studio stays hidden.
+
+- **Product passports from code.** Pinned GitHub sources are researched by an LLM
+  into a passport: purpose, architecture, end-to-end flows, technologies and
+  decisions, with every source-backed claim linked to exact lines.
+- **Review before learners see it.** Leads edit, comment, flag and publish
+  versions; learners only read the published copy.
+- **Practice.** Each passport version can get a product quiz and a guided first
+  task built around a real closed issue and the pull request that fixed it.
+- **Foundations.** Shared engineering lessons with interactive quizzes, progress
+  and achievements saved to the account.
+- **Connect AI.** A remote MCP server with OAuth lets AI assistants export
+  published passports.
+
+Contents: [Run locally](#run-locally) · [Accounts and access](#accounts-and-access) ·
+[Foundations](#foundations) · [Practice](#practice) · [Connect AI](#connect-ai) ·
+[LLM connections](#llm-connections) · [API and modules](#api-and-modules) ·
+[Build and checks](#build-and-checks) · [Deployment](#deployment) ·
+[Current limits](#current-limits) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+
 ```text
 GitHub SHA + optional context
               |
@@ -42,11 +71,6 @@ Product studio is available to admins and product leads. The separate Published
 passports tab is available to all signed-in users for their assigned products.
 
 ## Run locally
-
-Deployed portal: [Wayfinder](https://wayfinder-t1a.eastus2.cloudapp.azure.com).
-After signing up on the deployed portal, you can explore three demo product
-passports and take their quizzes. New accounts do not get admin access by
-default, and Product studio is hidden.
 
 Install [mise](https://mise.jdx.dev/), then:
 
@@ -114,9 +138,12 @@ Later accounts start with no product access.
 
 | Role | Scope | Can |
 | --- | --- | --- |
-| Admin | Everything | Manage connections, products, all product access and admin roles. |
-| Product lead | One product | Read and generate its passport; grant or revoke leads and learners. |
-| Learner | One product | Read the product and its published passport. |
+| Admin | Everything | Manage products, all product access and admin roles. |
+| Product lead | One product | Generate, review and publish its passport and practice; grant or revoke leads and learners. |
+| Learner | One product | Read the published passport and take its practice. Source settings and drafts stay hidden. |
+
+Every account keeps its own LLM and GitHub connections under **Connections**; a
+generation uses the credentials of the person who starts it.
 
 A person can hold different roles on different products. Admins manage accounts and
 every product's leads and learners under **People**. Leads manage their own products
@@ -128,7 +155,21 @@ Every signed-in user can access Foundations, even without product assignments.
 Modules contain lessons and quizzes; completing every lesson and passing the quiz
 completes a module. Learning progress, quiz results and achievement unlocks are
 saved to the account in SQLite and synced with a browser copy. The home page shows
-the next learning step and available published passports.
+the next learning step and available published passports. Saves are merged on
+the server, so progress made on another device or in another browser is never
+overwritten.
+
+## Practice
+
+On a passport version's last chapter, **Practice**, a lead can generate a learning
+pack, try it without recording progress and publish it. The pack has a product
+quiz answerable from the passport and a first-task mission: clone the repository,
+run the documented checks, find the code through the passport, then study a real
+closed issue and the merged pull request that resolved it, and finish with a short
+check. Candidate issues come from merged pull requests that close an issue
+("Fixes #N"), smallest change first; links and changed files come from GitHub, not
+the model. When GitHub is unavailable, the mission is built without an issue.
+Learners see the published pack and their progress is saved to the account.
 
 Product practice is shown only for the currently published passport version. If
 that version has no published practice, learners do not see an older version's
@@ -240,9 +281,9 @@ Regular source files are staged for the pinned Repomix CLI. Repomix
 security and ignore filters determine safe files; original Git bytes are retained
 for exact hashes and line citations.
 
-Admins can connect GitHub with a personal access token in **Connections**. The account is
-shared across this portal and used for private source
-repositories. Tokens are checked against GitHub, encrypted using `CONNECTION_MASTER_KEY`,
+Each person can connect their own GitHub account with a personal access token in
+**Connections**; it is used for private source repositories in the generations
+they start. Tokens are checked against GitHub, encrypted using `CONNECTION_MASTER_KEY`,
 and never returned by the API. A fine-grained token needs Contents read access to
 the selected repositories; organization approval may also be required.
 
@@ -396,7 +437,7 @@ stream when the run finishes. A stream heartbeat does not mean worker progress.
 | `/api/me/learning` | Read and save the signed-in user's learning progress |
 | `/api/factory/status` | Connection setup availability |
 | `/api/llm-connections`, `/{id}`, `/{id}/test`, `/models` | Save, edit, list, check connections and fetch models |
-| `/api/git-connection`, `/api/git-connection/oauth/start`, `/oauth/callback` | Shared GitHub credentials and GitHub browser sign-in; OAuth routes under `/api/git-connection` |
+| `/api/git-connection`, `/api/git-connection/oauth/start`, `/oauth/callback` | Personal GitHub credentials and GitHub browser sign-in; OAuth routes under `/api/git-connection` |
 | `/api/products`, `/{id}` | Register and inspect product sources |
 | `/api/products/{id}/icon` | Lead/admin upload or removal of a custom product icon |
 | `/api/products/{id}/generations` | Queue generation; returns 202 |
@@ -407,6 +448,8 @@ stream when the run finishes. A stream heartbeat does not mean worker progress.
 | `/api/passport-revisions/{id}/publish`, `/{id}/unpublish` | Lead/admin publication of one version |
 | `/api/passport-revisions/{id}/review`, `/{id}/comments`, `/{id}/flag`, `/{id}/chapters/{chapterId}` | Lead/admin review notes, flags and chapter edits |
 | `/api/products/{id}/passport.md` | Download a published passport as Markdown |
+| `/api/passport-revisions/{id}/learning-pack`, `/publish`, `/unpublish` | Lead/admin practice generation, preview and publication |
+| `/api/products/{id}/learning-pack` | The published practice for learners |
 | `/mcp`, `/oauth/*`, `/.well-known/*`, `/api/ai-connections` | Remote AI access, OAuth discovery, consent and app disconnection |
 
 ```text
@@ -420,6 +463,7 @@ backend/internal/generation/      durable queue and generation stages
 backend/internal/product/         product source configuration
 backend/internal/access/          accounts, sessions and product roles
 backend/internal/learning/        account learning progress
+backend/internal/learningpack/    practice quizzes and first-task missions
 backend/internal/mcpauth/          OAuth clients, grants and tokens for MCP
 backend/internal/api/             routes, OpenAPI and optional built UI
 backend/cmd/mcp/                  local stdio adapter for remote MCP
@@ -450,8 +494,9 @@ builds run separately as shown above.
 
 OpenAPI types are generated with openapi-typescript, not maintained by hand.
 CI runs backend and frontend tests, formatting and lint checks on pull
-requests and pushes to `main`. It also checks frontend types and builds the UI,
-and audits Go dependencies. It does not deploy the app.
+requests and pushes to `main`. It also checks frontend types, builds the UI and the
+Docker image, audits Go dependencies, and fails when the committed OpenAPI contract
+or generated types are stale. The separate Deploy workflow deploys after CI succeeds.
 
 ```sh
 # Compose reads .env; set a stable CONNECTION_MASTER_KEY there first.

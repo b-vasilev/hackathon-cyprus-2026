@@ -1,5 +1,20 @@
 # Working Rules
 
+## Repository map
+
+- `backend/` Go API: `internal/api` (routes, OpenAPI), `internal/generation`,
+  `internal/research` and `internal/analysis` (passport pipeline), `internal/learningpack`
+  (practice), `internal/access` (accounts, roles), `internal/db/migrations`.
+- `frontend/` React + TypeScript portal: `src/pages`, `src/components`,
+  `src/foundations` (lessons, quizzes, progress), `src/api.generated.ts` (generated).
+- `deploy/` production compose and Caddy; `.github/workflows` CI and deploy.
+
+## Commands
+
+- Run locally: `mise exec -- just dev`.
+- Checks: `just ci` (backend), `just check-web`, `just frontend::test`, `just frontend::build`.
+- After changing API types or routes: `just generate-api`, then commit both generated files.
+
 ## Engineering Principles
 
 - KISS: choose the simplest solution that satisfies the requirements.

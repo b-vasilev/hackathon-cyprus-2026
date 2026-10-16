@@ -29,6 +29,7 @@ func signInAdmin(t *testing.T, store *access.Store) *http.Cookie {
 	return &http.Cookie{Name: sessionCookie, Value: token, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}
 }
 
+//nolint:gocyclo // One role matrix walks every access rule against the same accounts.
 func TestAccessRoles(t *testing.T) {
 	t.Parallel()
 	database, err := db.Open(t.Context(), filepath.Join(t.TempDir(), "access.db"))
@@ -113,7 +114,15 @@ func TestAccessRoles(t *testing.T) {
 	if body := request(http.MethodGet, "/api/products", "", outsider, http.StatusOK).Body.String(); strings.TrimSpace(body) != "[]" {
 		t.Fatal("outsider sees products", body)
 	}
-	request(http.MethodGet, "/api/products/"+product.ID, "", learner, http.StatusOK)
+	// Learners see the product, but not its source configuration.
+	for _, path := range []string{"/api/products", "/api/products/" + product.ID} {
+		if body := request(http.MethodGet, path, "", learner, http.StatusOK).Body.String(); strings.Contains(body, "Product purpose") {
+			t.Fatalf("learner received source configuration from %s: %s", path, body)
+		}
+	}
+	if body := request(http.MethodGet, "/api/products/"+product.ID, "", lead, http.StatusOK).Body.String(); !strings.Contains(body, "Product purpose") {
+		t.Fatal("lead lost the source configuration", body)
+	}
 	request(http.MethodGet, "/api/products/"+product.ID+"/passport-revisions", "", learner, http.StatusForbidden)
 	request(http.MethodGet, "/api/products/"+product.ID, "", outsider, http.StatusNotFound)
 	request(http.MethodGet, "/api/generations/missing", "", learner, http.StatusNotFound)

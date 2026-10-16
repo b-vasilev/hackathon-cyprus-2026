@@ -76,7 +76,16 @@ func Specification() ([]byte, error) {
 	}
 	patch.Required = nil
 	schemas["ConnectionPatch"] = patch
-	paths := spec["paths"].(map[string]any)
+	// Keep only the hand-written operational paths; every API route is generated below,
+	// so routes removed from the table also disappear from the contract.
+	base := spec["paths"].(map[string]any)
+	paths := map[string]any{}
+	for _, path := range []string{"/api/openapi.json", "/healthz", "/readyz"} {
+		if operation, ok := base[path]; ok {
+			paths[path] = operation
+		}
+	}
+	spec["paths"] = paths
 	for _, route := range []struct {
 		method, path, id, input, output string
 		status                          int

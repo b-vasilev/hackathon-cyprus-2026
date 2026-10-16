@@ -5744,43 +5744,6 @@
         }
       }
     },
-    "/api/passport-revisions/{id}/approve": {
-      "post": {
-        "operationId": "approveRevision",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Revision"
-                }
-              }
-            },
-            "description": "Success"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Request failed"
-          }
-        }
-      }
-    },
     "/api/passport-revisions/{id}/chapters/{chapterId}": {
       "put": {
         "operationId": "editRevisionChapter",
