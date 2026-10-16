@@ -2982,6 +2982,18 @@
         ],
         "additionalProperties": false
       },
+      "ProductSharing": {
+        "type": "object",
+        "properties": {
+          "shared_with_all": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shared_with_all"
+        ],
+        "additionalProperties": false
+      },
       "Relation": {
         "type": "object",
         "properties": {
@@ -6768,6 +6780,88 @@
               }
             },
             "description": "Complete published passport download"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/sharing": {
+      "get": {
+        "operationId": "getProductSharing",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductSharing"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setProductSharing",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductSharing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductSharing"
+                }
+              }
+            },
+            "description": "Success"
           },
           "default": {
             "content": {

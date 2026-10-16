@@ -47,7 +47,8 @@ func Specification() ([]byte, error) {
 		"Review": passport.Schema[generation.Review], "ReviewActivity": passport.Schema[generation.ReviewActivity], "CommentInput": passport.Schema[generation.CommentInput], "FlagInput": passport.Schema[generation.FlagInput], "ChapterEdit": passport.Schema[passport.ChapterEdit],
 		"GenerationEvent": passport.Schema[generation.Event],
 		"User":            passport.Schema[access.User], "Me": passport.Schema[access.Me], "Membership": passport.Schema[access.Membership], "Member": passport.Schema[access.Member], "Credentials": passport.Schema[access.Credentials], "MemberInput": passport.Schema[access.MemberInput], "RoleInput": passport.Schema[access.RoleInput],
-		"Passport": passport.Schema[passport.Passport], "ProductModel": passport.Schema[passport.Model], "ProductObject": passport.Schema[passport.Object], "Claim": passport.Schema[passport.Claim], "Evidence": passport.Schema[passport.Evidence], "Relation": passport.Schema[passport.Relation], "Scenario": passport.Schema[passport.Scenario], "Section": passport.Schema[passport.Section], "Diagram": passport.Schema[passport.Diagram],
+		"ProductSharing": passport.Schema[access.Sharing],
+		"Passport":       passport.Schema[passport.Passport], "ProductModel": passport.Schema[passport.Model], "ProductObject": passport.Schema[passport.Object], "Claim": passport.Schema[passport.Claim], "Evidence": passport.Schema[passport.Evidence], "Relation": passport.Schema[passport.Relation], "Scenario": passport.Schema[passport.Scenario], "Section": passport.Schema[passport.Section], "Diagram": passport.Schema[passport.Diagram],
 		"Problem": passport.Schema[Problem], "Probe": passport.Schema[Probe], "ProbeResult": passport.Schema[ProbeResult], "FactoryStatus": passport.Schema[FactoryStatus],
 	}
 	components := spec["components"].(map[string]any)
@@ -96,6 +97,8 @@ func Specification() ([]byte, error) {
 		{"patch", "/api/users/{id}", "setUserRole", "RoleInput", "User", 200, false},
 		{methodDelete, "/api/users/{id}", "deleteUser", "", "", 204, false},
 		{methodGet, "/api/products/{id}/members", "listMembers", "", "Member", 200, true},
+		{methodGet, "/api/products/{id}/sharing", "getProductSharing", "", "ProductSharing", 200, false},
+		{methodPut, "/api/products/{id}/sharing", "setProductSharing", "ProductSharing", "ProductSharing", 200, false},
 		{methodPut, "/api/products/{id}/members", "setMember", "MemberInput", "Member", 200, false},
 		{methodDelete, "/api/products/{id}/members/{userId}", "removeMember", "", "", 204, false},
 		{methodGet, "/api/git-connection", "getGitHubConnection", "", "GitHubConnection", 200, false},
