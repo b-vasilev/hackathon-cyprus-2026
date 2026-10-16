@@ -11,6 +11,7 @@ import (
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 )
 
 type compositionInvocation struct {
@@ -161,5 +162,24 @@ func TestCompositionParallelPartsRetryIndependentlyAndKeepReadingOrder(t *testin
 		if task.MaxAttempts != maxGenerationAttempts {
 			t.Errorf("task %s has attempt limit %d, want %d", task.ID, task.MaxAttempts, maxGenerationAttempts)
 		}
+	}
+}
+
+// Strict output schemas make the model fill every block field. Stray structural
+// values on prose must not fail the part; the server owns them.
+func TestCompositionIgnoresStructuralFieldsOnAuthoredProse(t *testing.T) {
+	t.Parallel()
+	c := &composer{model: fixtureModel("Payment service", "source"), documents: map[string]int{"source": 1}}
+	part := compositionPart{Title: "Technology footprint", Instructions: "Summarize.", Kind: "markdown"}
+	returned := compositionFragment{Block: passport.DocumentBlock{Kind: "markdown", Markdown: "The table below lists every technology.", ObjectIDs: []string{}, TableStyle: "objects"}}
+	if err := c.checkFragment("technologies", "technologies-part-1", part, returned); err == nil {
+		t.Fatal("fixture no longer reproduces the stray table style")
+	}
+	fragment := authoredFragment(returned)
+	if err := c.checkFragment("technologies", "technologies-part-1", part, fragment); err != nil {
+		t.Fatal(err)
+	}
+	if fragment.Block.Markdown != returned.Block.Markdown || fragment.Block.TableStyle != "" {
+		t.Fatalf("unexpected authored block: %+v", fragment.Block)
 	}
 }
