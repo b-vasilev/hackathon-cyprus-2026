@@ -710,13 +710,17 @@
           "resume_run_id": {
             "type": "string"
           },
+          "generate_quiz": {
+            "type": "boolean"
+          },
           "request_timeout_seconds": {
             "type": "integer"
           }
         },
         "required": [
           "connection_id",
-          "model"
+          "model",
+          "generate_quiz"
         ],
         "additionalProperties": false
       },
@@ -4020,6 +4024,9 @@
           "model": {
             "type": "string"
           },
+          "generate_quiz": {
+            "type": "boolean"
+          },
           "request_timeout_seconds": {
             "type": "integer"
           },
@@ -4518,6 +4525,7 @@
           "connection_id",
           "connection_revision",
           "model",
+          "generate_quiz",
           "request_timeout_seconds",
           "status",
           "stage",

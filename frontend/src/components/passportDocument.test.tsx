@@ -7,6 +7,7 @@ import { DiagramNode } from './DiagramNode';
 import { DocumentContent } from './DocumentContent';
 import { PartialResearchNotice } from './PartialResearchNotice';
 import { ObjectDetail, SectionContent } from './PassportContent';
+import { PassportReview } from './PassportReview';
 import { SafeMarkdown } from './SafeMarkdown';
 import type { Chapter, ProductObject, Revision, Section } from '../lib/api';
 
@@ -93,6 +94,34 @@ function renderNode(item: ProductObject): string {
     />
   );
 }
+
+test('published passports can publish a newly ready quiz without text changes', () => {
+  for (const ready of [false, true]) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+    });
+    client.setQueryData(['review', 'revision'], { flagged_at: '', edited_at: '', activity: [] });
+    client.setQueryData(['learning-pack', 'revision'], {
+      status: ready ? 'ready' : 'generating',
+      content: ready ? { quiz: [] } : null,
+      published: false,
+      unpublished_changes: false,
+    });
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <PassportReview
+          revision={{ ...revision(), published: true }}
+          chapters={[]}
+          currentChapterId=""
+        />
+      </QueryClientProvider>
+    );
+    assert.equal(html.includes('Publish changes'), ready);
+    assert.equal(html.includes('also publishes its quiz and first task'), ready);
+    assert.equal(html.includes('The quiz is still generating'), !ready);
+    client.clear();
+  }
+});
 
 test('architectural roles label nodes and inspectors with a legacy kind fallback', () => {
   for (const role of ['software_system', 'runtime_unit', 'component', '']) {

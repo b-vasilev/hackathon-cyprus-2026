@@ -76,6 +76,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
   });
   const [connectionId, setConnectionId] = useState('');
   const [modelId, setModelId] = useState('');
+  const [quizChoice, setQuizChoice] = useState<boolean | null>(null);
   const [selectedRevision, setSelectedRevision] = useState('');
   const [sectionId, setSectionId] = useState('');
   // Identifies the chapter being edited; changing version or chapter ends editing.
@@ -93,6 +94,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
   const availableConnections = connections.data?.filter((item) => item.config.enabled) ?? [];
   const runId = publishedView ? '' : (product.data?.latest_run_id ?? '');
   const { run, streamState } = useGeneration(runId);
+  const generateQuiz = quizChoice ?? run.data?.generate_quiz ?? false;
   const connection =
     availableConnections.find(
       (item) => item.id === (connectionId === '' ? run.data?.connection_id : connectionId)
@@ -129,8 +131,9 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
                 connection_id: run.data.connection_id,
                 model: run.data.model,
                 resume_run_id: run.data.id,
+                generate_quiz: generateQuiz,
               }
-            : { connection_id: connection?.id, model: model?.id }
+            : { connection_id: connection?.id, model: model?.id, generate_quiz: generateQuiz }
         ),
       }),
     onSuccess: async (newRun) => {
@@ -276,6 +279,18 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
                 </option>
               ))}
             </select>
+          </label>
+          <label className="checkbox-label generation-quiz-option">
+            <input
+              type="checkbox"
+              checked={generateQuiz}
+              disabled={busy}
+              onChange={(event) => setQuizChoice(event.target.checked)}
+            />
+            <span>
+              Generate product quiz
+              <small>Creates a quiz and first task after the passport, ready for review.</small>
+            </span>
           </label>
           <GenerateButtons
             canResume={canResume}

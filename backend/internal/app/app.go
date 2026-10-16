@@ -73,6 +73,12 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	}
 	workerCtx, stopWorker := context.WithCancel(ctx)
 	packs := &learningpack.Service{DB: database, Passports: factory, Logger: logger, Background: workerCtx, Token: sourceToken(githubStore, cfg.GitHubToken)}
+	factory.StartQuiz = func(ctx context.Context, revisionID string) error {
+		if _, startErr := packs.Start(ctx, revisionID, connectionowner.UserID(ctx)); startErr != nil {
+			return fmt.Errorf("start passport quiz: %w", startErr)
+		}
+		return nil
+	}
 	if recoverErr := packs.Recover(ctx); recoverErr != nil {
 		stopWorker()
 		return fmt.Errorf("start learning packs: %w", recoverErr)

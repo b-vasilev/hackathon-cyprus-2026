@@ -77,8 +77,6 @@ func TestPublishedPracticeFollowsPublishedPassport(t *testing.T) {
 
 	request(http.MethodPost, passportVersion(2, "learning-pack/unpublish"), "", portal.lead, http.StatusOK)
 	request(http.MethodPost, passportVersion(2, "publish"), "", portal.lead, http.StatusOK)
-	request(http.MethodGet, practice, "", portal.learner, http.StatusNotFound)
-	request(http.MethodPost, passportVersion(2, "learning-pack/publish"), "", portal.lead, http.StatusOK)
 	assertPractice(2)
 
 	// Rolling back selects the old practice; unpublishing hides practice as well.
@@ -94,7 +92,8 @@ func TestPracticePublicationChangesOnlyWithContent(t *testing.T) {
 	seedPracticeVersions(t, portal)
 	publish := func() learningpack.View {
 		t.Helper()
-		body := portal.request(http.MethodPost, "/api/passport-revisions/revision-1/learning-pack/publish", "", portal.lead, http.StatusOK)
+		portal.request(http.MethodPost, "/api/passport-revisions/revision-1/publish", "", portal.lead, http.StatusOK)
+		body := portal.request(http.MethodGet, "/api/passport-revisions/revision-1/learning-pack", "", portal.lead, http.StatusOK)
 		var pack learningpack.View
 		if err := json.Unmarshal([]byte(body), &pack); err != nil {
 			t.Fatal(err)
@@ -115,5 +114,17 @@ func TestPracticePublicationChangesOnlyWithContent(t *testing.T) {
 	}
 	if repeated := publish(); repeated.PublishedAt != updated.PublishedAt {
 		t.Fatalf("repeated publication reset progress: %s != %s", repeated.PublishedAt, updated.PublishedAt)
+	}
+	if _, err := portal.database.ExecContext(t.Context(), `UPDATE learning_packs SET status='generating',content_json=json_set(content_json,'$.mission.title','Still generating') WHERE revision_id='revision-1'`); err != nil {
+		t.Fatal(err)
+	}
+	publish()
+	var visible learningpack.View
+	body := portal.request(http.MethodGet, "/api/products/"+portal.productID+"/learning-pack", "", portal.learner, http.StatusOK)
+	if err := json.Unmarshal([]byte(body), &visible); err != nil {
+		t.Fatal(err)
+	}
+	if visible.Content == nil || visible.Content.Mission.Title != "Updated practice" {
+		t.Fatal("passport publication exposed unfinished practice")
 	}
 }

@@ -125,6 +125,12 @@ quiz or mission. Progress belongs to each published practice: publishing changed
 content starts fresh, while reopening or republishing unchanged practice keeps it.
 Older product-wide progress has no practice version and is not reused.
 
+Before generating or continuing a passport, select **Generate product quiz** to
+automatically create its quiz and first task once the passport is saved. The option
+is off by default. Review the result in **Practice**. Publishing the passport also
+publishes its ready quiz and first task. A practice failure
+does not discard the passport; retry practice generation from that version.
+
 ## Connect AI
 
 Use **MCP** (the gradient button in the top bar) to open Connect AI and copy

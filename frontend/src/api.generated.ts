@@ -930,6 +930,7 @@ export interface components {
       connection_id: string;
       model: string;
       resume_run_id?: string;
+      generate_quiz: boolean;
       request_timeout_seconds?: number;
     };
     GitHubConnection: {
@@ -1735,6 +1736,7 @@ export interface components {
       connection_id: string;
       connection_revision: number;
       model: string;
+      generate_quiz: boolean;
       request_timeout_seconds: number;
       status: string;
       stage: string;

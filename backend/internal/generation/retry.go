@@ -23,7 +23,7 @@ func validateRequestTimeout(seconds int) error {
 	return nil
 }
 
-// resume requeues the same failed run without rewriting its frozen inputs.
+// resume keeps the frozen sources and model while allowing generation options to change.
 func (s *Service) resume(ctx context.Context, productID string, input Input) (Run, error) {
 	run, err := s.GetRun(ctx, input.ResumeRunID)
 	if err != nil {
@@ -50,7 +50,13 @@ func (s *Service) resume(ctx context.Context, productID string, input Input) (Ru
 	if checkErr := tx.QueryRowContext(ctx, "SELECT id FROM llm_connections WHERE id=? AND enabled=1 AND deleted=0", run.ConnectionID).Scan(&enabledConnection); checkErr != nil {
 		return Run{}, fmt.Errorf("check retry connection: %w", checkErr)
 	}
-	result, err := tx.ExecContext(ctx, "UPDATE generation_runs SET status='queued',stage='queued',stage_started_at='',error_code='',error_message='',finished_at=NULL,request_timeout_seconds=? WHERE id=? AND product_id=? AND status='failed'", input.RequestTimeoutSeconds, run.ID, productID)
+	quizOption := "null"
+	if input.GenerateQuiz {
+		quizOption = "true"
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE generation_runs SET status='queued',stage='queued',stage_started_at='',error_code='',error_message='',finished_at=NULL,request_timeout_seconds=?,
+	 input_json=json_patch(CASE WHEN json_type(input_json)='array' THEN json_object('sources',json(input_json)) ELSE input_json END,json_object('generate_quiz',json(?)))
+	 WHERE id=? AND product_id=? AND status='failed'`, input.RequestTimeoutSeconds, quizOption, run.ID, productID)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: generation_runs.product_id") {
 			return Run{}, ErrActive
