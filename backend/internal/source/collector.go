@@ -78,6 +78,12 @@ type Document struct {
 	LineCount   int    `json:"line_count"`
 }
 
+// NormalizeDocumentID removes whitespace that models sometimes insert into a
+// document ID. Generated IDs never contain whitespace, so this is lossless.
+func NormalizeDocumentID(id string) string {
+	return strings.Join(strings.Fields(id), "")
+}
+
 // Collection is a bounded set of source evidence.
 type Collection struct {
 	Snapshots []Snapshot

@@ -71,7 +71,11 @@ func TestIncrementalToolsSaveDraftThenRequireReadEvidenceToFinalize(t *testing.T
 		t.Fatal("unread citation was accepted or erased earlier saved facts")
 	}
 	evidence.Evidence[0].EndLine = 1
+	evidence.Evidence[0].DocumentID = "d oc" // Models sometimes split long IDs with whitespace.
 	call("upsert_model_part", evidence, false)
+	if len(durable.Model.Evidence) != 1 || durable.Model.Evidence[0].DocumentID != "doc" {
+		t.Fatal("a whitespace-split document_id was not saved as the canonical ID")
+	}
 	object.ClaimIDs = []string{claim.ID}
 	claim.EvidenceIDs = []string{"proof"}
 	call("upsert_model_part", ModelPart{AreaID: "purpose", Correction: "Attach the verified source evidence", Objects: []passport.Object{object}, Claims: []passport.Claim{claim}}, false)
