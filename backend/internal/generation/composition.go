@@ -454,7 +454,7 @@ func (c *composer) work(ctx context.Context, jobs []compositionJob) error {
 						return
 					}
 				}
-				options := generationCall{Label: job.Task.Title, MaxOutputTokens: 8192, RetryProvider: true, OnAttempt: func(attempt int) error {
+				options := generationCall{Label: job.Task.Title, MaxOutputTokens: 16000, RetryProvider: true, OnAttempt: func(attempt int) error {
 					return c.update(ctx, offset+i, attempt, "running", fmt.Sprintf("%s: waiting for the model (attempt %d of %d).", job.Task.Title, attempt, maxGenerationAttempts))
 				}}
 				err := job.Work(ctx, options)

@@ -572,7 +572,7 @@ func generateWith[T any](ctx context.Context, s *Service, run Run, stage, input 
 				return empty, err
 			}
 		}
-		if callErr != nil && code != "invalid_json" {
+		if callErr != nil && code != "invalid_json" && code != "truncated" {
 			providerFailures++
 			if options.RetryProvider && providerFailures < maxProviderAttempts && ctx.Err() == nil && (code == "timeout" || code == "provider_error" || code == "rate_limited") {
 				if err := s.event(ctx, run.ID, "retry_started", stage, fmt.Sprintf("%s did not complete (API failure %d of %d). Retrying only this task.", label, providerFailures, maxProviderAttempts)); err != nil {
@@ -588,6 +588,9 @@ func generateWith[T any](ctx context.Context, s *Service, run Run, stage, input 
 			}
 		}
 		value, validationErr := empty, callErr
+		if code == "truncated" {
+			validationErr = errors.New("the response was cut off at the output token limit; return a shorter response with fewer, more concise items")
+		}
 		if validationErr == nil {
 			value, validationErr = passport.CheckJSON[T](result.JSON)
 		}
