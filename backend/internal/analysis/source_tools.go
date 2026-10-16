@@ -86,7 +86,7 @@ func SourceTools(collection source.Collection, recordRead func(context.Context, 
 			if err := ctx.Err(); err != nil {
 				return analysisToolError(err), nil
 			}
-			doc, ok := byID[input.DocumentID]
+			doc, ok := byID[source.NormalizeDocumentID(input.DocumentID)]
 			if !ok {
 				return analysisToolError(errors.New("unknown verified document_id; use list_sources or search_sources")), nil
 			}

@@ -113,6 +113,9 @@ func (s *analysisSession) modelTools() []fantasy.AgentTool {
 			if input.AreaID != s.current.ID {
 				return analysisToolError(errors.New("model part must belong to the current area")), nil
 			}
+			for i := range input.Evidence {
+				input.Evidence[i].DocumentID = source.NormalizeDocumentID(input.Evidence[i].DocumentID)
+			}
 			if err := s.store.Apply(ctx, input); err != nil {
 				return analysisToolError(err), nil
 			}
