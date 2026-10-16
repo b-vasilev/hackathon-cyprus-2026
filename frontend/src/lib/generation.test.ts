@@ -55,6 +55,24 @@ test('terminal runs cannot be replaced by a delayed active snapshot', () => {
   assert.equal(mergeRun(finished, run({ id: 'run-two' })).id, 'run-two');
 });
 
+test('a resumed run with a newer event replaces its failed state', () => {
+  const failedEvent = event(5, 'run_failed', 'analyzing', 5);
+  const failed = run({ status: 'failed', stage: 'analyzing', events: [failedEvent] });
+  const resumed = run({
+    status: 'queued',
+    stage: 'queued',
+    events: [failedEvent, event(6, 'run_resumed', 'queued', 9)],
+  });
+  const merged = mergeRun(failed, resumed);
+  assert.equal(merged.status, 'queued');
+  assert.deepEqual(
+    merged.events.map((item) => item.id),
+    [5, 6]
+  );
+  // An active snapshot that is not newer still cannot revive the failed run.
+  assert.equal(mergeRun(failed, run({ status: 'running', events: [failedEvent] })), failed);
+});
+
 test('cancellation stops stage timing and remains terminal after delayed updates', () => {
   const cancelled = run({
     status: 'failed',

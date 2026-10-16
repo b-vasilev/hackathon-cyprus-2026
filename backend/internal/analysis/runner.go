@@ -315,7 +315,7 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 	if selected, err := llmgateway.ModelByID(config, modelID); err == nil && selected.MaxOutputTokens > 0 {
 		maxOutput = min(maxOutput, int64(selected.MaxOutputTokens))
 	}
-	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: prompt, Messages: recent, MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{func(steps []fantasy.StepResult) bool {
+	response, err := agent.Generate(ctx, fantasy.AgentCall{Prompt: prompt, Messages: pairedToolTurns(recent), MaxOutputTokens: &maxOutput, ProviderOptions: providerOptions(config, modelID), StopWhen: []fantasy.StopCondition{func(steps []fantasy.StepResult) bool {
 		cp := s.store.Checkpoint()
 		return len(steps) >= maxSteps || cp.Finalized || !slices.ContainsFunc(cp.Tasks, func(t Task) bool { return t.ID == s.current.ID && t.Status == TaskActive })
 	}}, PrepareStep: func(stepCtx context.Context, options fantasy.PrepareStepFunctionOptions) (context.Context, fantasy.PrepareStepResult, error) {
@@ -373,7 +373,7 @@ func recentAnalysisMessages(previous []fantasy.Message, steps []fantasy.StepResu
 		}
 		recent = candidate
 	}
-	if len(recent) > 0 {
+	if recent = pairedToolTurns(recent); len(recent) > 0 {
 		return recent
 	}
 	return []fantasy.Message{fantasy.NewUserMessage("The previous complete tool turn exceeded the carry-history budget. Accepted mutations and exact source read ranges are durably saved. Inspect saved entities or page only the relevant original ranges; no source text was clipped.")}
