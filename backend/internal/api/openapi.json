@@ -793,6 +793,315 @@
         ],
         "additionalProperties": false
       },
+      "LearningPack": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "product_id": {
+            "type": "string"
+          },
+          "revision_id": {
+            "type": "string"
+          },
+          "revision_version": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "description": "none, generating, ready or failed."
+          },
+          "error": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "published_at": {
+            "type": "string"
+          },
+          "unpublished_changes": {
+            "type": "boolean"
+          },
+          "content": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "quiz": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Short unique kebab-case ID."
+                    },
+                    "chapter_id": {
+                      "type": "string",
+                      "description": "ID of the passport chapter that teaches the answer, or empty."
+                    },
+                    "kind": {
+                      "type": "string",
+                      "description": "single (exactly one correct option) or multiple (two or more correct options)."
+                    },
+                    "prompt": {
+                      "type": "string",
+                      "description": "The question, answerable from the passport alone."
+                    },
+                    "options": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Three to five distinct, plausible options."
+                    },
+                    "correct": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": "integer"
+                      },
+                      "description": "Zero-based indexes of the correct options."
+                    },
+                    "explanation": {
+                      "type": "string",
+                      "description": "Why the answer is right, naming the passport fact it comes from."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "chapter_id",
+                    "kind",
+                    "prompt",
+                    "options",
+                    "correct",
+                    "explanation"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "mission": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "intro": {
+                    "type": "string"
+                  },
+                  "issue": {
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "repository": {
+                        "type": "string"
+                      },
+                      "number": {
+                        "type": "integer"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "url": {
+                        "type": "string"
+                      },
+                      "pull_number": {
+                        "type": "integer"
+                      },
+                      "pull_title": {
+                        "type": "string"
+                      },
+                      "pull_url": {
+                        "type": "string"
+                      },
+                      "files": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "why": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "repository",
+                      "number",
+                      "title",
+                      "url",
+                      "pull_number",
+                      "pull_title",
+                      "pull_url",
+                      "files",
+                      "why"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "steps": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Short unique kebab-case ID."
+                        },
+                        "title": {
+                          "type": "string",
+                          "description": "Imperative step title, for example Clone the repository."
+                        },
+                        "body": {
+                          "type": "string",
+                          "description": "Markdown instructions for this step: what to do, what to look at and why."
+                        },
+                        "chapter_id": {
+                          "type": "string",
+                          "description": "ID of the passport chapter to read for this step, or empty."
+                        },
+                        "commands": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Shell commands to run, taken from the passport; empty when the step has none."
+                        },
+                        "done_when": {
+                          "type": "string",
+                          "description": "What the learner sees when the step is complete."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "body",
+                        "chapter_id",
+                        "commands",
+                        "done_when"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "check": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Short unique kebab-case ID."
+                        },
+                        "chapter_id": {
+                          "type": "string",
+                          "description": "ID of the passport chapter that teaches the answer, or empty."
+                        },
+                        "kind": {
+                          "type": "string",
+                          "description": "single (exactly one correct option) or multiple (two or more correct options)."
+                        },
+                        "prompt": {
+                          "type": "string",
+                          "description": "The question, answerable from the passport alone."
+                        },
+                        "options": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Three to five distinct, plausible options."
+                        },
+                        "correct": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "integer"
+                          },
+                          "description": "Zero-based indexes of the correct options."
+                        },
+                        "explanation": {
+                          "type": "string",
+                          "description": "Why the answer is right, naming the passport fact it comes from."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "chapter_id",
+                        "kind",
+                        "prompt",
+                        "options",
+                        "correct",
+                        "explanation"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "finale": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title",
+                  "intro",
+                  "steps",
+                  "check",
+                  "finale"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "quiz",
+              "mission"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "product_id",
+          "revision_id",
+          "revision_version",
+          "status",
+          "error",
+          "updated_at",
+          "published",
+          "published_at",
+          "unpublished_changes"
+        ],
+        "additionalProperties": false
+      },
       "LearningState": {
         "type": "object",
         "properties": {
@@ -5676,6 +5985,152 @@
         }
       }
     },
+    "/api/passport-revisions/{id}/learning-pack": {
+      "get": {
+        "operationId": "getLearningPack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningPack"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "generateLearningPack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningPack"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/passport-revisions/{id}/learning-pack/publish": {
+      "post": {
+        "operationId": "publishLearningPack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningPack"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/passport-revisions/{id}/learning-pack/unpublish": {
+      "post": {
+        "operationId": "unpublishLearningPack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningPack"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
     "/api/passport-revisions/{id}/publish": {
       "post": {
         "operationId": "publishRevision",
@@ -6035,6 +6490,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Product"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/learning-pack": {
+      "get": {
+        "operationId": "getPublishedLearningPack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningPack"
                 }
               }
             },

@@ -15,6 +15,7 @@ import { ChapterEditor } from '../components/ChapterEditor';
 import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { DocumentContent } from '../components/DocumentContent';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
+import { PracticePane } from '../components/LearningPack';
 import { PartialResearchNotice } from '../components/PartialResearchNotice';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
 import { PassportReview } from '../components/PassportReview';
@@ -41,6 +42,7 @@ import {
 import { canManage, isAdmin, useMe } from '../lib/auth';
 import { activeRun, cancelledRun, mergeRun, stageLabels } from '../lib/generation';
 import { generationMessage } from '../lib/generationMessages';
+import { practiceId, usePublishedPack, withPractice } from '../lib/learningPack';
 import { documentChapters, legacySections } from '../lib/passportDocument';
 import { sectionTitles } from '../lib/passportSections';
 import { productCardTheme } from '../lib/productCardTheme';
@@ -106,6 +108,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
       void queryClient.invalidateQueries({ queryKey: ['products'] });
     }
   }, [run.data?.status, id, queryClient]);
+  const learnerPack = usePublishedPack(id, publishedView).data ?? undefined;
   const { revisionId, revision, revisionRun } = usePassportRevision({
     id,
     selectedRevision,
@@ -134,7 +137,11 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
       queryClient.setQueryData<Product>(['product', id], (previous) =>
         previous === undefined
           ? previous
-          : { ...previous, latest_run_id: newRun.id, latest_run_status: newRun.status }
+          : {
+              ...previous,
+              latest_run_id: newRun.id,
+              latest_run_status: newRun.status,
+            }
       );
       setSelectedRevision('');
       await queryClient.invalidateQueries({ queryKey: ['product', id] });
@@ -169,7 +176,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
   const views = revision.data?.content.views;
   const chapters = views === undefined ? undefined : documentChapters(views);
   const sections = views === undefined ? [] : legacySections(views);
-  const entries = chapters ?? sections;
+  const entries = withPractice(chapters, sections, manage || learnerPack !== undefined);
   const selected = entries.find((item) => item.id === sectionId) ?? entries.at(0);
   const chapter = chapters?.find((item) => item.id === selected?.id);
   const section =
@@ -400,6 +407,16 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
                   }
                 />
               )}
+              {selected.id === practiceId && (
+                <PracticePane
+                  manage={manage}
+                  pack={learnerPack}
+                  revisionId={revision.data.id}
+                  productId={id}
+                  chapters={chapters ?? []}
+                  onChapter={selectSection}
+                />
+              )}
               {section !== undefined && (
                 <SectionContent
                   key={`${revision.data.id}:${section.id}`}
@@ -455,9 +472,9 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
                     <div className="source-snapshot-meta">
                       <span>{snapshot.coverage.file_count.toLocaleString()} files</span>
                       <span>
-                        {new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(
-                          snapshot.coverage.bytes / 1024 / 1024
-                        )}{' '}
+                        {new Intl.NumberFormat('en', {
+                          maximumFractionDigits: 1,
+                        }).format(snapshot.coverage.bytes / 1024 / 1024)}{' '}
                         MB
                       </span>
                       <span>
@@ -567,7 +584,11 @@ function VersionSelect({
   history,
   value,
   onChange,
-}: Readonly<{ history?: RevisionInfo[]; value: string; onChange: (id: string) => void }>) {
+}: Readonly<{
+  history?: RevisionInfo[];
+  value: string;
+  onChange: (id: string) => void;
+}>) {
   if (history === undefined || history.length === 0) {
     return null;
   }

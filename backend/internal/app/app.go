@@ -18,6 +18,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learningpack"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/research"
@@ -70,12 +71,28 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 		collector.Token = githubStore.Token
 	}
 	workerCtx, stopWorker := context.WithCancel(ctx)
+	packs := &learningpack.Service{DB: database, Passports: factory, Logger: logger, Background: workerCtx, Token: func(ctx context.Context) (string, error) {
+		if githubStore != nil {
+			token, tokenErr := githubStore.Token(ctx)
+			if tokenErr != nil {
+				return "", fmt.Errorf("read GitHub connection token: %w", tokenErr)
+			}
+			if token != "" {
+				return token, nil
+			}
+		}
+		return cfg.GitHubToken, nil
+	}}
+	if recoverErr := packs.Recover(ctx); recoverErr != nil {
+		stopWorker()
+		return fmt.Errorf("start learning packs: %w", recoverErr)
+	}
 	workerDone := make(chan struct{})
 	go func() { defer close(workerDone); factory.Work(workerCtx, cfg.GenerationWorkers) }()
 	defer func() { stopWorker(); <-workerDone }()
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(database, logger, cfg.CORSOrigins, &api.Factory{Access: &access.Store{DB: database}, PublicURL: cfg.PublicURL, Learning: &learning.Store{DB: database}, Service: factory, Network: policy, FrontendDir: cfg.FrontendDir, GitHub: githubStore, GitHubOAuth: githubconnection.OAuthConfig{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL}}),
+		Handler:           api.New(database, logger, cfg.CORSOrigins, &api.Factory{Access: &access.Store{DB: database}, PublicURL: cfg.PublicURL, Learning: &learning.Store{DB: database}, Service: factory, Packs: packs, Network: policy, FrontendDir: cfg.FrontendDir, GitHub: githubStore, GitHubOAuth: githubconnection.OAuthConfig{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL}}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
