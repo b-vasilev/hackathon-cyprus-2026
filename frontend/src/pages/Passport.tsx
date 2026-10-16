@@ -15,7 +15,7 @@ import { ChapterEditor } from '../components/ChapterEditor';
 import { DeleteConfirmation } from '../components/DeleteConfirmation';
 import { DocumentContent } from '../components/DocumentContent';
 import { GenerationBadges, GenerationProgress } from '../components/GenerationProgress';
-import { PracticeLearner, PracticeStudio } from '../components/LearningPack';
+import { PracticePane } from '../components/LearningPack';
 import { PartialResearchNotice } from '../components/PartialResearchNotice';
 import { EvidenceDialog, ObjectDetail, SectionContent } from '../components/PassportContent';
 import { PassportReview } from '../components/PassportReview';
@@ -42,7 +42,7 @@ import {
 import { canManage, isAdmin, useMe } from '../lib/auth';
 import { activeRun, cancelledRun, mergeRun, stageLabels } from '../lib/generation';
 import { generationMessage } from '../lib/generationMessages';
-import { practiceId, practiceTitle, usePublishedPack } from '../lib/learningPack';
+import { practiceId, usePublishedPack, withPractice } from '../lib/learningPack';
 import { documentChapters, legacySections } from '../lib/passportDocument';
 import { sectionTitles } from '../lib/passportSections';
 import { productCardTheme } from '../lib/productCardTheme';
@@ -166,13 +166,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
   const views = revision.data?.content.views;
   const chapters = views === undefined ? undefined : documentChapters(views);
   const sections = views === undefined ? [] : legacySections(views);
-  // Practice follows the chapters: leads always see it; learners once a pack is published.
-  const practice =
-    chapters !== undefined && (manage || (publishedView && learnerPack !== undefined));
-  const entries: { id: string; title: string }[] = [
-    ...(chapters ?? sections),
-    ...(practice ? [{ id: practiceId, title: practiceTitle }] : []),
-  ];
+  const entries = withPractice(chapters, sections, manage || learnerPack !== undefined);
   const selected = entries.find((item) => item.id === sectionId) ?? entries.at(0);
   const chapter = chapters?.find((item) => item.id === selected?.id);
   const section =
@@ -405,17 +399,11 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
                   }
                 />
               )}
-              {selected.id === practiceId && manage && (
-                <PracticeStudio
-                  revisionId={revision.data.id}
-                  productId={id}
-                  chapters={chapters ?? []}
-                  onChapter={selectSection}
-                />
-              )}
-              {selected.id === practiceId && publishedView && learnerPack !== undefined && (
-                <PracticeLearner
+              {selected.id === practiceId && (
+                <PracticePane
+                  manage={manage}
                   pack={learnerPack}
+                  revisionId={revision.data.id}
                   productId={id}
                   chapters={chapters ?? []}
                   onChapter={selectSection}

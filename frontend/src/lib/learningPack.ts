@@ -1,6 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, api, type LearningPack } from './api';
 
+interface Entry {
+  id: string;
+  title: string;
+}
+
 export const packKey = 'learning-pack';
 export const practiceId = 'practice';
 export const practiceTitle = 'Practice: quiz and first task';
@@ -23,4 +28,16 @@ export function usePublishedPack(productId: string, enabled: boolean) {
     },
     enabled,
   });
+}
+
+/** Practice follows the chapters of a current passport when the viewer can use it. */
+export function withPractice(
+  chapters: Entry[] | undefined,
+  sections: Entry[],
+  visible: boolean
+): Entry[] {
+  if (chapters === undefined) {
+    return sections;
+  }
+  return visible ? [...chapters, { id: practiceId, title: practiceTitle }] : chapters;
 }

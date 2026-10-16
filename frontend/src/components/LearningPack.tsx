@@ -402,3 +402,37 @@ function PracticeContent({
     </>
   );
 }
+
+/** Leads manage the practice for the version they review; learners take the published one. */
+export function PracticePane({
+  manage,
+  pack,
+  revisionId,
+  productId,
+  chapters,
+  onChapter,
+}: Readonly<{
+  manage: boolean;
+  pack: LearningPack | undefined;
+  revisionId: string;
+  productId: string;
+  chapters: Chapter[];
+  onChapter: (id: string) => void;
+}>) {
+  if (manage) {
+    return (
+      <PracticeStudio
+        revisionId={revisionId}
+        productId={productId}
+        chapters={chapters}
+        onChapter={onChapter}
+      />
+    );
+  }
+  if (pack === undefined) {
+    return null;
+  }
+  return (
+    <PracticeLearner pack={pack} productId={productId} chapters={chapters} onChapter={onChapter} />
+  );
+}
