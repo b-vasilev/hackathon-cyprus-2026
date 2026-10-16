@@ -463,10 +463,12 @@ removed after collection; cached source packages remain in `/app/data/wayfinder/
 
 ## Deployment
 
-Every push to `main` runs [the Deploy workflow](.github/workflows/deploy.yml). It builds
-the image on GitHub, loads it on the Azure VM over SSH and restarts
+After `Tests and checks` succeeds for a push to `main`,
+[the Deploy workflow](.github/workflows/deploy.yml) builds the tested commit's
+image on GitHub, loads it on the Azure VM over SSH and restarts
 [the production stack](deploy/compose.yaml): the API behind Caddy, which obtains and
-renews the Let's Encrypt certificate. Run it manually from the Actions tab if needed.
+renews the Let's Encrypt certificate. A manual run from the Actions tab bypasses
+the test gate if needed.
 
 | Item | Value |
 | --- | --- |
