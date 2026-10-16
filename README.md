@@ -5,7 +5,16 @@ repository evidence, review and publish it for your team, and work through
 Foundations lessons and quizzes. Each product gets its own content, model,
 scenarios and diagrams through shared renderers.
 
-**Live portal:** https://wayfinder-t1a.eastus2.cloudapp.azure.com
+| | |
+| --- | --- |
+| **Category** | Inside the Crew: collaboration inside T1A |
+| **Live portal** | https://wayfinder-t1a.eastus2.cloudapp.azure.com |
+
+Wayfinder helps T1A teams onboard each other onto internal products: product leads
+publish reviewed, source-backed passports and practice, and newcomers from any team
+learn from the same checked material instead of asking around. After signing up on
+the live portal you can explore three demo product passports and take their
+quizzes. New accounts do not get admin access, so Product studio stays hidden.
 
 - **Product passports from code.** Pinned GitHub sources are researched by an LLM
   into a passport: purpose, architecture, end-to-end flows, technologies and
@@ -62,11 +71,6 @@ Product studio is available to admins and product leads. The separate Published
 passports tab is available to all signed-in users for their assigned products.
 
 ## Run locally
-
-Deployed portal: [Wayfinder](https://wayfinder-t1a.eastus2.cloudapp.azure.com).
-After signing up on the deployed portal, you can explore three demo product
-passports and take their quizzes. New accounts do not get admin access by
-default, and Product studio is hidden.
 
 Install [mise](https://mise.jdx.dev/), then:
 
