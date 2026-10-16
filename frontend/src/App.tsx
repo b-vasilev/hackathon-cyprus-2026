@@ -1,21 +1,48 @@
 import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { Link, Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom';
 import { AchievementCenter } from './components/Achievements';
 import { Badge, Brand, ErrorNotice, Loading } from './components/ui';
 import { syncLearning } from './foundations/sync';
 import { api, ApiError, type Me } from './lib/api';
 import { canManage, canUseStudio, isAdmin, MeContext, useMe } from './lib/auth';
-import { AuthPage } from './pages/Auth';
-import { Connections } from './pages/Connections';
-import { FoundationAchievements, FoundationModulePage, Foundations } from './pages/Foundations';
-import { Home } from './pages/Home';
-import { Landing } from './pages/Landing';
 import { NotFound } from './pages/NotFound';
-import { PassportPage } from './pages/Passport';
-import { People } from './pages/People';
-import { NewProduct, Products } from './pages/Products';
-import { PublishedPassports } from './pages/Published';
+
+const AuthPage = lazy(() => import('./pages/Auth').then((page) => ({ default: page.AuthPage })));
+const AIConnections = lazy(() =>
+  import('./pages/AiConnections').then((page) => ({ default: page.AIConnections }))
+);
+const AIConsent = lazy(() =>
+  import('./pages/AiConnections').then((page) => ({ default: page.AIConsent }))
+);
+const Connections = lazy(() =>
+  import('./pages/Connections').then((page) => ({ default: page.Connections }))
+);
+const Foundations = lazy(() =>
+  import('./pages/Foundations').then((page) => ({ default: page.Foundations }))
+);
+const FoundationAchievements = lazy(() =>
+  import('./pages/Foundations').then((page) => ({ default: page.FoundationAchievements }))
+);
+const FoundationModulePage = lazy(() =>
+  import('./pages/Foundations').then((page) => ({ default: page.FoundationModulePage }))
+);
+const Home = lazy(() => import('./pages/Home').then((page) => ({ default: page.Home })));
+const Landing = lazy(() => import('./pages/Landing').then((page) => ({ default: page.Landing })));
+const PassportPage = lazy(() =>
+  import('./pages/Passport').then((page) => ({ default: page.PassportPage }))
+);
+const People = lazy(() => import('./pages/People').then((page) => ({ default: page.People })));
+const NewProduct = lazy(() =>
+  import('./pages/Products').then((page) => ({ default: page.NewProduct }))
+);
+const Products = lazy(() =>
+  import('./pages/Products').then((page) => ({ default: page.Products }))
+);
+const PublishedPassports = lazy(() =>
+  import('./pages/Published').then((page) => ({ default: page.PublishedPassports }))
+);
 
 function signOut() {
   void api<undefined>('/auth/logout', { method: 'POST' }).finally(() =>
@@ -48,6 +75,14 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
             {admin && <NavLink to="/access">People</NavLink>}
           </nav>
           <div className="header-account">
+            <NavLink
+              className="button connect-ai-link"
+              to="/ai-connections"
+              aria-label="MCP"
+              title="Connect AI with MCP"
+            >
+              <span>MCP</span>
+            </NavLink>
             <span className="account-email">
               {me.user.email}
               {admin && <Badge>Admin</Badge>}
@@ -60,22 +95,26 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
         </div>
       </header>
       <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/published" element={<PublishedPassports />} />
-          <Route path="/published/:id" element={<PassportPage key="published" publishedView />} />
-          {studio && <Route path="/products" element={<Products />} />}
-          {admin && <Route path="/products/new" element={<NewProduct />} />}
-          {studio && <Route path="/products/:id" element={<StudioPassport />} />}
-          <Route path="/foundations" element={<Foundations />} />
-          <Route path="/foundations/achievements" element={<FoundationAchievements />} />
-          <Route path="/foundations/:id" element={<FoundationModulePage />} />
-          {admin && <Route path="/connections" element={<Connections />} />}
-          {admin && <Route path="/access" element={<People />} />}
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/register" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<Loading label="Loading page…" />}>
+          <Routes>
+            <Route path="/ai-connections" element={<AIConnections />} />
+            <Route path="/ai-connections/authorize" element={<AIConsent />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/published" element={<PublishedPassports />} />
+            <Route path="/published/:id" element={<PassportPage key="published" publishedView />} />
+            {studio && <Route path="/products" element={<Products />} />}
+            {admin && <Route path="/products/new" element={<NewProduct />} />}
+            {studio && <Route path="/products/:id" element={<StudioPassport />} />}
+            <Route path="/foundations" element={<Foundations />} />
+            <Route path="/foundations/achievements" element={<FoundationAchievements />} />
+            <Route path="/foundations/:id" element={<FoundationModulePage />} />
+            {admin && <Route path="/connections" element={<Connections />} />}
+            {admin && <Route path="/access" element={<People />} />}
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/register" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </main>
       <AchievementCenter />
     </MeContext>
@@ -117,11 +156,13 @@ export function App() {
         </div>
       </header>
       <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/register" element={<AuthPage mode="register" />} />
-          <Route path="*" element={<AuthPage mode="login" />} />
-        </Routes>
+        <Suspense fallback={<Loading label="Loading page…" />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/register" element={<AuthPage mode="register" />} />
+            <Route path="*" element={<AuthPage mode="login" />} />
+          </Routes>
+        </Suspense>
       </main>
     </>
   );

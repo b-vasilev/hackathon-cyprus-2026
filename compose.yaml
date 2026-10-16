@@ -24,6 +24,7 @@ services:
       - "127.0.0.1:8080:8080"
     environment:
       HTTP_ADDR: 0.0.0.0:8080
+      PUBLIC_URL: "${PUBLIC_URL:-http://127.0.0.1:8080}"
       DATABASE_PATH: /app/data/onboarding.db
       GENERATION_WORKERS: "${GENERATION_WORKERS:-3}"
       LOG_FORMAT: json

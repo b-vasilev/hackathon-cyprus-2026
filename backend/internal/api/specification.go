@@ -12,6 +12,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/mcpauth"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/source"
@@ -35,6 +36,8 @@ func Specification() ([]byte, error) {
 		return nil, fmt.Errorf("read base OpenAPI: %w", err)
 	}
 	types := map[string]func() (*jsonschema.Schema, error){
+		"MCPSettings": passport.Schema[MCPSettings], "MCPConsentInput": passport.Schema[MCPConsentInput],
+		"MCPClient": passport.Schema[mcpauth.Client], "MCPRedirect": passport.Schema[MCPRedirect],
 		"GitHubConnection": passport.Schema[githubconnection.Status], "GitHubTokenInput": passport.Schema[githubconnection.TokenInput], "OAuthURL": passport.Schema[OAuthURL], "LearningState": passport.Schema[learning.State],
 		"AvailableModel": passport.Schema[llm.AvailableModel], "ModelDiscoveryInput": passport.Schema[ModelDiscoveryInput],
 		"Connection": passport.Schema[llmgateway.Connection], "ConnectionConfig": passport.Schema[llmgateway.Config], "Model": passport.Schema[llmgateway.Model], "Parameter": passport.Schema[llmgateway.Parameter],
@@ -54,6 +57,10 @@ func Specification() ([]byte, error) {
 			return nil, err
 		}
 		schemas[name] = schema
+		if name == "MCPSettings" {
+			schema.Properties["connections"].Type = "array"
+			schema.Properties["connections"].Types = nil
+		}
 		if name == "Run" {
 			// GetRun always returns an empty array when no events exist.
 			schema.Properties["events"].Type = "array"
@@ -77,6 +84,11 @@ func Specification() ([]byte, error) {
 		{methodPost, "/api/auth/login", "login", "Credentials", "Me", 200, false},
 		{methodPost, "/api/auth/logout", "logout", "", "", 204, false},
 		{methodGet, "/api/auth/me", "getMe", "", "Me", 200, false},
+		{methodGet, "/api/ai-connections", "getAIConnections", "", "MCPSettings", 200, false},
+		{methodDelete, "/api/ai-connections/{id}", "disconnectAIApp", "", "", 204, false},
+		{methodGet, "/api/ai-connections/authorize", "previewAIConsent", "", "MCPClient", 200, false},
+		{methodPost, "/api/ai-connections/authorize", "authorizeAIApp", "MCPConsentInput", "MCPRedirect", 200, false},
+		{methodGet, "/api/products/{id}/passport.md", "downloadPublishedPassport", "", "", 200, false},
 		{methodGet, "/api/me/learning", "getLearningProgress", "", "LearningState", 200, false},
 		{methodPut, "/api/me/learning", "saveLearningProgress", "LearningState", "LearningState", 200, false},
 		{methodGet, "/api/users", "listUsers", "", "User", 200, true},
@@ -128,6 +140,9 @@ func Specification() ([]byte, error) {
 			success = map[string]any{"description": "No content"}
 		}
 		operation := map[string]any{"operationId": route.id, "responses": map[string]any{strconv.Itoa(route.status): success, "default": map[string]any{"description": "Request failed", "content": map[string]any{"application/json": map[string]any{schemaKey: map[string]any{"$ref": "#/components/schemas/Problem"}}}}}}
+		if route.id == "downloadPublishedPassport" {
+			operation["responses"].(map[string]any)["200"] = map[string]any{"description": "Complete published passport download", "content": map[string]any{"text/markdown": map[string]any{schemaKey: map[string]any{schemaTypeKey: "string"}}}}
+		}
 		if route.id == "streamGeneration" {
 			operation["description"] = "SSE snapshot and update events contain a Run with events after Last-Event-ID. IDs are ordered and durable. Reconnects replay missed events. Terminal snapshots close the stream."
 			operation["responses"].(map[string]any)["200"] = map[string]any{"description": "Generation event stream", "content": map[string]any{"text/event-stream": map[string]any{schemaKey: map[string]any{schemaTypeKey: "string"}}}}
@@ -135,20 +150,8 @@ func Specification() ([]byte, error) {
 		if route.input != "" {
 			operation["requestBody"] = map[string]any{"required": true, "content": map[string]any{"application/json": map[string]any{schemaKey: map[string]any{"$ref": "#/components/schemas/" + route.input}}}}
 		}
-		parameters := make([]any, 0)
-		for part := range strings.SplitSeq(route.path, "/") {
-			if strings.HasPrefix(part, "{") {
-				parameters = append(parameters, map[string]any{"name": strings.Trim(part, "{}"), "in": "path", "required": true, schemaKey: map[string]any{schemaTypeKey: "string"}})
-			}
-		}
-		if len(parameters) > 0 {
+		if parameters := operationParameters(route.id, route.path); len(parameters) > 0 {
 			operation["parameters"] = parameters
-		}
-		if route.id == "streamGeneration" {
-			operation["parameters"] = append(parameters,
-				map[string]any{"name": "Last-Event-ID", "in": "header", "required": false, schemaKey: map[string]any{schemaTypeKey: "integer", "minimum": 0}},
-				map[string]any{"name": "after", "in": "query", "required": false, "description": "Replay cursor when creating a new EventSource. Last-Event-ID takes precedence on automatic reconnect.", schemaKey: map[string]any{schemaTypeKey: "integer", "minimum": 0}},
-			)
 		}
 		entry, ok := paths[route.path].(map[string]any)
 		if !ok {
@@ -177,4 +180,25 @@ func researchProgressSchema(state *jsonschema.Schema) {
 	questions.Items.Properties["status"].Enum = []any{"pending", "answered", "not_applicable", "blocked", "excluded"}
 	workers := state.Properties["parallel"].Properties["workers"]
 	workers.Type, workers.Types = "array", nil
+}
+
+func operationParameters(id, path string) []any {
+	parameters := make([]any, 0)
+	if id == "previewAIConsent" {
+		for _, name := range []string{"client_id", "redirect_uri", "response_type", "code_challenge", "code_challenge_method", "resource", "scope", "state"} {
+			parameters = append(parameters, map[string]any{"name": name, "in": "query", "required": name != "scope" && name != "state", schemaKey: map[string]any{schemaTypeKey: "string"}})
+		}
+	}
+	for part := range strings.SplitSeq(path, "/") {
+		if strings.HasPrefix(part, "{") {
+			parameters = append(parameters, map[string]any{"name": strings.Trim(part, "{}"), "in": "path", "required": true, schemaKey: map[string]any{schemaTypeKey: "string"}})
+		}
+	}
+	if id == "streamGeneration" {
+		parameters = append(parameters,
+			map[string]any{"name": "Last-Event-ID", "in": "header", "required": false, schemaKey: map[string]any{schemaTypeKey: "integer", "minimum": 0}},
+			map[string]any{"name": "after", "in": "query", "required": false, "description": "Replay cursor when creating a new EventSource. Last-Event-ID takes precedence on automatic reconnect.", schemaKey: map[string]any{schemaTypeKey: "integer", "minimum": 0}},
+		)
+	}
+	return parameters
 }

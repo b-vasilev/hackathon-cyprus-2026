@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/mcpauth"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
 	"github.com/rs/zerolog"
@@ -25,6 +27,8 @@ import (
 // Factory exposes product, connection and generation operations.
 type Factory struct {
 	Access      *access.Store
+	MCPAuth     *mcpauth.Store
+	PublicURL   string
 	Learning    *learning.Store
 	GitHub      *githubconnection.Store
 	GitHubOAuth githubconnection.OAuthConfig
@@ -60,6 +64,7 @@ type FactoryStatus struct {
 
 func (f *Factory) register(mux *http.ServeMux) {
 	f.registerAccess(mux)
+	f.registerMCP(mux)
 	f.registerLearning(mux)
 	f.registerGitHub(mux)
 	f.registerReview(mux)
@@ -134,16 +139,21 @@ func (f *Factory) register(mux *http.ServeMux) {
 
 // products lists every product for admins and only member products for other users.
 func (f *Factory) products(w http.ResponseWriter, r *http.Request) {
-	value, err := f.Service.Products.List(r.Context())
-	user := currentUser(r)
-	if err != nil || user.Role == access.RoleAdmin {
-		respond(w, r, value, err)
-		return
-	}
-	memberships, err := f.Access.Memberships(r.Context(), user.ID)
+	value, err := f.visibleProducts(r.Context(), currentUser(r))
+	respond(w, r, value, err)
+}
+
+func (f *Factory) visibleProducts(ctx context.Context, user access.User) ([]product.Product, error) {
+	value, err := f.Service.Products.List(ctx)
 	if err != nil {
-		respond(w, r, nil, err)
-		return
+		return nil, fmt.Errorf("list products: %w", err)
+	}
+	if user.Role == access.RoleAdmin {
+		return value, nil
+	}
+	memberships, err := f.Access.Memberships(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("list product memberships: %w", err)
 	}
 	visible := make([]product.Product, 0, len(memberships))
 	for _, item := range value {
@@ -151,7 +161,7 @@ func (f *Factory) products(w http.ResponseWriter, r *http.Request) {
 			visible = append(visible, item)
 		}
 	}
-	respond(w, r, visible, nil)
+	return visible, nil
 }
 
 func (f *Factory) requireConnections(w http.ResponseWriter) bool {

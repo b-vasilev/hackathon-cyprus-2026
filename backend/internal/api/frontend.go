@@ -12,10 +12,7 @@ func frontend(directory string) http.Handler {
 	files := http.FileServer(http.Dir(directory))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
-		spa := name == "" || name == "." || name == "products" || name == "published" || name == "connections" ||
-			name == "login" || name == "register" || name == "access" ||
-			((strings.HasPrefix(name, "products/") || strings.HasPrefix(name, "published/")) && strings.Count(name, "/") == 1) ||
-			name == "foundations" || (strings.HasPrefix(name, "foundations/") && strings.Count(name, "/") == 1)
+		spa := isFrontendRoute(name)
 		if spa {
 			name = "index.html"
 		}
@@ -44,4 +41,13 @@ func frontend(directory string) http.Handler {
 		}
 		files.ServeHTTP(w, r)
 	})
+}
+
+func isFrontendRoute(name string) bool {
+	switch name {
+	case "", ".", "products", "published", "connections", "login", "register", "access", "ai-connections", "ai-connections/authorize", "foundations":
+		return true
+	}
+	return strings.Count(name, "/") == 1 &&
+		(strings.HasPrefix(name, "products/") || strings.HasPrefix(name, "published/") || strings.HasPrefix(name, "foundations/"))
 }

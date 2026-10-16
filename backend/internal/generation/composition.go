@@ -70,6 +70,7 @@ type compositionJob struct {
 }
 
 const compositionTaskQueued = "queued"
+const scenarioReferenceKind = "scenario_ref"
 
 type composer struct {
 	service   *Service
@@ -170,7 +171,7 @@ func (c *composer) chapters(ctx context.Context, ids []string, overviewContext s
 				var fragment compositionFragment
 				var err error
 				switch part.Kind {
-				case "scenario_ref":
+				case scenarioReferenceKind:
 					fragment.Block = passport.DocumentBlock{Kind: part.Kind, ReferenceID: part.ScenarioIDs[0]}
 				case "object_table":
 					fragment.Block = passport.DocumentBlock{Kind: part.Kind, ObjectIDs: part.ObjectIDs, ClaimIDs: part.ClaimIDs, TableStyle: part.TableStyle}
@@ -234,7 +235,7 @@ func (c *composer) checkPlan(id string, plan chapterPlan) error {
 		if err := c.checkPart(id, part); err != nil {
 			return err
 		}
-		if part.Kind == "scenario_ref" {
+		if part.Kind == scenarioReferenceKind {
 			if scenarios[part.ScenarioIDs[0]] {
 				return errors.New("place each full scenario reference only once")
 			}
@@ -248,7 +249,7 @@ func (c *composer) checkPart(id string, part compositionPart) error {
 	if strings.TrimSpace(part.Title) == "" || strings.TrimSpace(part.Instructions) == "" {
 		return errors.New("each part needs a title and instructions")
 	}
-	if !slices.Contains([]string{"markdown", "diagram_ref", "scenario_ref", "object_table"}, part.Kind) {
+	if !slices.Contains([]string{"markdown", "diagram_ref", scenarioReferenceKind, "object_table"}, part.Kind) {
 		return errors.New("unsupported part kind")
 	}
 	if part.Kind == "object_table" {
@@ -257,7 +258,7 @@ func (c *composer) checkPart(id string, part compositionPart) error {
 			return err
 		}
 	}
-	if part.Kind == "scenario_ref" && (id != "scenarios" || len(part.ScenarioIDs) != 1) {
+	if part.Kind == scenarioReferenceKind && (id != "scenarios" || len(part.ScenarioIDs) != 1) {
 		return errors.New("place each scenario exactly once in the scenarios chapter")
 	}
 	for _, objectID := range part.ObjectIDs {
@@ -364,19 +365,8 @@ func (c *composer) checkFragment(chapterID, taskID string, part compositionPart,
 		return errors.New("this part must stay under 250 words; write only its assigned point")
 	}
 	if part.Kind == "diagram_ref" {
-		if fragment.Diagram == nil {
-			return errors.New("diagram_ref needs one diagram")
-		}
-		if part.Diagram == nil {
-			return errors.New("diagram_ref needs a validated diagram plan")
-		}
-		if fragment.Diagram.Kind != part.Diagram.Kind || fragment.Diagram.ScopeObjectID != part.Diagram.ScopeObjectID {
-			return fmt.Errorf("diagram must keep planned kind %q and scope_object_id %q; got kind %q and scope_object_id %q", part.Diagram.Kind, part.Diagram.ScopeObjectID, fragment.Diagram.Kind, fragment.Diagram.ScopeObjectID)
-		}
-		for _, id := range fragment.Diagram.NodeIDs {
-			if id == part.Diagram.ScopeObjectID || !slices.Contains(part.ObjectIDs, id) {
-				return fmt.Errorf("diagram node %q is not a planned node; use object_ids excluding scope_object_id %q", id, part.Diagram.ScopeObjectID)
-			}
+		if err := validatePlannedDiagram(part, fragment.Diagram); err != nil {
+			return err
 		}
 		diagram := *fragment.Diagram
 		diagram.ID = taskID + "-diagram"
@@ -385,7 +375,7 @@ func (c *composer) checkFragment(chapterID, taskID string, part compositionPart,
 	} else if fragment.Diagram != nil {
 		return errors.New("only diagram_ref parts may define a diagram")
 	}
-	if part.Kind == "scenario_ref" && fragment.Block.ReferenceID != part.ScenarioIDs[0] {
+	if part.Kind == scenarioReferenceKind && fragment.Block.ReferenceID != part.ScenarioIDs[0] {
 		return errors.New("return only the assigned scenario reference")
 	}
 	chapters := []passport.Chapter{{ID: chapterID, Title: part.Title, Question: part.Title, Blocks: []passport.DocumentBlock{fragment.Block}}}
@@ -458,7 +448,7 @@ func (c *composer) work(ctx context.Context, jobs []compositionJob) error {
 					return
 				}
 				job := jobs[i]
-				if job.Task.Kind == "object_table" || job.Task.Kind == "scenario_ref" {
+				if job.Task.Kind == "object_table" || job.Task.Kind == scenarioReferenceKind {
 					if err := c.update(ctx, offset+i, 0, "running", job.Task.Title+": assembling from saved facts."); err != nil {
 						fail(err)
 						return
@@ -587,4 +577,22 @@ func compositionScenarios(all []passport.Scenario, selected []string, objects, c
 		}
 	}
 	return result
+}
+
+func validatePlannedDiagram(part compositionPart, diagram *passport.Diagram) error {
+	if diagram == nil {
+		return errors.New("diagram_ref needs one diagram")
+	}
+	if part.Diagram == nil {
+		return errors.New("diagram_ref needs a validated diagram plan")
+	}
+	if diagram.Kind != part.Diagram.Kind || diagram.ScopeObjectID != part.Diagram.ScopeObjectID {
+		return fmt.Errorf("diagram must keep planned kind %q and scope_object_id %q; got kind %q and scope_object_id %q", part.Diagram.Kind, part.Diagram.ScopeObjectID, diagram.Kind, diagram.ScopeObjectID)
+	}
+	for _, id := range diagram.NodeIDs {
+		if id == part.Diagram.ScopeObjectID || !slices.Contains(part.ObjectIDs, id) {
+			return fmt.Errorf("diagram node %q is not a planned node; use object_ids excluding scope_object_id %q", id, part.Diagram.ScopeObjectID)
+		}
+	}
+	return nil
 }
