@@ -8,6 +8,7 @@ services:
     env_file: .env
     environment:
       HTTP_ADDR: 0.0.0.0:8080
+      PUBLIC_URL: https://${SITE_HOST:?set SITE_HOST in .env}
       DATABASE_PATH: /app/data/onboarding.db
       LOG_FORMAT: json
       CORS_ORIGINS: https://${SITE_HOST:?set SITE_HOST in .env}

@@ -11,8 +11,8 @@ default:
 # Install the dependencies used by the API, UI and source packager.
 setup: backend::deps frontend::deps
 
-# Start the backend, wait for readiness, then start the frontend.
-dev:
+# Install dependencies, start the backend, then start the frontend when ready.
+dev: setup
     #!/usr/bin/env bash
     set -euo pipefail
     set -m

@@ -87,7 +87,7 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return Config{}, errors.New("SHUTDOWN_TIMEOUT must be a positive duration")
 	}
 	cfg.ShutdownTimeout = timeout
-	origins, err := parseOrigins(get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"))
+	origins, err := parseOrigins(get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://wayfinder-t1a.eastus2.cloudapp.azure.com"))
 	if err != nil {
 		return Config{}, err
 	}

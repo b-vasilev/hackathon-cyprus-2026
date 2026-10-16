@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
 permissions:
@@ -16,6 +17,7 @@ concurrency:
 
 jobs:
   backend:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -23,17 +25,12 @@ jobs:
       - uses: jdx/mise-action@v5
         with:
           cache: true
-          install_args: go node golangci-lint just go:golang.org/x/vuln/cmd/govulncheck
-      - name: Install source packager
-        run: just frontend::deps
+          install_args: go golangci-lint just go:golang.org/x/vuln/cmd/govulncheck
       - name: Check formatting
         run: just backend::fmt-check
       - name: Lint
         if: ${{ !cancelled() }}
         run: just backend::lint
-      - name: Run all backend tests with race detection
-        if: ${{ !cancelled() }}
-        run: just backend::test-race
       - name: Audit dependencies
         if: ${{ !cancelled() }}
         run: just backend::audit
@@ -43,7 +40,23 @@ jobs:
           go mod tidy
           git diff --exit-code -- go.mod go.sum
 
+  backend-tests:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v5
+        with:
+          cache: true
+          install_args: go node just
+      - name: Install source packager
+        run: just frontend::deps
+      - name: Run all backend tests with race detection
+        run: just backend::test-race
+
   frontend:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -62,13 +75,26 @@ jobs:
       - name: Check types
         if: ${{ !cancelled() }}
         run: just frontend::typecheck
-      - name: Run all frontend tests
-        if: ${{ !cancelled() }}
-        run: just frontend::test
       - name: Build frontend
         run: just frontend::build
 
+  frontend-tests:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v5
+        with:
+          cache: true
+          install_args: node just
+      - name: Install dependencies
+        run: just frontend::deps
+      - name: Run all frontend tests
+        run: just frontend::test
+
   proxy:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -82,9 +108,19 @@ jobs:
       - name: Lint
         if: ${{ !cancelled() }}
         run: just proxy::lint
-      - name: Run all proxy tests with race detection
-        if: ${{ !cancelled() }}
-        run: just proxy::test -race -count=1
       - name: Audit dependencies
         if: ${{ !cancelled() }}
         run: just proxy::audit
+
+  proxy-tests:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v5
+        with:
+          cache: true
+          install_args: go just
+      - name: Run all proxy tests with race detection
+        run: just proxy::test -race -count=1

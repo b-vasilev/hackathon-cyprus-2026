@@ -28,6 +28,26 @@ test('account setup shows browser sign-in and account app disconnect controls', 
     </QueryClientProvider>
   );
   assert.ok(html.includes('https://portal.example/mcp'));
+  assert.ok(html.includes('You can ask your AI to add this connection for you'));
+  assert.ok(html.includes('Copy setup prompt'));
+  assert.ok(html.includes('Restart your AI app or CLI session, then start a new chat'));
+  for (const name of [
+    'Claude Code CLI',
+    'Codex CLI',
+    'Claude Desktop',
+    'Codex desktop',
+    'Pi',
+    'OpenCode',
+    'Cursor',
+    'VS Code / GitHub Copilot',
+  ]) {
+    assert.ok(html.includes(`<summary>${name}</summary>`), `Missing setup guide: ${name}`);
+  }
+  assert.ok(html.includes('claude mcp add --transport http --scope user wayfinder'));
+  assert.ok(html.includes('codex mcp login wayfinder'));
+  assert.ok(html.includes('pi mcp login wayfinder'));
+  assert.ok(html.includes('opencode mcp auth wayfinder'));
+  assert.ok(html.includes('localhost will not work'));
   assert.ok(html.includes('No token needs copying'));
   assert.ok(html.includes('Product access changes apply automatically'));
   assert.ok(html.includes('Disconnect Example AI'));

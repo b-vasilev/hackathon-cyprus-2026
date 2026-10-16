@@ -478,6 +478,8 @@ renews the Let's Encrypt certificate. Run it manually from the Actions tab if ne
 `/opt/wayfinder/.env` on the VM holds `SITE_HOST`, `CONNECTION_MASTER_KEY` and any
 optional settings from `.env.example`; it is not in Git. Back up the master key
 and the data volume. After editing `.env`, run `docker compose up -d` in `/opt/wayfinder`.
+The production stack sets `PUBLIC_URL` and `CORS_ORIGINS` to `https://${SITE_HOST}`.
+The MCP page shows `${PUBLIC_URL}/mcp`; OAuth discovery uses the same public origin.
 Builds from the last week stay on the VM. To roll back, run
 `docker tag wayfinder:<sha> wayfinder:current && docker compose up -d` there.
 

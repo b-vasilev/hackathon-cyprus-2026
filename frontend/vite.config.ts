@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {
     host: '127.0.0.1',
+    allowedHosts: ['wayfinder-t1a.eastus2.cloudapp.azure.com'],
     port: 5173,
     strictPort: true,
     proxy: {

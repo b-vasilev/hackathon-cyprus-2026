@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { LogOut } from 'lucide-react';
+import { LogOut, Zap } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { Link, Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom';
 import { AchievementCenter } from './components/Achievements';
@@ -46,7 +46,7 @@ const PublishedPassports = lazy(() =>
 
 function signOut() {
   void api<undefined>('/auth/logout', { method: 'POST' }).finally(() =>
-    globalThis.location.assign('/login')
+    globalThis.location.assign('/')
   );
 }
 
@@ -81,6 +81,7 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
               aria-label="MCP"
               title="Connect AI with MCP"
             >
+              <Zap size={14} aria-hidden="true" />
               <span>MCP</span>
             </NavLink>
             <span className="account-email">
@@ -146,7 +147,7 @@ export function App() {
         <div className="header-inner">
           <Brand />
           <div className="header-account">
-            <Link className="button quiet" to="/login">
+            <Link className="button primary" to="/login">
               Sign in
             </Link>
             <Link className="button secondary" to="/register">

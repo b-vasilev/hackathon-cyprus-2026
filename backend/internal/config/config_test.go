@@ -2,6 +2,7 @@ package config
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -60,17 +61,8 @@ func TestLoad(t *testing.T) {
 			if tt.name == "overrides" && (cfg.HTTPAddr != ":9000" || cfg.LogFormat != "json" || len(cfg.CORSOrigins) != 1) {
 				t.Fatalf("overrides not applied: %+v", cfg)
 			}
-			if tt.name == "defaults" && (cfg.HTTPAddr != "127.0.0.1:8080" || cfg.DatabasePath != "./data/onboarding.db") {
-				t.Fatalf("unexpected defaults: %+v", cfg)
-			}
 			if tt.name == "defaults" {
-				want, err := filepath.Abs("./data/wayfinder")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if cfg.FactoryWorkDir != want {
-					t.Errorf("factory directory = %q, want %q", cfg.FactoryWorkDir, want)
-				}
+				assertDefaultConfig(t, cfg)
 			}
 			if tt.name == "database directory" && cfg.FactoryWorkDir != "/custom/data/wayfinder" {
 				t.Errorf("factory directory = %q, want directory beside database", cfg.FactoryWorkDir)
@@ -82,6 +74,23 @@ func TestLoad(t *testing.T) {
 				assertGenerationWorkerConfig(t, tt.name, cfg)
 			}
 		})
+	}
+}
+
+func assertDefaultConfig(t *testing.T, cfg Config) {
+	t.Helper()
+	if cfg.HTTPAddr != "127.0.0.1:8080" || cfg.DatabasePath != "./data/onboarding.db" {
+		t.Fatalf("unexpected defaults: %+v", cfg)
+	}
+	if !slices.Contains(cfg.CORSOrigins, "https://wayfinder-t1a.eastus2.cloudapp.azure.com") {
+		t.Error("production portal missing from default CORS origins")
+	}
+	want, err := filepath.Abs("./data/wayfinder")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.FactoryWorkDir != want {
+		t.Errorf("factory directory = %q, want %q", cfg.FactoryWorkDir, want)
 	}
 }
 

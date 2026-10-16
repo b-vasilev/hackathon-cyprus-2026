@@ -2,12 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Copy, Plug, Unplug } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { McpSetupGuide } from '../components/McpSetupGuide';
 import { EmptyState, ErrorNotice, Loading, PageHeading } from '../components/ui';
 import { api, type MCPClient, type MCPSettings } from '../lib/api';
 
 export function AIConnections() {
   const queryClient = useQueryClient();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'url' | 'prompt'>();
   const [copyError, setCopyError] = useState<unknown>();
   const settings = useQuery({
     queryKey: ['ai-connections'],
@@ -17,13 +18,17 @@ export function AIConnections() {
     mutationFn: (id: string) => api<undefined>(`/ai-connections/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ai-connections'] }),
   });
-  async function copyURL() {
+  async function copySetup(target: 'url' | 'prompt') {
     if (!settings.data) {
       return;
     }
     try {
-      await navigator.clipboard.writeText(settings.data.url);
-      setCopied(true);
+      await navigator.clipboard.writeText(
+        target === 'url'
+          ? settings.data.url
+          : `Add Wayfinder as a remote Streamable HTTP MCP server in my AI app using this URL: ${settings.data.url}. Use OAuth browser sign-in and help me complete it. Keep my existing MCP servers. Remind me to restart the app or CLI session and start a new chat after setup.`
+      );
+      setCopied(target);
       setCopyError(undefined);
     } catch (error) {
       setCopyError(error);
@@ -42,9 +47,14 @@ export function AIConnections() {
         <>
           <section className="form-panel" aria-labelledby="ai-setup-title">
             <h2 id="ai-setup-title">Connect your app</h2>
+            <p>
+              You can ask your AI to add this connection for you. Give it the server URL below, or
+              copy the setup prompt and send it to an AI that can change your app settings.
+            </p>
             <ol>
-              <li>Open your AI app’s MCP settings and add this server URL.</li>
+              <li>Ask your AI to add Wayfinder, or follow the steps for your app below.</li>
               <li>Choose Connect, sign in to Wayfinder, and approve read access.</li>
+              <li>Restart your AI app or CLI session, then start a new chat.</li>
               <li>Ask your AI to list products or export their full passports as Markdown.</li>
             </ol>
             <label>
@@ -55,20 +65,39 @@ export function AIConnections() {
                 onFocus={(event) => event.target.select()}
               />
             </label>
-            <button className="button secondary" type="button" onClick={() => void copyURL()}>
-              {copied ? (
-                <Check size={16} aria-hidden="true" />
-              ) : (
-                <Copy size={16} aria-hidden="true" />
-              )}
-              {copied ? 'Copied' : 'Copy server URL'}
-            </button>
+            <div className="form-actions">
+              <button
+                className="button primary"
+                type="button"
+                onClick={() => void copySetup('prompt')}
+              >
+                {copied === 'prompt' ? (
+                  <Check size={16} aria-hidden="true" />
+                ) : (
+                  <Copy size={16} aria-hidden="true" />
+                )}
+                {copied === 'prompt' ? 'Prompt copied' : 'Copy setup prompt'}
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => void copySetup('url')}
+              >
+                {copied === 'url' ? (
+                  <Check size={16} aria-hidden="true" />
+                ) : (
+                  <Copy size={16} aria-hidden="true" />
+                )}
+                {copied === 'url' ? 'URL copied' : 'Copy server URL'}
+              </button>
+            </div>
             <p className="field-help">
               Your app must support remote MCP with browser sign-in. No token needs copying. Product
               access changes apply automatically. Drafts and unpublished edits stay private.
             </p>
             {copyError !== undefined && <ErrorNotice error={copyError} />}
           </section>
+          <McpSetupGuide url={settings.data.url} />
           <section aria-labelledby="ai-apps-title">
             <h2 id="ai-apps-title">Connected apps</h2>
             {disconnect.error && <ErrorNotice error={disconnect.error} />}

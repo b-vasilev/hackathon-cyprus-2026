@@ -127,7 +127,6 @@ const next: { icon: LucideIcon; title: string; text: string }[] = [
 
 function RouteExplorer() {
   const [active, setActive] = useState(1);
-  const step = route[active];
   return (
     <div className="landing-route">
       <p className="eyebrow">How it works</p>
@@ -149,8 +148,16 @@ function RouteExplorer() {
         ))}
       </ol>
       <div className="route-detail" aria-live="polite">
-        <strong>{step.title}</strong>
-        <p>{step.detail}</p>
+        {route.map((item, index) => (
+          <div
+            key={item.title}
+            className={`landing-route-detail${index === active ? ' active' : ''}`}
+            aria-hidden={index !== active}
+          >
+            <strong>{item.title}</strong>
+            <p>{item.detail}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

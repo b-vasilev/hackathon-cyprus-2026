@@ -81,130 +81,134 @@ export function Connections() {
         title="Your connections"
         description="Connect GitHub for source access and choose your model endpoints."
       />
-      <GitHubConnectionPanel />
-      <section aria-labelledby="llm-connections-heading" className="connections-section">
-        <header className="connections-section-heading">
-          <div>
-            <h2 id="llm-connections-heading">LLM connections</h2>
-            <p>Model providers and gateways for passport generation.</p>
-          </div>
-          <button
-            type="button"
-            className="button primary"
-            onClick={() => setEditing('new')}
-            disabled={status.data?.connections_enabled !== true}
-          >
-            <Plus size={17} />
-            Add LLM connection
-          </button>
-        </header>
-        <div className="intro-strip">
-          <ShieldCheck size={19} aria-hidden="true" />
-          <p>
-            Keys are encrypted on the server. Each passport run uses a fixed connection revision and
-            model.
-          </p>
-        </div>
-        {status.data?.connections_enabled === false && (
-          <div className="notice warning">
-            <KeyRound size={19} aria-hidden="true" />
+      <div className="intro-strip connections-security-note">
+        <ShieldCheck size={19} aria-hidden="true" />
+        <p>
+          Keys are encrypted on the server. Each passport run uses a fixed connection revision and
+          model.
+        </p>
+      </div>
+      <div className="connections-layout">
+        <GitHubConnectionPanel />
+        <section aria-labelledby="llm-connections-heading" className="connections-section">
+          <header className="connections-section-heading">
             <div>
-              <strong>Connection storage needs a master key.</strong>
-              <p>
-                Set CONNECTION_MASTER_KEY to a stable secret of at least 32 characters and restart
-                the API. Keep it safe: it decrypts your saved connections.
-              </p>
+              <h2 id="llm-connections-heading">LLM connections</h2>
+              <p>Model providers and gateways for passport generation.</p>
+            </div>
+            <button
+              type="button"
+              className="button primary"
+              onClick={() => setEditing('new')}
+              disabled={status.data?.connections_enabled !== true}
+            >
+              <Plus size={17} />
+              Add LLM connection
+            </button>
+          </header>
+          <div className="connections-section-body">
+            {status.data?.connections_enabled === false && (
+              <div className="notice warning">
+                <KeyRound size={19} aria-hidden="true" />
+                <div>
+                  <strong>Connection storage needs a master key.</strong>
+                  <p>
+                    Set CONNECTION_MASTER_KEY to a stable secret of at least 32 characters and
+                    restart the API. Keep it safe: it decrypts your saved connections.
+                  </p>
+                </div>
+              </div>
+            )}
+            {(status.isPending || connections.isFetching) && <Loading />}
+            {(status.isError || connections.isError) && (
+              <ErrorNotice error={status.error ?? connections.error} />
+            )}
+            {connections.data?.length === 0 && (
+              <EmptyState title="Connect a model endpoint">
+                Use your own URL, credentials and model names. Multiple connections can expose the
+                same model.
+              </EmptyState>
+            )}
+            <div className="connection-list">
+              {connections.data?.map((connection) => (
+                <article className="connection-card" key={connection.id}>
+                  <div className="connection-heading">
+                    <div className="connection-title">
+                      <span className="small-icon">
+                        <Plug size={20} aria-hidden="true" />
+                      </span>
+                      <div>
+                        <h2>{connection.config.name}</h2>
+                        <p>{protocolLabels[connection.config.protocol]}</p>
+                      </div>
+                    </div>
+                    <div className="row-actions">
+                      <Badge>{connection.config.enabled ? 'Enabled' : 'Disabled'}</Badge>
+                      <button
+                        type="button"
+                        className="button quiet"
+                        onClick={() => setEditing(connection)}
+                      >
+                        <Pencil size={15} />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-button destructive"
+                        disabled={probe.isPending || deleteConnection.isPending}
+                        onClick={() => {
+                          deleteConnection.reset();
+                          setDeleting(connection);
+                        }}
+                        aria-label={`Delete ${connection.config.name}`}
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <p className="endpoint">{connection.config.endpoint_url}</p>
+                  <div className="connection-models">
+                    {connection.config.models?.map((model) => (
+                      <div className="model-row" key={model.id}>
+                        <div>
+                          <code>{model.id}</code>
+                          <span className="meta">
+                            {model.output_mode.replaceAll('_', ' ')} ·{' '}
+                            {model.max_output_tokens.toLocaleString()} output tokens
+                          </span>
+                          {checks[`${connection.id}:${model.id}`] !== undefined && (
+                            <p className="check-result" role="status">
+                              {checks[`${connection.id}:${model.id}`]}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={!connection.config.enabled || probe.isPending}
+                          onClick={() => probe.mutate({ id: connection.id, model: model.id })}
+                        >
+                          {probe.isPending &&
+                          probe.variables.id === connection.id &&
+                          probe.variables.model === model.id
+                            ? 'Checking…'
+                            : 'Check connection'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="connection-foot">
+                    <KeyRound size={14} aria-hidden="true" />
+                    {connection.has_secret ? 'Key saved' : 'No authentication'}
+                    <span>Revision {connection.revision}</span>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
-        )}
-        {(status.isPending || connections.isFetching) && <Loading />}
-        {(status.isError || connections.isError) && (
-          <ErrorNotice error={status.error ?? connections.error} />
-        )}
-        {connections.data?.length === 0 && (
-          <EmptyState title="Connect a model endpoint">
-            Use your own URL, credentials and model names. Multiple connections can expose the same
-            model.
-          </EmptyState>
-        )}
-        <div className="connection-list">
-          {connections.data?.map((connection) => (
-            <article className="connection-card" key={connection.id}>
-              <div className="connection-heading">
-                <div className="connection-title">
-                  <span className="small-icon">
-                    <Plug size={20} aria-hidden="true" />
-                  </span>
-                  <div>
-                    <h2>{connection.config.name}</h2>
-                    <p>{protocolLabels[connection.config.protocol]}</p>
-                  </div>
-                </div>
-                <div className="row-actions">
-                  <Badge>{connection.config.enabled ? 'Enabled' : 'Disabled'}</Badge>
-                  <button
-                    type="button"
-                    className="button quiet"
-                    onClick={() => setEditing(connection)}
-                  >
-                    <Pencil size={15} />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="text-button destructive"
-                    disabled={probe.isPending || deleteConnection.isPending}
-                    onClick={() => {
-                      deleteConnection.reset();
-                      setDeleting(connection);
-                    }}
-                    aria-label={`Delete ${connection.config.name}`}
-                  >
-                    <Trash2 size={15} aria-hidden="true" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <p className="endpoint">{connection.config.endpoint_url}</p>
-              <div className="connection-models">
-                {connection.config.models?.map((model) => (
-                  <div className="model-row" key={model.id}>
-                    <div>
-                      <code>{model.id}</code>
-                      <span className="meta">
-                        {model.output_mode.replaceAll('_', ' ')} ·{' '}
-                        {model.max_output_tokens.toLocaleString()} output tokens
-                      </span>
-                      {checks[`${connection.id}:${model.id}`] !== undefined && (
-                        <p className="check-result" role="status">
-                          {checks[`${connection.id}:${model.id}`]}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={!connection.config.enabled || probe.isPending}
-                      onClick={() => probe.mutate({ id: connection.id, model: model.id })}
-                    >
-                      {probe.isPending &&
-                      probe.variables.id === connection.id &&
-                      probe.variables.model === model.id
-                        ? 'Checking…'
-                        : 'Check connection'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="connection-foot">
-                <KeyRound size={14} aria-hidden="true" />
-                {connection.has_secret ? 'Key saved' : 'No authentication'}
-                <span>Revision {connection.revision}</span>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+        </section>
+      </div>
       {deleting !== null && (
         <DeleteConfirmation
           title="Delete connection?"

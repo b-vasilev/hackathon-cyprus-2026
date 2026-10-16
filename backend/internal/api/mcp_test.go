@@ -205,13 +205,18 @@ func TestMCPAccountAccessAndExports(t *testing.T) {
 	}
 	var exports mcpExports
 	decode(call(learner, "export_passports", map[string]any{}, false), &exports)
-	if len(exports.Passports) != 1 || exports.Passports[0].Filename != portal.productID+"-v1.md" {
-		t.Fatalf("unexpected exported files: %+v", exports.Passports)
+	if len(exports.Passports) != 1 || exports.Passports[0].Filename != "example-v1.md" {
+		t.Fatal("export filename must use the product name")
 	}
 	md := exports.Passports[0].Markdown
-	for _, want := range []string{prose, "Product title", "Product tagline", "API \\| worker", "Component responsibility", "Request input", "Response output", "Public contract", "runtime\\_unit", "Database contract", "Flow purpose", "Flow input", "Flow output", "Flow failure", "Step details", "System diagram", "Diagram details", "A supported claim", "source\\_backed", "Unresolved ownership", "https://github.com/org/repo/blob/commit123/src/file%20name.go#L2-L4"} {
+	for _, want := range []string{prose, "Product title", "Product tagline", "API \\| worker (Go)", "Component responsibility", "Flow purpose", "Flow input", "Flow output", "Flow failure", "Step details"} {
 		if !strings.Contains(md, want) {
 			t.Errorf("Markdown is missing %q", want[:min(len(want), 80)])
+		}
+	}
+	for _, unwanted := range []string{"**Product ID:**", "**Chapter ID:**", "**Question:**", "**Claims:**", "## Objects", "## Connections", "## Diagrams", "## Evidence", "## Open questions", "## Source snapshots", "## Product branding", "System diagram", "A supported claim", "Unresolved ownership"} {
+		if strings.Contains(md, unwanted) {
+			t.Errorf("reading export includes internal detail %q", unwanted)
 		}
 	}
 	if strings.Contains(md, "PRIVATE_SOURCE_CONFIG") || strings.Contains(md, "HIDDEN_PRODUCT") {
@@ -235,6 +240,17 @@ func TestMCPAccountAccessAndExports(t *testing.T) {
 	}
 	if !legacyFound {
 		t.Fatal("legacy sections were omitted")
+	}
+	if _, err := portal.database.ExecContext(t.Context(), "UPDATE products SET name='Example' WHERE id=?", hidden.ID); err != nil {
+		t.Fatal(err)
+	}
+	decode(call(admin, "export_passports", map[string]any{}, false), &exports)
+	filenames := map[string]bool{}
+	for _, export := range exports.Passports {
+		filenames[export.Filename] = true
+	}
+	if !filenames["example-v1.md"] || !filenames["example-v1-2.md"] || len(filenames) != 2 {
+		t.Fatal("products with the same name must export distinct readable filenames")
 	}
 	portal.request(http.MethodPut, "/api/passport-revisions/published/chapters/overview", `{"title":"Unpublished title","markdown":["UNPUBLISHED_EDIT"]}`, portal.lead, http.StatusOK)
 	decode(call(admin, "export_passports", map[string]any{"product_ids": []string{portal.productID}}, false), &exports)

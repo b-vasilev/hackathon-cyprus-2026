@@ -89,7 +89,7 @@ func (w *markdownWriter) items(label string, values []string) {
 
 func renderMarkdown(p passport.Passport) string {
 	w := &markdownWriter{
-		objects: make(map[string]passport.Object, len(p.Model.Objects)),
+		objects:   make(map[string]passport.Object, len(p.Model.Objects)),
 		scenarios: make(map[string]passport.Scenario, len(p.Model.Scenarios)), rendered: make(map[string]bool),
 	}
 	for _, object := range p.Model.Objects {
