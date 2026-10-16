@@ -17,12 +17,13 @@ func newStores(t *testing.T) (Store, access.Store) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	if err := db.RunMigrations(database); err != nil {
-		t.Fatal(err)
+	if checkErr := db.RunMigrations(database); checkErr != nil {
+		t.Fatal(checkErr)
 	}
 	return Store{DB: database}, access.Store{DB: database}
 }
 
+//nolint:gocyclo // One account lifecycle checks replacement, isolation and deletion of saved progress.
 func TestProgressIsSavedPerUserAndRemovedWithTheUser(t *testing.T) {
 	store, accounts := newStores(t)
 	ctx := t.Context()
@@ -44,13 +45,13 @@ func TestProgressIsSavedPerUserAndRemovedWithTheUser(t *testing.T) {
 		Flags:    []string{"curious"},
 		Unlocked: map[string]string{"first-step": "2026-10-15T20:00:00Z"},
 	}
-	if _, err := store.Put(ctx, ana.ID, saved); err != nil {
-		t.Fatal(err)
+	if _, checkErr := store.Put(ctx, ana.ID, saved); checkErr != nil {
+		t.Fatal(checkErr)
 	}
 	// A second save replaces the first.
 	saved.Modules["http"] = Module{Lessons: []string{"requests"}}
-	if _, err := store.Put(ctx, ana.ID, saved); err != nil {
-		t.Fatal(err)
+	if _, checkErr := store.Put(ctx, ana.ID, saved); checkErr != nil {
+		t.Fatal(checkErr)
 	}
 	loaded, err := store.Get(ctx, ana.ID)
 	if err != nil || len(loaded.Modules) != 2 || !loaded.Modules["git"].QuizPassed || loaded.Flags[0] != "curious" {
@@ -62,18 +63,18 @@ func TestProgressIsSavedPerUserAndRemovedWithTheUser(t *testing.T) {
 	}
 
 	// Ana is the first account and therefore the admin; delete Ben, a regular user.
-	if _, err := store.Put(ctx, ben.ID, State{Flags: []string{"off-route"}}); err != nil {
-		t.Fatal(err)
+	if _, checkErr := store.Put(ctx, ben.ID, State{Flags: []string{"off-route"}}); checkErr != nil {
+		t.Fatal(checkErr)
 	}
-	if err := accounts.DeleteUser(ctx, ben.ID); err != nil {
-		t.Fatal(err)
+	if checkErr := accounts.DeleteUser(ctx, ben.ID); checkErr != nil {
+		t.Fatal(checkErr)
 	}
 	var rows int
-	if err := store.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM learning_progress WHERE user_id=?", ben.ID).Scan(&rows); err != nil || rows != 0 {
-		t.Fatalf("progress left after deleting the user: %d %v", rows, err)
+	if checkErr := store.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM learning_progress WHERE user_id=?", ben.ID).Scan(&rows); checkErr != nil || rows != 0 {
+		t.Fatalf("progress left after deleting the user: %d %v", rows, checkErr)
 	}
-	if kept, err := store.Get(ctx, ana.ID); err != nil || len(kept.Modules) != 2 {
-		t.Fatalf("another user's progress was affected: %+v %v", kept, err)
+	if kept, checkErr := store.Get(ctx, ana.ID); checkErr != nil || len(kept.Modules) != 2 {
+		t.Fatalf("another user's progress was affected: %+v %v", kept, checkErr)
 	}
 }
 
@@ -92,8 +93,8 @@ func TestPutRejectsInvalidProgress(t *testing.T) {
 		"empty flag":      {Flags: []string{""}},
 		"empty date":      {Unlocked: map[string]string{"first-step": ""}},
 	} {
-		if _, err := store.Put(t.Context(), user.ID, state); !errors.Is(err, ErrInvalid) {
-			t.Errorf("%s: got %v, want ErrInvalid", name, err)
+		if _, checkErr := store.Put(t.Context(), user.ID, state); !errors.Is(checkErr, ErrInvalid) {
+			t.Errorf("%s: got %v, want ErrInvalid", name, checkErr)
 		}
 	}
 }

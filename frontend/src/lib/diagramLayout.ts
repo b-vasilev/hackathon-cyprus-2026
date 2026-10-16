@@ -51,7 +51,7 @@ export async function layoutArchitecture(
   vertical = false
 ): Promise<ArchitectureLayout> {
   await document.fonts.ready;
-  const { default: ELK } = await import('elkjs/lib/elk.bundled.js');
+  const { layoutGraph } = await import('./elkLayout');
   const objects = (model.objects ?? []).filter((object) => diagram.node_ids?.includes(object.id));
   const relations = (model.relations ?? []).filter((relation) =>
     diagram.relation_ids?.includes(relation.id)
@@ -124,7 +124,7 @@ export async function layoutArchitecture(
     children,
     edges,
   };
-  const result = await new ELK().layout(graph);
+  const result = await layoutGraph(graph);
   return {
     nodes: (result.children ?? []) as PlacedNode[],
     edges: result.edges ?? [],

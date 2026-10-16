@@ -4,10 +4,11 @@
   color: var(--of-ink);
   background: var(--of-canvas);
   font-synthesis: none;
-  --of-brand: #664ccd;
-  --of-brand-hover: #765ed4;
-  --of-brand-strong: #3c2d76;
-  --of-brand-soft: #f0eef9;
+  --of-brand: #684bd7;
+  --of-brand-hover: #654dc4;
+  --of-brand-press: #4a2bc4;
+  --of-brand-strong: #2f265f;
+  --of-brand-soft: #ebe7f5;
   --of-accent: #ff6a3d;
   --of-accent-soft: #ffe8df;
   --of-accent-strong: #b33d16;
@@ -56,6 +57,21 @@ button {
 }
 button:disabled {
   cursor: not-allowed;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :where(button, .button, .text-button, .text-link):not(.route-steps button) {
+    transition: translate 150ms ease;
+  }
+  :is(button, .button, .text-button, .text-link):not(.route-steps button):not(:disabled):not(
+      [aria-disabled="true"]
+    ):hover {
+    translate: 0 -1px;
+  }
+  :is(button, .button, .text-button, .text-link):not(.route-steps button):not(:disabled):not(
+      [aria-disabled="true"]
+    ):active {
+    translate: 0 0;
+  }
 }
 a {
   color: inherit;
@@ -160,16 +176,7 @@ code {
   color: var(--of-muted);
   min-height: 44px;
   padding: 0 12px;
-  border-radius: var(--of-radius-control);
   white-space: nowrap;
-}
-.header-inner nav a:hover {
-  color: var(--of-ink);
-  background: var(--of-surface-subtle);
-}
-.header-inner nav a.active {
-  color: var(--of-brand-strong);
-  background: var(--of-brand-soft);
 }
 .header-caption {
   margin-left: auto;
@@ -227,14 +234,11 @@ code {
   min-height: 44px;
   padding: 10px 18px;
   font-size: 14px;
-  font-weight: var(--of-weight-semibold);
-  border-radius: var(--of-radius-control);
+  font-weight: 600;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   white-space: nowrap;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
 }
 .button.primary {
   color: var(--of-on-brand);
@@ -304,7 +308,7 @@ code {
   padding: 28px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
   transition: border-color 0.15s;
 }
 .product-card:hover {
@@ -331,7 +335,9 @@ code {
   background: transparent;
   color: var(--of-muted);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition:
+    opacity 0.15s,
+    translate 150ms ease;
 }
 .studio-tile-delete-icon {
   display: flex;
@@ -385,7 +391,7 @@ code {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  border-radius: 16px;
+  border-radius: 12px;
   text-align: center;
 }
 .published-tile-icon {
@@ -457,7 +463,7 @@ code {
 }
 .passport-heading.product-branded {
   padding: 24px;
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
 }
 .brandkit-note {
   margin-top: 12px;
@@ -513,7 +519,7 @@ code {
   height: 56px;
   padding: 12px;
   border: 1px solid var(--of-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
 }
 .passport-identity .product-logo {
@@ -549,7 +555,9 @@ code {
   border-left: 3px solid var(--product-content-accent);
   padding-left: 16px;
 }
-.product-passport .section-nav button.active,
+.product-passport .section-nav button.active {
+  color: var(--product-content-accent);
+}
 .product-passport .scenario-step.active {
   background: var(--product-content-soft);
   color: var(--product-content-accent);
@@ -607,7 +615,7 @@ code {
 .small-icon {
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -643,7 +651,7 @@ code {
   font-size: 12px;
   line-height: 1.5;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--of-surface-subtle);
   color: var(--of-muted);
   font-weight: var(--of-weight-medium);
@@ -682,7 +690,7 @@ code {
   padding: 20px;
   background: var(--of-brand-soft);
   color: var(--of-brand);
-  border-radius: var(--of-radius-panel);
+  border-radius: 18px;
   margin-bottom: 24px;
 }
 .empty-state h2 {
@@ -724,7 +732,7 @@ code {
   gap: 12px;
   padding: 18px 20px;
   margin: 24px 0;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-surface-subtle);
   font-size: 14px;
 }
@@ -756,7 +764,7 @@ code {
   background: var(--of-surface);
   padding: 36px;
   border: 1px solid var(--of-border);
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
 }
 .narrow {
   max-width: 800px;
@@ -774,7 +782,7 @@ select,
 textarea {
   width: 100%;
   border: 1px solid var(--of-control-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface);
   color: var(--of-ink);
   padding: 12px;
@@ -833,16 +841,64 @@ input[type="checkbox"] {
 }
 .connection-card {
   border: 1px solid var(--of-border);
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
   background: var(--of-surface);
   padding: 28px;
 }
-.github-connection-section {
-  margin-bottom: 40px;
+.connections-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 40px;
 }
-.connections-section {
-  border-top: 1px solid var(--of-control-border);
-  padding-top: 32px;
+.connections-layout > section {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  min-width: 0;
+}
+.connections-layout .connections-section-heading {
+  align-content: start;
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+.connections-layout > section > .connection-card {
+  align-self: start;
+}
+.connections-section-body {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-width: 0;
+}
+.connections-security-note {
+  border: 0;
+  padding: 0;
+  margin-bottom: 32px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.connections-layout .connection-heading,
+.connections-layout .model-row,
+.connections-layout .row-actions {
+  flex-wrap: wrap;
+}
+.connections-layout .model-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.github-connection-section {
+  align-content: start;
+}
+@media (max-width: 860px) {
+  .connections-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .connections-layout > section {
+    grid-row: auto;
+    grid-template-rows: auto auto;
+    gap: 24px;
+  }
 }
 .connections-section-heading {
   display: flex;
@@ -957,7 +1013,7 @@ input[type="checkbox"] {
 .dialog {
   border: 1px solid var(--of-border);
   background: var(--of-surface);
-  border-radius: 20px;
+  border-radius: 16px;
   color: var(--of-ink);
   padding: 0;
   width: min(640px, calc(100vw - 32px));
@@ -992,7 +1048,7 @@ input[type="checkbox"] {
   border: 0;
   background: transparent;
   color: var(--of-muted);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
 }
 .icon-button:hover {
   background: var(--of-surface-subtle);
@@ -1006,7 +1062,7 @@ input[type="checkbox"] {
 .preset {
   padding: 10px 14px;
   border: 1px solid var(--of-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   min-height: 44px;
   font-size: 12px;
   background: var(--of-surface);
@@ -1023,7 +1079,7 @@ input[type="checkbox"] {
 .model-form {
   background: var(--of-surface-subtle);
   padding: 20px;
-  border-radius: 14px;
+  border-radius: 10px;
   margin-bottom: 16px;
 }
 .model-form label:last-child {
@@ -1094,7 +1150,7 @@ summary {
   padding: 24px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
-  border-radius: 16px;
+  border-radius: 12px;
   margin: 24px 0;
 }
 .progress-heading {
@@ -1176,7 +1232,7 @@ summary {
   margin: 16px 0;
   padding: 16px 20px;
   border: 1px solid var(--of-border);
-  border-radius: 16px;
+  border-radius: 12px;
   font-size: 14px;
   line-height: 1.5;
   min-width: 0;
@@ -1402,20 +1458,12 @@ summary {
   flex-wrap: wrap;
   gap: 6px;
   margin: 24px 0;
+  border-bottom: 1px solid var(--of-border);
 }
 .passport-tabs a {
   padding: 10px 16px;
-  border-radius: var(--of-radius-control);
   color: var(--of-muted);
   font-weight: var(--of-weight-medium);
-}
-.passport-tabs a:hover {
-  color: var(--of-ink);
-  background: var(--of-surface-subtle);
-}
-.passport-tabs a.active {
-  color: var(--of-brand-strong);
-  background: var(--of-brand-soft);
 }
 .passport-publication {
   display: flex;
@@ -1514,7 +1562,7 @@ summary {
   margin: 0 0 20px;
   padding: 14px 16px;
   border: 1px dashed var(--of-control-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   color: var(--of-muted);
   font-size: 13px;
 }
@@ -1541,13 +1589,14 @@ summary {
   gap: 4px;
 }
 .section-nav button {
+  position: relative;
   display: flex;
   align-items: center;
   text-align: left;
   gap: 12px;
-  border: 1px solid transparent;
+  border: 0;
   padding: 12px;
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: transparent;
   font-size: 13px;
   min-height: 44px;
@@ -1557,13 +1606,24 @@ summary {
   font-size: 12px;
 }
 .section-nav button.active {
-  color: var(--of-brand-strong);
-  background: var(--of-brand-soft);
-  border-color: var(--of-border-strong);
-  font-weight: var(--of-weight-medium);
+  color: var(--of-brand);
+  font-weight: 500;
+}
+.section-nav button.active::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 2px;
+  background: currentColor;
 }
 .section-nav button:hover {
   background: var(--of-surface-subtle);
+}
+.section-nav button:focus-visible {
+  outline: 2px solid var(--of-brand);
+  outline-offset: -2px;
 }
 .section-title {
   margin-bottom: 20px;
@@ -1590,7 +1650,7 @@ summary {
   text-align: left;
   padding: 24px;
   border: 1px solid var(--of-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
   color: var(--of-ink);
 }
@@ -1630,7 +1690,7 @@ summary {
   padding: 18px 20px;
   border: 1px solid var(--of-border);
   border-bottom: 0;
-  border-radius: 16px 16px 0 0;
+  border-radius: 12px 12px 0 0;
   background: var(--of-surface);
 }
 .diagram-toolbar .eyebrow {
@@ -1642,19 +1702,19 @@ summary {
   height: 430px;
   border: 1px solid var(--of-border);
   background: var(--of-diagram-surface);
-  border-radius: 0 0 16px 16px;
+  border-radius: 0 0 12px 12px;
   overflow: hidden;
 }
 .dialog .graph-canvas {
   height: 65vh;
-  border-radius: 16px;
+  border-radius: 12px;
 }
 .diagram-node {
   width: 230px;
   height: 128px;
   background: var(--of-surface);
   border: 1px solid var(--of-control-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   padding: 14px 16px;
   text-align: left;
 }
@@ -1766,7 +1826,7 @@ summary {
 }
 .architecture-frame {
   border: 1px solid var(--of-control-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
   overflow: hidden;
 }
@@ -1786,7 +1846,7 @@ summary {
   height: 100%;
   width: 100%;
   border: 1px solid var(--of-control-border);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-surface);
   text-align: left;
 }
@@ -1923,7 +1983,7 @@ summary {
   margin-top: 16px;
   padding: 0 16px;
   background: var(--of-surface-subtle);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
 }
 .diagram-explanation > summary {
   display: flex;
@@ -1972,7 +2032,7 @@ summary {
 .architecture-canvas .react-flow__controls {
   display: flex;
   border-color: var(--of-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   overflow: hidden;
 }
 .architecture-canvas .react-flow__controls-button {
@@ -2050,7 +2110,7 @@ summary {
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--of-control-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface);
   font-weight: var(--of-weight-medium);
   text-decoration: none;
@@ -2089,7 +2149,7 @@ summary {
 .source-code {
   padding: 20px;
   background: var(--of-surface-subtle);
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: auto;
   font-size: 12px;
   line-height: 1.9;
@@ -2123,25 +2183,17 @@ summary {
   gap: 6px;
   overflow-x: auto;
   margin-bottom: 24px;
+  border-bottom: 1px solid var(--of-border);
 }
 .scenario-tabs button {
   padding: 10px 16px;
   min-height: 44px;
   border: 0;
-  border-radius: var(--of-radius-control);
   background: none;
   color: var(--of-muted);
   font-size: 13px;
   font-weight: var(--of-weight-medium);
   white-space: nowrap;
-}
-.scenario-tabs button:hover {
-  color: var(--of-ink);
-  background: var(--of-surface-subtle);
-}
-.scenario-tabs button.active {
-  color: var(--of-brand-strong);
-  background: var(--of-brand-soft);
 }
 .scenario-view > p {
   font-size: 14px;
@@ -2159,7 +2211,7 @@ summary {
   min-width: 180px;
   flex: 1;
   border: 1px solid var(--of-control-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface);
   text-align: left;
   color: var(--of-ink);
@@ -2203,7 +2255,7 @@ summary {
 .open-questions {
   background: var(--of-surface-subtle);
   padding: 24px;
-  border-radius: 16px;
+  border-radius: 12px;
   margin-top: 28px;
 }
 .checklist ul {
@@ -2408,6 +2460,14 @@ summary {
   .section-nav button {
     white-space: nowrap;
   }
+  .section-nav button.active::before {
+    top: auto;
+    bottom: 0;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    height: 2px;
+  }
   .progress-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -2497,7 +2557,7 @@ summary {
   overflow-x: auto;
   background: var(--of-surface-subtle);
   border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border-radius: 10px;
   font-size: 13px;
   line-height: 1.65;
 }
@@ -2515,7 +2575,7 @@ summary {
   display: flex;
   gap: 12px;
   padding: 18px 20px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-brand-soft);
   color: var(--of-brand-strong);
 }
@@ -2574,7 +2634,7 @@ summary {
 }
 .quiz-scenario {
   background: var(--of-surface-subtle);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 18px 20px;
   margin-bottom: 20px;
   font-size: 15px;
@@ -2607,7 +2667,7 @@ summary {
   padding: 14px 16px;
   min-height: 44px;
   border: 1px solid var(--of-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface);
   font-size: 14px;
   font-weight: var(--of-weight-regular);
@@ -2655,7 +2715,7 @@ summary {
 .quiz-feedback {
   margin-top: 20px;
   padding: 16px 20px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-brand-soft);
   color: var(--of-brand-strong);
   font-size: 14px;
@@ -2682,7 +2742,7 @@ summary {
 .quiz-result-icon {
   display: inline-flex;
   padding: 14px;
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
   background: var(--of-brand-soft);
   color: var(--of-brand);
 }
@@ -2734,11 +2794,13 @@ summary {
   padding: 18px;
   min-height: 150px;
   border: 1px solid var(--of-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
   color: var(--of-ink);
   font-size: 14px;
-  transition: border-color 0.15s;
+  transition:
+    border-color 0.15s,
+    translate 150ms ease;
 }
 .mock-card:hover:not(:disabled, .right, .wrong) {
   border-color: var(--of-control-border);
@@ -2838,7 +2900,7 @@ summary {
   font-size: 15px;
   line-height: 2.6;
   padding: 18px 20px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-surface-subtle);
 }
 .fill-template.code {
@@ -2898,7 +2960,7 @@ summary {
   min-height: 40px;
   padding: 8px 14px;
   border: 1px solid var(--of-control-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface);
   color: var(--of-ink);
   font-size: 14px;
@@ -2974,7 +3036,7 @@ summary {
 .branch-step {
   padding: 20px;
   border: 1px solid var(--of-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
   font-size: 15px;
 }
@@ -2993,7 +3055,7 @@ summary {
 }
 .patch {
   border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: hidden;
   background: var(--of-surface);
 }
@@ -3066,7 +3128,7 @@ summary {
   gap: 8px;
   margin: 0 14px 10px 33px;
   padding: 10px 12px;
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
   font-size: 13px;
@@ -3107,7 +3169,7 @@ summary {
   margin: 0;
   padding: 20px;
   border: 1px solid var(--of-border);
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
   background: var(--of-diagram-surface);
 }
 .git-diagram-tabs {
@@ -3115,7 +3177,7 @@ summary {
   flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
   margin-bottom: 12px;
@@ -3124,7 +3186,7 @@ summary {
   min-height: 40px;
   padding: 8px 16px;
   border: 0;
-  border-radius: var(--of-radius-control);
+  border-radius: 7px;
   background: transparent;
   color: var(--of-muted);
   font-size: 13px;
@@ -3311,7 +3373,7 @@ summary {
   min-height: 40px;
   min-width: 64px;
   padding: 6px 12px;
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   border: 2px solid var(--of-control-border);
   background: var(--of-surface);
   color: var(--of-ink);
@@ -3397,7 +3459,7 @@ summary {
 .progress-track {
   flex: 1;
   height: 12px;
-  border-radius: 999px;
+  border-radius: 3px;
   background: var(--of-surface-subtle);
   overflow: hidden;
 }
@@ -3405,7 +3467,7 @@ summary {
   display: block;
   height: 100%;
   background: var(--of-accent);
-  border-radius: 999px;
+  border-radius: 3px;
 }
 .progress-text {
   white-space: nowrap;
@@ -3447,7 +3509,7 @@ summary {
   min-height: 40px;
   padding: 8px 14px;
   border: 1px solid var(--of-control-border);
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface);
   color: var(--of-ink);
   font-size: 13px;
@@ -3478,7 +3540,7 @@ summary {
 .code-pane {
   min-width: 0;
   border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-surface);
   overflow: hidden;
 }
@@ -3671,7 +3733,7 @@ summary {
   gap: 6px 12px;
   margin: 0;
   padding: 10px 14px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
   font-size: 14px;
@@ -3703,7 +3765,7 @@ summary {
   padding: 16px 18px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border-radius: 10px;
   font-size: 13px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -3744,7 +3806,7 @@ summary {
   font-size: 14px;
   line-height: 1.65;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
 }
@@ -3786,7 +3848,7 @@ summary {
   justify-content: center;
   min-width: 56px;
   height: 56px;
-  border-radius: 14px;
+  border-radius: 10px;
   border: 2px solid var(--of-control-border);
   background: var(--of-surface);
   font-family: var(--of-font-mono);
@@ -3825,7 +3887,7 @@ summary {
 .sequence-actor {
   justify-self: center;
   padding: 6px 12px;
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   border: 2px solid var(--of-ink);
   background: var(--of-surface);
   font-family: var(--of-font-mono);
@@ -4019,7 +4081,7 @@ summary {
   min-width: 150px;
   padding: 12px;
   border: 2px dashed var(--of-control-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
 }
 .boundary-zone.tone-brand {
@@ -4212,6 +4274,7 @@ summary {
   display: flex;
   gap: 6px;
   margin: 0 0 24px;
+  border-bottom: 1px solid var(--of-border);
 }
 .foundations-tabs a {
   display: inline-flex;
@@ -4219,22 +4282,61 @@ summary {
   gap: 8px;
   min-height: 44px;
   padding: 0 16px;
-  border-radius: var(--of-radius-control);
   color: var(--of-muted);
   font-size: 14px;
   font-weight: var(--of-weight-medium);
 }
+.header-inner nav a,
+.passport-tabs a,
+.scenario-tabs button,
+.foundations-tabs a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 8px;
+}
+.header-inner nav a:hover,
+.passport-tabs a:hover,
+.scenario-tabs button:hover,
 .foundations-tabs a:hover {
   color: var(--of-ink);
   background: var(--of-surface-subtle);
 }
+.header-inner nav a.active,
+.passport-tabs a.active,
+.scenario-tabs button.active,
 .foundations-tabs a.active {
-  color: var(--of-brand-strong);
-  background: var(--of-brand-soft);
+  color: var(--of-brand);
+  font-weight: 500;
+}
+.header-inner nav a.active::after,
+.passport-tabs a.active::after,
+.scenario-tabs button.active::after,
+.foundations-tabs a.active::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 2px;
+  background: var(--of-brand);
+}
+.header-inner nav a.active::after {
+  left: 12px;
+  right: 12px;
+}
+.header-inner nav a:focus-visible,
+.passport-tabs a:focus-visible,
+.scenario-tabs button:focus-visible,
+.foundations-tabs a:focus-visible {
+  outline: 2px solid var(--of-brand);
+  outline-offset: -2px;
 }
 .foundations-tab-count {
   padding: 1px 7px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--of-surface-subtle);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -4257,7 +4359,7 @@ summary {
   min-height: 56px;
   padding: 8px 12px 8px 8px;
   border: 1px solid var(--of-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
   color: var(--of-ink);
   transition: border-color 0.15s;
@@ -4291,7 +4393,7 @@ summary {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 10px;
   background: var(--of-accent-soft);
   color: var(--of-accent-strong);
 }
@@ -4312,7 +4414,7 @@ summary {
   flex-direction: column;
   margin: 0;
   overflow: hidden;
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
   border: 1px solid var(--of-border);
   background: var(--of-surface);
 }
@@ -4373,7 +4475,7 @@ summary {
 .achievement-card-title .achievement-icon {
   width: 30px;
   height: 30px;
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
 }
 .achievement-card-title strong {
   font-size: 15px;
@@ -4420,7 +4522,7 @@ summary {
   gap: 12px;
   max-width: 340px;
   padding: 14px 14px 14px 16px;
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
   border: 1px solid var(--of-brand);
   background: var(--of-surface);
   box-shadow: 0 8px 24px rgb(33 31 38 / 12%);
@@ -4495,7 +4597,7 @@ summary {
 }
 .meme {
   margin: 0;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--of-ink);
 }
@@ -4604,7 +4706,7 @@ summary {
 }
 .person-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 20px;
   padding: 14px 0;
@@ -4648,8 +4750,19 @@ summary {
     gap: 8px;
   }
 }
+.people-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px;
+  align-items: start;
+}
 .people-section {
-  margin-top: 48px;
+  min-width: 0;
+}
+@media (max-width: 1000px) {
+  .people-layout {
+    grid-template-columns: 1fr;
+  }
 }
 .people-section-heading {
   font-size: 20px;
@@ -4792,7 +4905,7 @@ details[open] > summary .disclosure-chevron {
 .document-prose pre {
   padding: 20px;
   overflow-x: auto;
-  border-radius: var(--of-radius-control);
+  border-radius: 8px;
   background: var(--of-surface-subtle);
 }
 .document-prose code {
@@ -4889,8 +5002,7 @@ details[open] > summary .disclosure-chevron {
 }
 .landing-route {
   padding: 28px;
-  border-radius: var(--of-radius-panel);
-  border: 1px solid var(--of-border);
+  border-radius: 18px;
   background: var(--of-diagram-surface);
 }
 .route-steps {
@@ -4936,7 +5048,7 @@ details[open] > summary .disclosure-chevron {
   min-height: 48px;
   padding: 8px 10px 8px 6px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 10px;
   background: transparent;
   color: var(--of-ink);
   font-size: 14px;
@@ -4985,13 +5097,24 @@ details[open] > summary .disclosure-chevron {
 .route-detail {
   margin-top: 16px;
   padding: 16px 18px;
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
   min-height: 112px;
 }
 .route-detail strong {
   font-weight: var(--of-weight-medium);
+}
+.landing-route .route-detail {
+  display: grid;
+}
+/* Keep room for every description so switching steps does not move the hero. */
+.landing-route-detail {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.landing-route-detail.active {
+  visibility: visible;
 }
 .route-detail p {
   margin-top: 6px;
@@ -5037,17 +5160,16 @@ details[open] > summary .disclosure-chevron {
   align-items: flex-start;
   gap: 12px;
   margin-top: 32px;
-  padding: 18px 20px;
-  border-radius: 16px;
-  background: var(--of-brand-soft);
-  color: var(--of-brand-strong);
+  padding: 4px 0 4px 16px;
+  border-left: 2px solid var(--of-brand);
+  color: var(--of-ink);
   font-size: 15px;
   line-height: 1.6;
-  max-width: 820px;
 }
 .landing-answer svg {
   flex-shrink: 0;
   margin-top: 2px;
+  color: var(--of-brand);
 }
 .landing-features {
   display: grid;
@@ -5058,7 +5180,14 @@ details[open] > summary .disclosure-chevron {
   padding: 0;
 }
 .landing-features li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: 14px;
+  align-content: start;
   margin: 0;
+}
+.landing-features p {
+  grid-column: 2;
 }
 .landing-icon {
   display: inline-flex;
@@ -5066,8 +5195,8 @@ details[open] > summary .disclosure-chevron {
   justify-content: center;
   width: 40px;
   height: 40px;
-  margin-bottom: 14px;
-  border-radius: 14px;
+  grid-row: 1 / span 2;
+  border-radius: 10px;
   background: var(--of-brand-soft);
   color: var(--of-brand);
 }
@@ -5079,7 +5208,7 @@ details[open] > summary .disclosure-chevron {
 }
 .landing-audiences > div {
   padding: 24px;
-  border-radius: var(--of-radius-card);
+  border-radius: 14px;
   border: 1px solid var(--of-border);
   background: var(--of-surface);
 }
@@ -5123,7 +5252,7 @@ details[open] > summary .disclosure-chevron {
   gap: 12px;
   margin: 0;
   padding: 16px 18px;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px dashed var(--of-control-border);
   font-size: 14px;
   line-height: 1.6;
@@ -5141,7 +5270,7 @@ details[open] > summary .disclosure-chevron {
 }
 .landing-cta {
   padding: 40px;
-  border-radius: var(--of-radius-panel);
+  border-radius: 18px;
   background: var(--of-diagram-surface);
   text-align: center;
 }
@@ -5211,7 +5340,7 @@ details[open] > summary .disclosure-chevron {
   align-items: flex-start;
   justify-content: center;
   padding: 36px;
-  border-radius: var(--of-radius-panel);
+  border-radius: 18px;
   border: 1px solid var(--of-border);
   background: var(--of-surface);
 }
@@ -5243,6 +5372,17 @@ details[open] > summary .disclosure-chevron {
   padding: 10px 20px;
   font-size: 14px;
 }
+.home-route {
+  display: flex;
+  flex-direction: column;
+}
+.home-route .route-steps,
+.home-route .route-steps li {
+  flex: 1;
+}
+.home-route .route-steps li {
+  display: flex;
+}
 .home-route .route-dot.completed {
   background: var(--of-brand);
   border-color: var(--of-brand);
@@ -5257,8 +5397,8 @@ details[open] > summary .disclosure-chevron {
   color: var(--of-brand-strong);
 }
 .home-route .route-steps button {
-  min-height: 42px;
-  font-size: 13px;
+  min-height: 48px;
+  font-size: 14px;
 }
 .home-route .route-detail {
   min-height: 0;
@@ -5286,7 +5426,7 @@ details[open] > summary .disclosure-chevron {
 }
 .home-empty {
   padding: 20px;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px dashed var(--of-control-border);
   color: var(--of-muted);
   font-size: 14px;
@@ -5403,4 +5543,171 @@ details[open] > summary .disclosure-chevron {
 }
 .home-mission {
   justify-content: flex-start;
+}
+.ai-connections {
+  display: grid;
+  gap: 32px;
+  max-width: 800px;
+  margin-inline: auto;
+}
+
+.header-account .connect-ai-link {
+  --mcp-highlight: color-mix(in srgb, var(--of-brand) 55%, var(--of-accent));
+  --mcp-violet: var(--of-brand);
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 12px;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--of-on-brand);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background:
+    radial-gradient(
+      ellipse at 110% 130%,
+      color-mix(in srgb, var(--mcp-highlight) 65%, transparent),
+      transparent 65%
+    )
+    padding-box,
+    radial-gradient(
+      ellipse at -10% 140%,
+      color-mix(in srgb, var(--mcp-violet) 75%, transparent),
+      transparent 70%
+    )
+    padding-box,
+    linear-gradient(
+      115deg,
+      var(--of-brand-press) 0%,
+      var(--mcp-violet) 35%,
+      var(--mcp-highlight) 65%,
+      var(--mcp-violet) 100%
+    )
+    padding-box,
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--of-on-brand) 45%, transparent),
+      color-mix(in srgb, var(--of-brand) 30%, transparent) 45%,
+      color-mix(in srgb, var(--mcp-highlight) 85%, transparent)
+    )
+    border-box;
+  background-size:
+    180% 160%,
+    180% 160%,
+    220% 100%,
+    100% 100%;
+  background-position:
+    0% 0%,
+    100% 0%,
+    0 0,
+    0 0;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--of-on-brand) 10%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--mcp-highlight) 20%, transparent),
+    -5px 4px 18px color-mix(in srgb, var(--mcp-violet) 26%, transparent),
+    5px 4px 18px color-mix(in srgb, var(--mcp-violet) 32%, transparent);
+  letter-spacing: 0.02em;
+  font-weight: 600;
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--of-ink) 60%, transparent);
+  transition:
+    background-position 650ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease,
+    translate 150ms ease;
+}
+
+.header-account .connect-ai-link:hover,
+.header-account .connect-ai-link.active {
+  color: var(--of-on-brand);
+  background-position:
+    100% 100%,
+    0% 100%,
+    100% 0,
+    0 0;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--of-on-brand) 16%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--mcp-highlight) 30%, transparent),
+    -5px 5px 22px color-mix(in srgb, var(--mcp-violet) 32%, transparent),
+    5px 5px 22px color-mix(in srgb, var(--mcp-violet) 40%, transparent);
+}
+
+.header-account .connect-ai-link:hover {
+  transform: translate(3px, -3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-account .connect-ai-link {
+    transition: none;
+  }
+
+  .header-account .connect-ai-link:hover {
+    transform: none;
+  }
+}
+
+.ai-connections code {
+  overflow-wrap: anywhere;
+}
+
+.mcp-setup-guide > p:first-of-type {
+  margin: 8px 0 12px;
+}
+
+.mcp-setup-guide details {
+  border-bottom: 1px solid var(--of-border);
+}
+
+.mcp-setup-guide details[open] {
+  padding-bottom: 12px;
+}
+
+.mcp-setup-guide summary:focus-visible {
+  outline: 2px solid var(--of-brand);
+  outline-offset: 4px;
+}
+
+.mcp-setup-guide pre {
+  padding: 16px;
+  border-radius: var(--of-radius-control);
+  background: var(--of-surface-subtle);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ai-connections .page-heading {
+  margin-bottom: 0;
+}
+
+.ai-connections .field-help {
+  margin: 12px 0 0;
+}
+
+.header-account > .button,
+.account-email .badge {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .header-account .account-email {
+    display: none;
+  }
+}
+
+.ai-app-list {
+  list-style: none;
+  padding: 0;
+}
+
+.ai-app-list li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-block: 16px;
+  border-bottom: 1px solid var(--of-border);
+  flex-wrap: wrap;
+}
+
+.ai-app-list li > div {
+  flex: 1;
+  min-width: 160px;
 }

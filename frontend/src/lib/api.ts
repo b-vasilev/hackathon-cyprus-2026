@@ -29,6 +29,8 @@ export type GitHubConnection = components['schemas']['GitHubConnection'];
 export type OAuthURL = components['schemas']['OAuthURL'];
 export type User = components['schemas']['User'];
 export type Me = components['schemas']['Me'];
+export type MCPSettings = components['schemas']['MCPSettings'];
+export type MCPClient = components['schemas']['MCPClient'];
 export type Member = components['schemas']['Member'];
 
 interface ErrorBody {

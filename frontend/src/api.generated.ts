@@ -4,6 +4,54 @@
  */
 
 export interface paths {
+  '/api/ai-connections': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getAIConnections'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ai-connections/authorize': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['previewAIConsent'];
+    put?: never;
+    post: operations['authorizeAIApp'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ai-connections/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['disconnectAIApp'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/auth/login': {
     parameters: {
       query?: never;
@@ -534,6 +582,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/products/{id}/passport.md': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['downloadPublishedPassport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/users': {
     parameters: {
       query?: never;
@@ -826,6 +890,36 @@ export interface components {
       unlocked: {
         [key: string]: string;
       };
+    };
+    MCPClient: {
+      client_id: string;
+      client_name: string;
+      redirect_uris: null | string[];
+    };
+    MCPConsentInput: {
+      authorization: {
+        client_id: string;
+        redirect_uri: string;
+        response_type: string;
+        code_challenge: string;
+        code_challenge_method: string;
+        resource: string;
+        scope: string;
+        state: string;
+      };
+      allow: boolean;
+    };
+    MCPRedirect: {
+      redirect_url: string;
+    };
+    MCPSettings: {
+      url: string;
+      connections: {
+        id: string;
+        name: string;
+        created_at: string;
+        expires_at: string;
+      }[];
     };
     Me: {
       user: {
@@ -1647,6 +1741,135 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getAIConnections: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MCPSettings'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  previewAIConsent: {
+    parameters: {
+      query: {
+        client_id: string;
+        redirect_uri: string;
+        response_type: string;
+        code_challenge: string;
+        code_challenge_method: string;
+        resource: string;
+        scope?: string;
+        state?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MCPClient'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  authorizeAIApp: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MCPConsentInput'];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MCPRedirect'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  disconnectAIApp: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description No content */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   login: {
     parameters: {
       query?: never;
@@ -3019,6 +3242,37 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['RevisionInfo'][];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  downloadPublishedPassport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Complete published passport download */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/markdown': string;
         };
       };
       /** @description Request failed */

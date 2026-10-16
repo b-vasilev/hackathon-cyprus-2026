@@ -90,9 +90,8 @@ function StandardDiagramViewer({
   const layout = useQuery({
     queryKey: ['diagram-layout', diagram, model.objects, model.relations],
     queryFn: async () => {
-      const { default: Layout } = await import('elkjs/lib/elk.bundled.js');
-      const engine = new Layout();
-      return engine.layout({
+      const { layoutGraph } = await import('../lib/elkLayout');
+      return layoutGraph({
         id: diagram.id,
         layoutOptions: {
           'elk.algorithm': 'layered',

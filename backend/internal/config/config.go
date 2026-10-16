@@ -16,6 +16,7 @@ import (
 // Config contains process settings. Secrets and provider settings belong to their future modules.
 type Config struct {
 	HTTPAddr            string
+	PublicURL           string
 	DatabasePath        string
 	ContentDir          string
 	LogLevel            string
@@ -48,6 +49,7 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 	}
 	cfg := Config{
 		HTTPAddr:            get("HTTP_ADDR", "127.0.0.1:8080"),
+		PublicURL:           strings.TrimRight(get("PUBLIC_URL", "http://127.0.0.1:5173"), "/"),
 		DatabasePath:        get("DATABASE_PATH", "./data/onboarding.db"),
 		LogLevel:            get("LOG_LEVEL", "info"),
 		LogFormat:           get("LOG_FORMAT", "console"),
@@ -61,6 +63,9 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		FrontendDir:         get("FRONTEND_DIR", ""),
 	}
 	cfg.ContentDir = get("PASSPORT_CONTENT_DIR", filepath.Join(filepath.Dir(cfg.DatabasePath), "content"))
+	if !validPublicOrigin(cfg.PublicURL) {
+		return Config{}, errors.New("PUBLIC_URL must be an HTTPS origin, or HTTP on localhost, without a path, credentials, query or fragment")
+	}
 	if cfg.ContentDir == "" {
 		return Config{}, errors.New("PASSPORT_CONTENT_DIR must be a directory path")
 	}
@@ -82,7 +87,7 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		return Config{}, errors.New("SHUTDOWN_TIMEOUT must be a positive duration")
 	}
 	cfg.ShutdownTimeout = timeout
-	origins, err := parseOrigins(get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"))
+	origins, err := parseOrigins(get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://wayfinder-t1a.eastus2.cloudapp.azure.com"))
 	if err != nil {
 		return Config{}, err
 	}
@@ -110,6 +115,15 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 		}
 	}
 	return cfg, nil
+}
+
+func validPublicOrigin(raw string) bool {
+	public, err := url.Parse(raw)
+	if err != nil || public.Host == "" || public.User != nil || public.Path != "" || public.RawQuery != "" || public.Fragment != "" {
+		return false
+	}
+	local := public.Hostname() == "localhost" || public.Hostname() == "127.0.0.1" || public.Hostname() == "::1"
+	return public.Scheme == "https" || public.Scheme == "http" && local
 }
 
 func validate(cfg Config) error {

@@ -75,7 +75,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	defer func() { stopWorker(); <-workerDone }()
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(database, logger, cfg.CORSOrigins, &api.Factory{Access: &access.Store{DB: database}, Learning: &learning.Store{DB: database}, Service: factory, Network: policy, FrontendDir: cfg.FrontendDir, GitHub: githubStore, GitHubOAuth: githubconnection.OAuthConfig{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL}}),
+		Handler:           api.New(database, logger, cfg.CORSOrigins, &api.Factory{Access: &access.Store{DB: database}, PublicURL: cfg.PublicURL, Learning: &learning.Store{DB: database}, Service: factory, Network: policy, FrontendDir: cfg.FrontendDir, GitHub: githubStore, GitHubOAuth: githubconnection.OAuthConfig{ClientID: cfg.GitHubClientID, ClientSecret: cfg.GitHubClientSecret, RedirectURL: cfg.GitHubRedirectURL}}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

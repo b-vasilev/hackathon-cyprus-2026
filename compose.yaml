@@ -24,11 +24,12 @@ services:
       - "127.0.0.1:8080:8080"
     environment:
       HTTP_ADDR: 0.0.0.0:8080
+      PUBLIC_URL: "${PUBLIC_URL:-http://127.0.0.1:8080}"
       DATABASE_PATH: /app/data/onboarding.db
       GENERATION_WORKERS: "${GENERATION_WORKERS:-3}"
       LOG_FORMAT: json
       LOG_LEVEL: info
-      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173
+      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173,https://wayfinder-t1a.eastus2.cloudapp.azure.com
       CONNECTION_MASTER_KEY: "${CONNECTION_MASTER_KEY:-}"
       LLM_ALLOWED_PRIVATE_ORIGINS: "${LLM_ALLOWED_PRIVATE_ORIGINS:-}"
       GITHUB_TOKEN: "${GITHUB_TOKEN:-}"

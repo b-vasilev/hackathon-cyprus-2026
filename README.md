@@ -1,7 +1,9 @@
 # Wayfinder
 
-Generate a standard product passport from repository evidence. Each product gets
-its own content, model, scenarios and diagrams through shared renderers.
+Wayfinder is a product onboarding portal. Generate a product passport from
+repository evidence, review and publish it for your team, and work through
+Foundations lessons and quizzes. Each product gets its own content, model,
+scenarios and diagrams through shared renderers.
 
 ```text
 GitHub SHA + optional context
@@ -49,8 +51,12 @@ mise exec -- just dev
 
 Both services run together; Ctrl+C stops both.
 
-Open [the portal](http://127.0.0.1:5173). Add a connection, check its model,
-register a product with GitHub URLs or context, then generate its passport.
+Open [the portal](http://127.0.0.1:5173) and register the first account, which
+becomes an admin. In **Connections**, add an LLM connection and check its model.
+Connect GitHub there too if you need private repository access. In **Product
+studio**, register a product with GitHub URLs or text context, then generate its
+passport. Review and publish the draft before learners can read it, and grant
+them product access under **People**.
 `just` automatically loads the project-root `.env`; exported shell variables take precedence.
 See `.env.example` for settings. Keep the master key outside version control and
 back it up separately: losing it makes saved credentials unreadable.
@@ -75,12 +81,19 @@ payload columns in one transaction. Failed exports preserve the database origina
 New files are immutable and published before their database references are committed.
 Source settings and the frozen input configuration remain in SQLite.
 
-System context diagrams use custom React Flow nodes and ELK-routed orthogonal
-edges with labels included in layout. Narrow screens use a vertical arrangement;
-other diagram kinds keep their existing renderer.
+Context, container, component and repository diagrams use custom React Flow nodes
+and ELK-routed orthogonal edges with labels included in layout. Narrow screens use
+a vertical arrangement. Other diagram kinds use the standard React Flow renderer.
+ELK layout runs in a web worker.
 
-For a single-origin local build, run `just frontend::build`, then start the API
-with `FRONTEND_DIR=../frontend/dist` and `CORS_ORIGINS=http://127.0.0.1:8080`.
+For a single-origin local build, run:
+
+```sh
+mise exec -- just frontend::build
+PUBLIC_URL=http://127.0.0.1:8080 FRONTEND_DIR=../frontend/dist CORS_ORIGINS=http://127.0.0.1:8080 mise exec -- just backend::run
+```
+
+Open [the built portal](http://127.0.0.1:8080).
 
 ## Accounts and access
 
@@ -92,11 +105,76 @@ Later accounts start with no product access.
 | --- | --- | --- |
 | Admin | Everything | Manage connections, products, all product access and admin roles. |
 | Product lead | One product | Read and generate its passport; grant or revoke leads and learners. |
-| Learner | One product | Read the product and its passport. |
+| Learner | One product | Read the product and its published passport. |
 
 A person can hold different roles on different products. Admins manage accounts and
 every product's leads and learners under **People**. Leads manage their own products
 from **People and access** on each product page. Sessions are HttpOnly cookies that last 30 days.
+
+## Foundations
+
+Every signed-in user can access Foundations, even without product assignments.
+Modules contain lessons and quizzes; completing every lesson and passing the quiz
+completes a module. Learning progress, quiz results and achievement unlocks are
+saved to the account in SQLite and synced with a browser copy. The home page shows
+the next learning step and available published passports.
+
+## Connect AI
+
+Use **MCP** (the gradient button in the top bar) to open Connect AI and copy
+the portal's MCP URL into an AI app that supports remote MCP and OAuth browser
+sign-in. Sign in to Wayfinder
+when prompted and approve read access. Nothing needs downloading or copying from
+the browser's session cookies. The connection follows your account's current
+product permissions. The same page lists connected apps and lets you disconnect
+each one; disconnecting immediately revokes access and token refresh.
+
+The initial MCP server provides exactly two read-only tools:
+
+| Tool | Result |
+| --- | --- |
+| `list_products()` | Accessible product IDs, names and published-passport availability. |
+| `export_passports(product_ids?)` | Full published Markdown, filename, product ID, revision ID and version for each selected product. Omit IDs or pass `[]` for every accessible published passport. |
+
+Exports are reading documents: chapter text, readable product descriptions and
+referenced flows with their steps. Internal IDs, schema and snapshot metadata,
+evidence, diagrams, raw model appendices, open questions and branding are omitted.
+Filenames use the product name, such as `antares-v2.md` or `cli-anything-v1.md`;
+colliding filenames in a batch receive a numeric suffix. Exports preserve
+the published copy when reviewers have unpublished edits. There is no server-side
+truncation, search, repository browsing, generation or publication through MCP.
+Clients can save each returned `markdown` string using its `filename`.
+The authenticated `GET /api/products/{id}/passport.md` route also downloads one
+published passport directly using the portal login.
+
+Set `PUBLIC_URL` to the browser-facing portal origin. Local development defaults
+to `http://127.0.0.1:5173`; Vite proxies MCP, OAuth and discovery routes to the API.
+For a single-origin build on port 8080, set `PUBLIC_URL=http://127.0.0.1:8080`.
+Hosted deployments require an HTTPS origin and proxy the MCP/OAuth/discovery
+routes to the API alongside `/api`. Include the portal origin in `CORS_ORIGINS`.
+
+The server uses OAuth authorization codes with S256 PKCE, exact registered
+callbacks, resource-bound access tokens and rotating refresh tokens. The only
+scope is `passports:read`. Access tokens last one hour; app connections last up to
+30 days before another sign-in is required. Only hashes of codes and tokens are
+stored. Portal login sessions are not accepted as MCP credentials, and MCP tokens
+cannot authenticate portal write routes. Remote clients must support public-client
+dynamic registration; client metadata URL registration is not yet supported.
+
+For a harness that launches local stdio servers, build the small adapter:
+
+```sh
+cd backend
+go build -o bin/wayfinder-mcp ./cmd/mcp
+```
+
+Configure that binary as the harness's MCP command and optionally set
+`WAYFINDER_MCP_URL` (default `http://127.0.0.1:5173/mcp`). The adapter opens browser
+sign-in automatically and forwards only the two read-only tools. Its tokens stay
+in memory, so restarting it asks for sign-in/consent again. Logs and sign-in links
+go to stderr; stdout contains only MCP messages. Advanced clients may supply an
+existing OAuth access token through `WAYFINDER_ACCESS_TOKEN` instead of browser
+sign-in; the adapter does not refresh manually supplied tokens.
 
 ## LLM connections
 
@@ -139,9 +217,10 @@ docker compose up --build -d llm-proxy
 ```
 
 In the portal, choose OpenAI Responses, the proxy's model ID and bearer key.
-For a local API use `http://127.0.0.1:8317/v1` and allow origin
-`http://127.0.0.1:8317`. For the Compose API use `http://llm-proxy:8317/v1`
-and allow origin `http://llm-proxy:8317`. The profile stays off by default.
+For a local API use `http://127.0.0.1:8317/v1`. For the Compose API use
+`http://llm-proxy:8317/v1`. Both are allowed by the default local-network policy;
+no extra `LLM_ALLOWED_PRIVATE_ORIGINS` entry is needed. The sidecar stays off
+unless explicitly started.
 
 ## Source collection and generation
 
@@ -153,7 +232,7 @@ Regular source files are staged for the pinned Repomix CLI. Repomix
 security and ignore filters determine safe files; original Git bytes are retained
 for exact hashes and line citations.
 
-In **Connections**, connect GitHub with a personal access token. The account is
+Admins can connect GitHub with a personal access token in **Connections**. The account is
 shared across this portal and used for private source
 repositories. Tokens are checked against GitHub, encrypted using `CONNECTION_MASTER_KEY`,
 and never returned by the API. A fine-grained token needs Contents read access to
@@ -174,8 +253,7 @@ Repomix stays installed and runs against the staged local files.
 Safety ceilings: 5 sources, 20,000 files, 128 MiB total text and 8 MiB per file.
 Oversized collections fail explicitly instead of silently using a partial catalog.
 Dependencies, build outputs, binary files, secret-like paths, oversized files and
-Repomix security exclusions are outside the indexed scope. The previous 80 KB / 40
-document selection limit is no longer used by the application.
+Repomix security exclusions are outside the indexed scope.
 Source text can be sent to the selected provider; use appropriate source access.
 
 Editable stage and section prompts live in
@@ -186,13 +264,15 @@ and restart to apply edits. The prompt version is recorded with every model call
 Fantasy runs the selected model through the saved gateway connection using OpenAI
 Responses, OpenAI Chat Completions or Anthropic Messages. It can list files, search
 the entire indexed source and batch paged reads through sandboxed Repomix MCP.
-Repository code is never executed. Research starts with 30 model turns and can
-extend its allowance by 10 when new read-and-cited source evidence supports planned
-roles and reachable questions remain. Repeated reads, classifications and renamed
-areas do not earn extensions. One recovery block allows a different approach when
-no new evidence was found. The hard limit is 120 turns or 30 minutes; the final
-30 seconds are reserved for saving and checking results. Research stops visibly
-with unresolved questions if evidence checks cannot be satisfied.
+Repository code is never executed. Research uses up to 20 workers with separate
+source questions and a shared adaptive turn allowance. Model requests still obey
+the saved connection's concurrency and quota limits. The allowance grows only when
+new read-and-cited evidence reduces the number of open questions. Repeated reads,
+classifications and renamed areas do not earn extensions. One recovery block lets
+workers finish existing questions when progress stalls. Each research attempt has
+a 60-minute limit, with the final 30 seconds reserved for saving and checking
+results. The application sets no fixed turn cap. Research stops visibly with
+unresolved questions if evidence checks cannot be satisfied.
 Indexed, read and cited files are recorded separately, including original line
 ranges. Every final evidence anchor must be inside a range actually read.
 A deterministic inventory first identifies candidate source areas, manifests,
@@ -230,8 +310,12 @@ action and persisted entity counts. A failed analysis resumes its last valid
 checkpoint. Per-run `request_timeout_seconds` can override the frozen connection's
 execution timeout without changing its model or destination.
 
-Composition uses this canonical model to author the document. On the incremental
-path, bounded document repair changes views while preserving the validated model.
+Composition uses this canonical model to author the document. It plans each
+chapter, then generates small prose and diagram blocks with up to four concurrent
+requests, within the connection's concurrency limit. Tables and scenario
+references are assembled from the plans. Failed tasks retry independently while
+preserving the validated model. The overview is written after the detailed
+chapters and displayed first.
 The research recipe is editable in
 [`backend/internal/research/prompts/research.md`](backend/internal/research/prompts/research.md).
 Analysis keeps the important responsibilities and variants in one canonical
@@ -247,8 +331,10 @@ Objects, contracts, scopes and evidence remain shared across chapters. Markdown
 is rendered without raw HTML or executable MDX. Older section-based revisions
 continue to use their original renderer.
 OpenAI connections can set a lower reasoning effort to reduce latency.
-A bounded memory cache reuses safe source packages at unchanged commit SHAs;
-restarting the API clears it. google/jsonschema-go checks each response.
+Source packages at unchanged commit SHAs are reused from memory and a disk cache
+under `FACTORY_WORK_DIR/packages`. The disk cache survives API restarts. By default,
+`FACTORY_WORK_DIR` is a `wayfinder` directory beside `DATABASE_PATH`.
+google/jsonschema-go checks each response.
 Semantic checks verify references, required core sections, content placement and
 citation line bounds. Repository provenance is separate from runtime architecture.
 React Flow renders model references; ELK computes coordinates. Generated content
@@ -280,9 +366,10 @@ images pass the same safety checks as discovered logos.
 
 ## API and modules
 
-The full [OpenAPI contract](backend/internal/api/openapi.json) is served at
-`GET /api/openapi.json`. Request IDs, exact-origin CORS, timeouts, a 1 MiB body
-limit, sanitized errors and structured logs come from the scaffold.
+The [OpenAPI contract](backend/internal/api/openapi.json) for the portal API is
+served at `GET /api/openapi.json`. MCP and OAuth use separate endpoints. The API
+includes request IDs, exact-origin CORS, timeouts, a 1 MiB body limit, sanitized
+errors and structured logs.
 
 Generation progress is saved with ordered events in SQLite. The passport page
 shows run and stage timing, recorded model usage, and an expandable activity feed.
@@ -296,25 +383,39 @@ stream when the run finishes. A stream heartbeat does not mean worker progress.
 | Routes | Purpose |
 | --- | --- |
 | `/healthz`, `/readyz` | Liveness and database readiness |
+| `/api/auth/register`, `/login`, `/logout`, `/me` | Account registration and cookie sessions; all under `/api/auth` |
+| `/api/users`, `/{id}`, `/api/products/{id}/members`, `/members/{userId}` | Account administration and product access |
+| `/api/me/learning` | Read and save the signed-in user's learning progress |
 | `/api/factory/status` | Connection setup availability |
-| `/api/llm-connections`, `/{id}`, `/{id}/test` | Save, edit, list and check connections |
+| `/api/llm-connections`, `/{id}`, `/{id}/test`, `/models` | Save, edit, list, check connections and fetch models |
+| `/api/git-connection`, `/api/git-connection/oauth/start`, `/oauth/callback` | Shared GitHub credentials and GitHub browser sign-in; OAuth routes under `/api/git-connection` |
 | `/api/products`, `/{id}` | Register and inspect product sources |
 | `/api/products/{id}/icon` | Lead/admin upload or removal of a custom product icon |
 | `/api/products/{id}/generations` | Queue generation; returns 202 |
 | `/api/generations/{id}` | Stage, error, document count and token usage |
+| `/api/generations/{id}/cancel`, `/{id}/events` | Cancel a run or stream its progress |
 | `/api/products/{id}/passport`, `/passport-revisions` | Published content and revision history |
 | `/api/passport-revisions/{id}`, `/{id}/evidence/{evidenceId}` | Frozen content and exact source excerpts |
 | `/api/passport-revisions/{id}/publish`, `/{id}/unpublish` | Lead/admin publication of one version |
 | `/api/passport-revisions/{id}/review`, `/{id}/comments`, `/{id}/flag`, `/{id}/chapters/{chapterId}` | Lead/admin review notes, flags and chapter edits |
+| `/api/products/{id}/passport.md` | Download a published passport as Markdown |
+| `/mcp`, `/oauth/*`, `/.well-known/*`, `/api/ai-connections` | Remote AI access, OAuth discovery, consent and app disconnection |
 
 ```text
 backend/internal/source/          GitHub catalog, pinned Git + Repomix
 backend/internal/llmgateway/      encrypted connections, network policy, limiter
 backend/internal/llm/             official provider SDK adapters
 backend/internal/passport/        shared contract and semantic validation
+backend/internal/research/        source investigation, coverage and checkpoints
+backend/internal/analysis/        tool-driven canonical model assembly
 backend/internal/generation/      durable queue and generation stages
 backend/internal/product/         product source configuration
+backend/internal/access/          accounts, sessions and product roles
+backend/internal/learning/        account learning progress
+backend/internal/mcpauth/          OAuth clients, grants and tokens for MCP
 backend/internal/api/             routes, OpenAPI and optional built UI
+backend/cmd/mcp/                  local stdio adapter for remote MCP
+frontend/src/foundations/         lessons, quizzes, progress and achievements
 frontend/src/pages/               products, connections and passport
 frontend/src/components/          shared diagrams, scenarios and evidence
 ```
@@ -330,28 +431,44 @@ mise exec -- just test
 mise exec -- just backend::test-race
 mise exec -- just backend::audit
 mise exec -- just check-web
+mise exec -- just frontend::test
 mise exec -- just frontend::build
+mise exec -- just proxy::check
+mise exec -- just proxy::test -race -count=1
+mise exec -- just proxy::audit
 mise exec -- just generate-api  # after changing Go API contracts
 ```
 
+Root `check`, `test`, `audit`, `build` and `ci` recipes cover the backend.
+`check-web` runs frontend formatting, lint and type checks; frontend tests and
+builds and proxy checks run separately as shown above.
+
 OpenAPI types are generated with openapi-typescript, not maintained by hand.
-Check and test CI remains disabled; these commands run locally.
+CI runs backend, frontend and LLM proxy tests, formatting and lint checks on pull
+requests and pushes to `main`. It also checks frontend types and builds the UI,
+and audits Go dependencies. It does not deploy the app.
 
 ```sh
 # Compose reads .env; set a stable CONNECTION_MASTER_KEY there first.
-docker compose up --build api
+# Override the development PUBLIC_URL copied from .env.example.
+PUBLIC_URL=http://127.0.0.1:8080 docker compose up --build api
 ```
 
 Open [the built portal](http://127.0.0.1:8080). The image includes the Go API,
 built UI, Node and Repomix, runs as a non-root user, and persists SQLite in the
-`onboarding-data` volume. Source workspaces are private and removed after collection.
+`onboarding-data` volume. Passport content also persists in that volume, under
+`/app/data/content`. Compose uses this default path; it does not forward
+`PASSPORT_CONTENT_DIR` from `.env`. Temporary source workspaces are private and
+removed after collection; cached source packages remain in `/app/data/wayfinder/packages`.
 
 ## Deployment
 
-Every push to `main` runs [the Deploy workflow](.github/workflows/deploy.yml). It builds
-the image on GitHub, loads it on the Azure VM over SSH and restarts
+After `Tests and checks` succeeds for a push to `main`,
+[the Deploy workflow](.github/workflows/deploy.yml) builds the tested commit's
+image on GitHub, loads it on the Azure VM over SSH and restarts
 [the production stack](deploy/compose.yaml): the API behind Caddy, which obtains and
-renews the Let's Encrypt certificate. Run it manually from the Actions tab if needed.
+renews the Let's Encrypt certificate. A manual run from the Actions tab bypasses
+the test gate if needed.
 
 | Item | Value |
 | --- | --- |
@@ -363,17 +480,23 @@ renews the Let's Encrypt certificate. Run it manually from the Actions tab if ne
 `/opt/wayfinder/.env` on the VM holds `SITE_HOST`, `CONNECTION_MASTER_KEY` and any
 optional settings from `.env.example`; it is not in Git. Back up the master key
 and the data volume. After editing `.env`, run `docker compose up -d` in `/opt/wayfinder`.
+The production stack sets `PUBLIC_URL` and `CORS_ORIGINS` to `https://${SITE_HOST}`.
+The MCP page shows `${PUBLIC_URL}/mcp`; OAuth discovery uses the same public origin.
 Builds from the last week stay on the VM. To roll back, run
 `docker tag wayfinder:<sha> wayfinder:current && docker compose up -d` there.
 
-## MVP limits
+## Current limits
 
-This is a local, single-operator MVP. It has no login, product permissions or
-publication approval workflow. Keep it on localhost; add authentication before
-shared deployment. Source facts, inferred claims and unknowns are shown separately,
-but an evidence link does not prove the model interpreted that evidence correctly.
+The portal supports multiple accounts, per-product roles, review and publication.
+It runs as a single API instance with local SQLite and file storage; there is no
+distributed worker setup. Drafts and unpublished edits are restricted to admins
+and product leads. Publication gives access only to assigned users and admins;
+it does not create a public passport URL. Remote AI access exports published
+passports through the two read-only MCP tools.
 
-Repomix 1.18.0 currently pulls a braces advisory through globby/micromatch. No
-patched braces release was available during implementation. User glob patterns
-are evaluated in Go; only escaped, catalog-verified exact paths reach Repomix.
-Recheck `npm audit` when updating the packager dependency.
+Source facts, inferred claims and unknowns are shown separately, but an evidence
+link does not prove the model interpreted that evidence correctly. Coverage and
+unresolved questions remain explicit. Repomix is pinned in
+`frontend/package.json`; check dependency advisories when updating it. User glob
+patterns are evaluated in Go; only escaped, catalog-verified exact paths reach
+Repomix.

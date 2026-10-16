@@ -47,71 +47,78 @@ export function People() {
           its passport. One person can hold different roles on different products.
         </p>
       </div>
-      <h2 className="people-section-heading" id="accounts-heading">
-        Accounts
-      </h2>
-      {users.isPending && <Loading label="Loading people…" />}
-      {users.isError && <ErrorNotice error={users.error} />}
-      {setRole.isError && <ErrorNotice error={setRole.error} />}
-      {remove.isError && <ErrorNotice error={remove.error} />}
-      <ul className="people-list" aria-labelledby="accounts-heading">
-        {users.data?.map((user) => {
-          const self = user.id === me.user.id;
-          return (
-            <li className="person-row" key={user.id}>
-              <div>
-                <strong>
-                  {user.email}
-                  {self && ' (you)'}
-                </strong>
-                <span className="meta">Joined {date(user.created_at)}</span>
-              </div>
-              <label className="checkbox-label inline-label">
-                <input
-                  type="checkbox"
-                  checked={user.role === 'admin'}
-                  disabled={setRole.isPending}
-                  aria-label={`Admin: ${user.email}`}
-                  onChange={(event) =>
-                    setRole.mutate({ id: user.id, role: event.target.checked ? 'admin' : 'user' })
-                  }
-                />
-                Admin
-              </label>
-              <button
-                type="button"
-                className="text-button destructive"
-                disabled={remove.isPending}
-                onClick={() => {
-                  if (globalThis.confirm(`Remove ${user.email} and all of their access?`)) {
-                    remove.mutate(user.id);
-                  }
-                }}
-              >
-                <Trash2 size={15} aria-hidden="true" />
-                Remove
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <section className="people-section" aria-labelledby="product-access-heading">
-        <h2 className="people-section-heading" id="product-access-heading">
-          Product access
-        </h2>
-        <p className="page-description">
-          Choose the product leads and learners for each product. Admins already have access to
-          every product.
-        </p>
-        {products.isPending && <Loading label="Loading products…" />}
-        {products.isError && <ErrorNotice error={products.error} />}
-        {products.data?.length === 0 && <p className="meta">No products yet.</p>}
-        <div className="product-access-list">
-          {products.data?.map((product) => (
-            <ProductAccess key={product.id} productId={product.id} title={product.name} />
-          ))}
-        </div>
-      </section>
+      <div className="people-layout">
+        <section className="people-section" aria-labelledby="accounts-heading">
+          <h2 className="people-section-heading" id="accounts-heading">
+            Accounts
+          </h2>
+          {users.isPending && <Loading label="Loading people…" />}
+          {users.isError && <ErrorNotice error={users.error} />}
+          {setRole.isError && <ErrorNotice error={setRole.error} />}
+          {remove.isError && <ErrorNotice error={remove.error} />}
+          <ul className="people-list" aria-labelledby="accounts-heading">
+            {users.data?.map((user) => {
+              const self = user.id === me.user.id;
+              return (
+                <li className="person-row" key={user.id}>
+                  <div>
+                    <strong>
+                      {user.email}
+                      {self && ' (you)'}
+                    </strong>
+                    <span className="meta">Joined {date(user.created_at)}</span>
+                  </div>
+                  <label className="checkbox-label inline-label">
+                    <input
+                      type="checkbox"
+                      checked={user.role === 'admin'}
+                      disabled={setRole.isPending}
+                      aria-label={`Admin: ${user.email}`}
+                      onChange={(event) =>
+                        setRole.mutate({
+                          id: user.id,
+                          role: event.target.checked ? 'admin' : 'user',
+                        })
+                      }
+                    />
+                    Admin
+                  </label>
+                  <button
+                    type="button"
+                    className="text-button destructive"
+                    disabled={remove.isPending}
+                    onClick={() => {
+                      if (globalThis.confirm(`Remove ${user.email} and all of their access?`)) {
+                        remove.mutate(user.id);
+                      }
+                    }}
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                    Remove
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+        <section className="people-section" aria-labelledby="product-access-heading">
+          <h2 className="people-section-heading" id="product-access-heading">
+            Product access
+          </h2>
+          <p className="page-description">
+            Choose the product leads and learners for each product. Admins already have access to
+            every product.
+          </p>
+          {products.isPending && <Loading label="Loading products…" />}
+          {products.isError && <ErrorNotice error={products.error} />}
+          {products.data?.length === 0 && <p className="meta">No products yet.</p>}
+          <div className="product-access-list">
+            {products.data?.map((product) => (
+              <ProductAccess key={product.id} productId={product.id} title={product.name} />
+            ))}
+          </div>
+        </section>
+      </div>
     </>
   );
 }

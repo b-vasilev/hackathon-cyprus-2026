@@ -7,8 +7,8 @@ build:
     mkdir -p bin
     go build -o bin/llm-proxy ./cmd/llm-proxy
 
-test:
-    go test ./...
+test *ARGS:
+    go test ./... {{ARGS}}
 
 fmt:
     go fmt ./...
@@ -22,6 +22,4 @@ lint:
 check: fmt-check lint
 
 audit:
-    @proxy_bin_dir="$(go env GOBIN)"; \
-        if [ -z "$proxy_bin_dir" ]; then proxy_bin_dir="$(go env GOPATH)/bin"; fi; \
-        "$proxy_bin_dir/govulncheck" ./...
+    govulncheck ./...

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ArrowUpRight, Check, Compass, Hammer } from 'lucide-react';
+import { ArrowRight, Check, Compass, Hammer } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AchievementSummary } from '../components/Achievements';
@@ -204,23 +204,23 @@ export function Home() {
             appears here.
           </p>
         )}
-        <div className="product-grid">
+        <div className="published-grid">
           {published.slice(0, 3).map((product) => (
-            <article
-              className={`product-card published-card${product.card_theme ? ' product-branded' : ''}`}
+            <Link
+              className="published-tile"
               style={productCardTheme(product.card_theme)}
               key={product.id}
+              to={`/published/${product.id}`}
             >
-              <Link className="product-card-content" to={`/published/${product.id}`}>
+              <span className="published-tile-icon">
                 <ProductIdentity
                   name={product.name}
                   theme={product.card_theme}
                   icon={product.icon_url}
                 />
-                <h2>{product.name}</h2>
-                <ArrowUpRight size={20} aria-hidden="true" />
-              </Link>
-            </article>
+              </span>
+              <h2>{product.name}</h2>
+            </Link>
           ))}
         </div>
       </section>

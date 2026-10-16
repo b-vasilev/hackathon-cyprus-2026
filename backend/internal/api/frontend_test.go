@@ -21,6 +21,9 @@ func TestFrontendServesClientRoutes(t *testing.T) {
 		"/foundations/achievements": http.StatusOK,
 		"/products/abc":             http.StatusOK,
 		"/products":                 http.StatusOK,
+		"/ai-connections":           http.StatusOK,
+		"/ai-connections/authorize": http.StatusOK,
+		"/ai-connections/missing":   http.StatusNotFound,
 		"/foundations/git/extra":    http.StatusNotFound,
 		"/unknown":                  http.StatusNotFound,
 	}

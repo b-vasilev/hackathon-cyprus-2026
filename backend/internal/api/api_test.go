@@ -31,13 +31,15 @@ func TestAPI(t *testing.T) {
 		{name: "unknown", method: "GET", path: "/missing", status: 404},
 		{name: "method", method: "POST", path: "/healthz", status: 405},
 		{name: "allowed origin", method: "GET", path: "/healthz", origin: "http://localhost:5173", status: 200},
+		{name: "production portal", method: "GET", path: "/api/openapi.json", origin: "https://wayfinder-t1a.eastus2.cloudapp.azure.com", status: 200},
+		{name: "production preflight", method: "OPTIONS", path: "/api/ai-connections", origin: "https://wayfinder-t1a.eastus2.cloudapp.azure.com", status: 204},
 		{name: "denied origin", method: "GET", path: "/healthz", origin: "https://untrusted.example", status: 403},
 		{name: "preflight", method: "OPTIONS", path: "/healthz", origin: "http://localhost:5173", status: 204},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			handler := New(testDatabase{err: tt.databaseErr}, zerolog.New(io.Discard), []string{"http://localhost:5173"})
+			handler := New(testDatabase{err: tt.databaseErr}, zerolog.New(io.Discard), []string{"http://localhost:5173", "https://wayfinder-t1a.eastus2.cloudapp.azure.com"})
 			request := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			request.Header.Set("X-Request-ID", "untrusted-client-id")
 			if tt.origin != "" {
