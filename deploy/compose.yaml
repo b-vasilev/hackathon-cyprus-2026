@@ -25,7 +25,7 @@ services:
 
   # Terminates HTTPS with an automatic Let's Encrypt certificate for SITE_HOST.
   caddy:
-    image: caddy:2.10.2
+    image: caddy:2.11.6
     command: caddy reverse-proxy --from ${SITE_HOST} --to api:8080
     ports:
       - "80:80"
