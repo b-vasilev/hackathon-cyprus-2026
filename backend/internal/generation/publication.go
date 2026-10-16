@@ -103,10 +103,16 @@ func (s *Service) Publish(ctx context.Context, id, userID string) (Revision, err
 		if flaggedAt != "" {
 			return ErrFlagged
 		}
+		// Keep the old quiz with the old published text until this transaction.
+		// Publishing edited text hides practice created from different content.
+		if _, err := tx.ExecContext(ctx, `UPDATE learning_packs SET published_content_json='',published_source_content_hash='',published_by='',published_at=''
+ WHERE revision_id=? AND published_source_content_hash<>?`, id, hash); err != nil {
+			return fmt.Errorf("hide outdated practice: %w", err)
+		}
 		// Publish ready practice in the same transaction, including quiz-only changes.
-		if _, err := tx.ExecContext(ctx, `UPDATE learning_packs SET published_content_json=content_json,published_by=?,
- published_at=CASE WHEN published_content_json=content_json AND published_at<>'' THEN published_at ELSE ? END
- WHERE revision_id=? AND status='ready' AND content_json<>''`, userID, now(), id); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE learning_packs SET published_content_json=content_json,published_source_content_hash=source_content_hash,published_by=?,
+ published_at=CASE WHEN published_content_json=content_json AND published_source_content_hash=source_content_hash AND published_at<>'' THEN published_at ELSE ? END
+ WHERE revision_id=? AND status='ready' AND content_json<>'' AND source_content_hash=? AND source_content_hash<>''`, userID, now(), id, hash); err != nil {
 			return fmt.Errorf("publish passport practice: %w", err)
 		}
 		if published && (publishedHash == "" || publishedHash == hash) {

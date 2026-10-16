@@ -67,7 +67,8 @@ export function PassportReview({
   });
   const flagged = (review.data?.flagged_at ?? '') !== '';
   const busy = publication.isPending || flag.isPending;
-  const readyPractice = practice.data?.status === 'ready' && Boolean(practice.data.content);
+  const readyPractice =
+    practice.data?.status === 'ready' && !practice.data.stale && Boolean(practice.data.content);
   const canPublish =
     !revision.published ||
     revision.unpublished_changes ||
@@ -87,6 +88,12 @@ export function PassportReview({
           <h2>{title}</h2>
           <p>{description}</p>
           {readyPractice && <p>Publishing this passport also publishes its quiz and first task.</p>}
+          {practice.data?.stale && (
+            <p>
+              The quiz needs updating after the text changes. Publish now without it, or generate
+              practice again first.
+            </p>
+          )}
           {practice.data?.status === 'generating' && (
             <p>The quiz is still generating. You can publish both when it is ready.</p>
           )}

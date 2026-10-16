@@ -32,10 +32,21 @@ publication record the actor and time. Diagrams, flows, tables and evidence stay
 as generated, and older section-based versions cannot be edited. Learners only
 see the published version. Publishing stays inside the portal's existing product
 access; it does not create a public link.
+Practice is bound to the exact passport content used to generate it. Editing text
+marks the quiz and first task as needing an update. Learners keep the previous
+published text and practice until the passport is republished. Publishing edited
+text hides outdated practice; generate it again and publish the matching copy.
+Existing practice for previously edited passports must be generated again after
+upgrading, because its original source content cannot be verified.
 Product studio is available to admins and product leads. The separate Published
 passports tab is available to all signed-in users for their assigned products.
 
 ## Run locally
+
+Deployed portal: [Wayfinder](https://wayfinder-t1a.eastus2.cloudapp.azure.com).
+After signing up on the deployed portal, you can explore three demo product
+passports and take their quizzes. New accounts do not get admin access by
+default, and Product studio is hidden.
 
 Install [mise](https://mise.jdx.dev/), then:
 

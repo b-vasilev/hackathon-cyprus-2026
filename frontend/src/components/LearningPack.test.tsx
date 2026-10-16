@@ -25,6 +25,7 @@ function publishedPack(overrides: Partial<LearningPack> = {}): LearningPack {
     published: true,
     published_at: '2026-10-16T10:00:00Z',
     unpublished_changes: false,
+    stale: false,
     content: {
       quiz: [question],
       mission: {

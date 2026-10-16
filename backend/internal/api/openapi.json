@@ -831,6 +831,10 @@
           "unpublished_changes": {
             "type": "boolean"
           },
+          "stale": {
+            "type": "boolean",
+            "description": "Practice was generated from different passport content and must be generated again."
+          },
           "content": {
             "type": [
               "null",
@@ -1102,7 +1106,8 @@
           "updated_at",
           "published",
           "published_at",
-          "unpublished_changes"
+          "unpublished_changes",
+          "stale"
         ],
         "additionalProperties": false
       },

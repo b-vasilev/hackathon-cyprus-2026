@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learningpack"
@@ -23,7 +24,10 @@ func seedPracticeVersions(t *testing.T, portal *testPortal) {
 		revisionID := fmt.Sprintf("revision-%d", version)
 		runID := fmt.Sprintf("run-%d", version)
 		path := fmt.Sprintf("products/%s/versions/%d/passport.json", portal.productID, version)
-		hash, err := portal.content.WriteJSON(path, passport.Passport{})
+		hash, err := portal.content.WriteJSON(path, passport.Passport{Views: passport.Views{Document: &passport.Document{
+			Version: 2, Chapters: []passport.Chapter{{ID: "overview", Title: "Overview", Question: "How to run?",
+				Blocks: []passport.DocumentBlock{{Kind: "markdown", Markdown: "The service listens on port 8080."}}}},
+		}}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -41,8 +45,8 @@ func seedPracticeVersions(t *testing.T, portal *testPortal) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = portal.database.ExecContext(ctx, `INSERT INTO learning_packs(id,product_id,revision_id,status,content_json,published_content_json,created_at,updated_at,published_at)
- VALUES(?,?,?,'ready',?,?,'created','created',?)`, fmt.Sprintf("pack-%d", version), portal.productID, revisionID, string(pack), string(pack), fmt.Sprintf("2026-10-16T1%d:00:00Z", version))
+		_, err = portal.database.ExecContext(ctx, `INSERT INTO learning_packs(id,product_id,revision_id,status,content_json,published_content_json,created_at,updated_at,published_at,source_content_hash,published_source_content_hash)
+ VALUES(?,?,?,'ready',?,?,'created','created',?,?,?)`, fmt.Sprintf("pack-%d", version), portal.productID, revisionID, string(pack), string(pack), fmt.Sprintf("2026-10-16T1%d:00:00Z", version), hash, hash)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -126,5 +130,76 @@ func TestPracticePublicationChangesOnlyWithContent(t *testing.T) {
 	}
 	if visible.Content == nil || visible.Content.Mission.Title != "Updated practice" {
 		t.Fatal("passport publication exposed unfinished practice")
+	}
+}
+
+func TestPracticeMustMatchReviewedPassport(t *testing.T) {
+	t.Parallel()
+	for _, scenario := range []struct {
+		name       string
+		published  bool
+		regenerate bool
+	}{
+		{name: "edited draft"},
+		{name: "edited published passport", published: true},
+		{name: "regenerated after editing", published: true, regenerate: true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			portal := newTestPortal(t)
+			seedPracticeVersions(t, portal)
+			revision := "/api/passport-revisions/revision-1"
+			published := "/api/products/" + portal.productID
+			if scenario.published {
+				portal.request(http.MethodPost, revision+"/publish", "", portal.lead, http.StatusOK)
+			}
+			portal.request(http.MethodPut, revision+"/chapters/overview", `{"title":"Overview","markdown":["The service listens on port 9090."]}`, portal.lead, http.StatusOK)
+
+			var studio learningpack.View
+			body := portal.request(http.MethodGet, revision+"/learning-pack", "", portal.lead, http.StatusOK)
+			if err := json.Unmarshal([]byte(body), &studio); err != nil {
+				t.Fatal(err)
+			}
+			if !studio.Stale || !studio.Published {
+				t.Fatalf("editing did not mark the working practice stale: %+v", studio)
+			}
+			portal.request(http.MethodPost, revision+"/learning-pack/publish", "", portal.lead, http.StatusConflict)
+			if scenario.regenerate {
+				// A completed regeneration belongs to the edited text, not the still-published copy.
+				if _, err := portal.database.ExecContext(t.Context(), `UPDATE learning_packs SET
+ content_json=json_set(content_json,'$.mission.title','Updated practice'),
+ source_content_hash=(SELECT content_hash FROM passport_revisions WHERE id=revision_id)
+ WHERE revision_id='revision-1'`); err != nil {
+					t.Fatal(err)
+				}
+				portal.request(http.MethodPost, revision+"/learning-pack/publish", "", portal.lead, http.StatusConflict)
+			}
+			// Unpublished edits and regenerated quizzes cannot replace either learner snapshot early.
+			if scenario.published {
+				if passportBody := portal.request(http.MethodGet, published+"/passport", "", portal.learner, http.StatusOK); !strings.Contains(passportBody, "8080") || strings.Contains(passportBody, "9090") {
+					t.Fatal("learner's passport changed before publication")
+				}
+				body = portal.request(http.MethodGet, published+"/learning-pack", "", portal.learner, http.StatusOK)
+				if !strings.Contains(body, "Practice v1") || strings.Contains(body, "Updated practice") {
+					t.Fatal("learner's practice changed before passport publication")
+				}
+			} else {
+				portal.request(http.MethodGet, published+"/learning-pack", "", portal.learner, http.StatusNotFound)
+			}
+
+			portal.request(http.MethodPost, revision+"/publish", "", portal.lead, http.StatusOK)
+			if passportBody := portal.request(http.MethodGet, published+"/passport", "", portal.learner, http.StatusOK); !strings.Contains(passportBody, "9090") {
+				t.Fatal("corrected passport was not published")
+			}
+			if !scenario.regenerate {
+				portal.request(http.MethodGet, published+"/learning-pack", "", portal.learner, http.StatusNotFound)
+				portal.request(http.MethodPost, revision+"/learning-pack/publish", "", portal.lead, http.StatusConflict)
+				return
+			}
+			body = portal.request(http.MethodGet, published+"/learning-pack", "", portal.learner, http.StatusOK)
+			if !strings.Contains(body, "Updated practice") {
+				t.Fatal("matching practice was not published with the corrected text")
+			}
+		})
 	}
 }

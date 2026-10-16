@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { api, type Chapter, type DocumentBlock, type Revision } from '../lib/api';
+import { packKey } from '../lib/learningPack';
 import { ErrorNotice } from './ui';
 
 const blockLabels: Record<string, string> = {
@@ -33,6 +34,7 @@ export function ChapterEditor({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['review', saved.id] }),
         queryClient.invalidateQueries({ queryKey: ['revisions', saved.product_id] }),
+        queryClient.invalidateQueries({ queryKey: [packKey, saved.id] }),
       ]);
       onDone();
     },

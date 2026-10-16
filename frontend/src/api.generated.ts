@@ -964,6 +964,8 @@ export interface components {
       published: boolean;
       published_at: string;
       unpublished_changes: boolean;
+      /** @description Practice was generated from different passport content and must be generated again. */
+      stale: boolean;
       content?: null | {
         quiz:
           | null

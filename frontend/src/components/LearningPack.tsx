@@ -40,11 +40,13 @@ function questions(items: PackQuestion[] | null): ChoiceQuestion[] {
 export function PracticeStudio({
   revisionId,
   productId,
+  unpublishedChanges = false,
   chapters,
   onChapter,
 }: Readonly<{
   revisionId: string;
   productId: string;
+  unpublishedChanges?: boolean;
   chapters: Chapter[];
   onChapter: (id: string) => void;
 }>) {
@@ -83,6 +85,9 @@ export function PracticeStudio({
   if (view.content) {
     state = view.published ? 'Published' : 'Draft';
   }
+  if (view.stale) {
+    state = 'Needs update';
+  }
   return (
     <article aria-labelledby="practice-title" className="practice">
       <div className="section-title">
@@ -96,12 +101,12 @@ export function PracticeStudio({
         </p>
       </div>
       <div className="practice-controls">
-        <Badge tone={view.published ? 'done' : ''}>
-          {view.published && <Check size={13} aria-hidden="true" />}
+        <Badge tone={view.published && !view.stale ? 'done' : ''}>
+          {view.published && !view.stale && <Check size={13} aria-hidden="true" />}
           {state}
           {view.unpublished_changes && ' · unpublished changes'}
         </Badge>
-        {view.content && view.status !== 'generating' && (
+        {view.content && !generating && !view.stale && !unpublishedChanges && (
           <button
             type="button"
             className="button primary"
@@ -144,6 +149,16 @@ export function PracticeStudio({
       {view.status === 'failed' && (
         <p className="notice error" role="alert">
           Practice generation failed: {view.error}
+        </p>
+      )}
+      {view.stale && (
+        <p className="notice warning" role="status">
+          Passport text changed. Generate practice again before publishing it.
+        </p>
+      )}
+      {view.content && !view.stale && unpublishedChanges && (
+        <p className="notice" role="status">
+          Publish the passport changes to publish this practice with them.
         </p>
       )}
       {action.isError && <ErrorNotice error={action.error} />}
@@ -408,6 +423,7 @@ export function PracticePane({
   pack,
   revisionId,
   productId,
+  unpublishedChanges = false,
   chapters,
   onChapter,
 }: Readonly<{
@@ -415,6 +431,7 @@ export function PracticePane({
   pack: LearningPack | undefined;
   revisionId: string;
   productId: string;
+  unpublishedChanges?: boolean;
   chapters: Chapter[];
   onChapter: (id: string) => void;
 }>) {
@@ -423,6 +440,7 @@ export function PracticePane({
       <PracticeStudio
         revisionId={revisionId}
         productId={productId}
+        unpublishedChanges={unpublishedChanges}
         chapters={chapters}
         onChapter={onChapter}
       />

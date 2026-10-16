@@ -23,6 +23,7 @@ test('published practice cache is isolated by the displayed passport revision', 
     published: true,
     published_at: '2026-10-16T10:00:00Z',
     unpublished_changes: false,
+    stale: false,
   };
   const render = (revisionId: string) =>
     renderToStaticMarkup(

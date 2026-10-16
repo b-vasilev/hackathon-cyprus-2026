@@ -429,6 +429,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
                   pack={learnerPack}
                   revisionId={revision.data.id}
                   productId={id}
+                  unpublishedChanges={revision.data.unpublished_changes}
                   chapters={chapters ?? []}
                   onChapter={selectSection}
                 />

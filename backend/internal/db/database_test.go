@@ -41,7 +41,7 @@ func TestOpenAndMigrate(t *testing.T) {
 		if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 			t.Fatal(err)
 		}
-		if version != 16 || dirty != 0 {
+		if version != 17 || dirty != 0 {
 			t.Fatalf("migration state = %d/%d", version, dirty)
 		}
 		if err := database.Close(); err != nil {
@@ -56,6 +56,69 @@ func TestOpenRejectsDirectory(t *testing.T) {
 	if err == nil {
 		_ = database.Close()
 		t.Fatal("expected opening a directory to fail")
+	}
+}
+
+func TestPracticeSourceMigrationRequiresKnownContent(t *testing.T) {
+	t.Parallel()
+	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "practice.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	sourceDriver, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	databaseDriver, err := sqlite.WithInstance(database, &sqlite.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrator, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite", databaseDriver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := migrator.Migrate(16); err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		`INSERT INTO llm_connections(id,name,created_at) VALUES('connection','Fixture','created')`,
+		`INSERT INTO llm_connection_revisions(connection_id,revision,encrypted_config,created_at) VALUES('connection',1,X'01','created')`,
+		`INSERT INTO products(id,name,sources_json,created_at) VALUES('product','Product','[]','created')`,
+		`INSERT INTO generation_runs(id,product_id,connection_id,connection_revision,model,status,stage,input_json,created_at)
+ VALUES('run','product','connection',1,'model','succeeded','complete','{}','created'),
+ ('edited-run','product','connection',1,'model','succeeded','complete','{}','created')`,
+		`INSERT INTO passport_revisions(id,product_id,run_id,version,schema_version,content_json,content_hash,published_content_hash,edited_at,created_at)
+ VALUES('original','product','run',1,'2','{}','original-hash','original-hash','','created'),
+ ('edited','product','edited-run',2,'2','{}','edited-hash','original-hash','edited','created')`,
+		`INSERT INTO learning_packs(id,product_id,revision_id,status,content_json,published_content_json,created_at,updated_at,published_at)
+ VALUES('original-pack','product','original','ready','{}','{}','created','created','published'),
+ ('edited-pack','product','edited','ready','{}','{}','created','created','published')`,
+	} {
+		if _, err := database.ExecContext(t.Context(), statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for range 2 {
+		if err := migrator.Migrate(17); err != nil {
+			t.Fatal(err)
+		}
+		for _, revision := range []string{"original", "edited"} {
+			var working, published string
+			if err := database.QueryRowContext(t.Context(), "SELECT source_content_hash,published_source_content_hash FROM learning_packs WHERE revision_id=?", revision).Scan(&working, &published); err != nil {
+				t.Fatal(err)
+			}
+			want := ""
+			if revision == "original" {
+				want = "original-hash"
+			}
+			if working != want || published != want {
+				t.Fatalf("%s practice source = %q/%q, want %q", revision, working, published, want)
+			}
+		}
+		if err := migrator.Steps(-1); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -155,7 +218,7 @@ func TestPollingIndexesMigrationPreservesExistingIndexes(t *testing.T) {
 			if err := database.QueryRowContext(t.Context(), "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 				t.Fatal(err)
 			}
-			if version != 16 || dirty != 0 {
+			if version != 17 || dirty != 0 {
 				t.Fatalf("migration state = %d/%d", version, dirty)
 			}
 			if err := database.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('source_snapshots_run_id', 'llm_calls_run_tokens')").Scan(&indexes); err != nil {
