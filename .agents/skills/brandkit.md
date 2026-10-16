@@ -14,11 +14,13 @@ inside their own content area under the product-theme rules below.
 - Product name: **Wayfinder**. The typeset wordmark is `Wayfinder`. Always use this exact spelling and casing in the UI, page titles, and accessible names.
 - Purpose: help engineers understand a product, investigate real code, and prepare
   a safe first contribution through practical learning.
-- Character: precise, approachable, contemporary, and calm.
+- Character: friendly, tactile, encouraging, and clear. The visual direction is
+  called **Quest**: learning that feels like progress, without fake gamification.
 - The visual motif is a route with connected checkpoints. Use it in the mark,
   learning paths, and meaningful system flows.
-- The approved direction is a light interface with neutral surfaces and one
-  **Muted Violet** primary colour. Keep colour concentrated on actions and selection.
+- The approved direction is a light interface with white surfaces, one **Quest
+  Violet** primary colour and one **Coral** accent for progress and achievements.
+  Keep colour concentrated on actions, selection and progress.
 - The homepage uses compact horizontal navigation, centered content, generous
   spacing, one prominent next mission, a lightweight learning path, Foundations,
   and product spaces. Preserve this direction rather than returning to a dense
@@ -31,24 +33,30 @@ inside their own content area under the product-theme rules below.
 
 ## Color — choose the role, not an arbitrary shade
 
-The primary colour is **Muted Violet `#6550B9`**, from Radix Violet 11.
-Do not substitute a more saturated purple, blue, green, berry, or aubergine.
+The primary colour is **Quest Violet `#6A45F5`**. The accent is **Coral `#FF6A3D`**,
+used only for progress fills and achievements. Do not substitute another purple,
+blue, green, berry, or aubergine.
 
 | Token | Value | Use for |
 | --- | --- | --- |
-| `brand` | `#6550B9` | Primary button fills, links, active navigation indicators, focus rings, current checkpoints, and the coloured mark. |
-| `brand-hover` | `#654DC4` | Hover on primary fills; Radix Violet 10. |
-| `brand-strong` | `#2F265F` | Strong violet text when needed; Radix Violet 12. |
-| `brand-soft` | `#EBE7F5` | Selected backgrounds and small tinted fills. Approximately 12% brand over surface. |
-| `canvas` | `#FAF9FB` | Main page background. |
-| `surface` | `#FDFCFD` | Cards, controls, menus, and dialogs. |
-| `surface-subtle` | `#F2EFF3` | Quiet secondary surfaces and hover areas. |
-| `diagram-surface` | `#F0EDF2` | The featured mission's system-flow area. |
-| `ink` | `#211F26` | Headings and primary text. |
-| `muted` | `#65636D` | Secondary text, metadata, and supporting labels on light surfaces. |
-| `border` | `#EAE7EC` | Decorative card borders and separators. |
-| `control-border` | `#8E8C99` | Controls and meaningful diagram boundaries that need stronger contrast. |
-| `on-brand` | `#FDFCFD` | Text and icons on primary fills. |
+| `brand` | `#6A45F5` | Primary button fills, links, eyebrows, focus rings, current checkpoints, and the coloured mark. |
+| `brand-hover` | `#7957FF` | Hover on primary fills. |
+| `brand-press` | `#4A2BC4` | The solid bottom edge under primary buttons and selected diagram tabs. |
+| `brand-strong` | `#3B2496` | Strong violet text, such as selected navigation and tab labels. |
+| `brand-soft` | `#EEE9FF` | Selected backgrounds and small tinted fills. |
+| `accent` | `#FF6A3D` | Progress bar fills and the unlocked-achievement border. Graphics only, never text. |
+| `accent-soft` | `#FFE8DF` | Achievement icon backgrounds. |
+| `accent-strong` | `#B33D16` | Achievement icons and any coral-family text on `accent-soft`. |
+| `canvas` | `#FFFFFF` | Main page background. |
+| `surface` | `#FFFFFF` | Cards, controls, menus, and dialogs. |
+| `surface-subtle` | `#F3F1FA` | Quiet secondary surfaces, hover areas and progress tracks. |
+| `diagram-surface` | `#F5F3FC` | Route panels and diagram areas. |
+| `ink` | `#1D1933` | Headings and primary text. |
+| `muted` | `#5C5772` | Secondary text, metadata, and supporting labels. |
+| `border` | `#E5E1F2` | Card borders, separators and the raised bottom edge of cards. |
+| `border-strong` | `#CFC7EC` | Secondary button borders and hovered card edges. |
+| `control-border` | `#8A82AB` | Inputs, checkpoints and meaningful diagram boundaries that need 3:1 contrast. |
+| `on-brand` | `#FFFFFF` | Text and icons on primary fills. |
 
 Use semantic CSS variables, preferably with an `--of-` prefix, instead of scattering
 hex values through components. Keep one shared definition of each role.
@@ -57,6 +65,8 @@ Colour rules:
 
 - Use a solid brand fill for the main action. Use `brand-soft` for selected items;
   keep their text at `brand` or `brand-strong` with sufficient contrast.
+- Use coral only for progress and achievements. It does not replace violet for
+  actions, and white text on coral does not meet the text contrast target.
 - Keep large page areas neutral. Do not tint the whole interface violet.
 - Use `ink` and `muted` for running text. Reserve violet text for emphasis with a
   functional purpose: a link, selected step, or short brand phrase.
@@ -67,7 +77,7 @@ Colour rules:
 - Target WCAG 2.2 AA: at least 4.5:1 for normal text, 3:1 for large text, and 3:1 for
   meaningful control and diagram graphics against adjacent colours. Decorative
   separators may remain subtle. Check the actual foreground/background pair.
-- The approved primary button pair (`on-brand` on `brand`) is approximately 6.03:1.
+- The approved primary button pair (`on-brand` on `brand`) is approximately 5.5:1.
   Recheck contrast when introducing another background or changing a state.
 
 ### Semantic states
@@ -86,22 +96,25 @@ update; a completed lesson does not establish that its sources are current.
 
 ## Typography
 
-- UI family: `'Geist', Arial, sans-serif`. Use Geist for headings, body, and controls.
-- Monospace: `'Geist Mono', ui-monospace, monospace` for code, identifiers, step
-  numbers, and short eyebrows. Do not use it for body copy or long headings.
-- Use weights 400 for body, 500 for headings and controls, and 600 for limited emphasis.
-- Use sentence case. Proper product names keep their own spelling. Short eyebrows
-  may be uppercase with approximately `0.075em` tracking.
+- UI family: `'Lexend', Arial, sans-serif` (`--of-font`). Use Lexend for headings,
+  body, controls and eyebrows. It is wide and highly legible, so give labels room
+  rather than shrinking them.
+- Monospace: `'DM Mono', ui-monospace, monospace` (`--of-font-mono`) for code,
+  identifiers and step numbers. Do not use it for body copy or long headings.
+- Use weights 400 for body, 500 for labels and navigation, 600 for buttons, `h3` and
+  eyebrows, and 700 for `h1` and `h2`.
+- Use sentence case. Proper product names keep their own spelling. Eyebrows are
+  uppercase Lexend 600 in `brand`, with approximately `0.08em` tracking.
 - Keep supporting labels at least 12px. Do not shrink text to fit a crowded layout.
 - Use tabular figures for aligned numeric data, not for all editorial text.
 
 | Role | Reference size and treatment |
 | --- | --- |
-| Homepage heading | 49px desktop; 35–38px on narrow screens; weight 500; leading 1.12; tracking around `-0.06em`. |
-| Featured mission heading | 28–31px; weight 500; leading 1.2; tracking around `-0.04em`. |
-| Section heading | 16–18px; weight 500. |
+| Homepage heading | 49px desktop; 35–38px on narrow screens; weight 700; leading 1.12; tracking around `-0.035em`. |
+| Featured mission heading | 28–31px; weight 700; leading 1.2; tracking around `-0.03em`. |
+| Section heading | 18–22px; weight 700. |
 | Body / lesson text | 14–16px; leading 1.6–1.8; comfortable reading width. |
-| Button / navigation text | 13–14px; weight 500 where emphasis is needed. |
+| Button / navigation text | 13–14px; buttons weight 600, navigation weight 500. |
 | Metadata / eyebrow | 12px minimum. |
 
 Use smaller product headings in dense tools such as Studio. The larger homepage
@@ -110,7 +123,7 @@ scale is not a default for every panel. Reflow content before reducing type size
 ## Logo files
 
 The approved mark is a W-shaped route with two open circular endpoints. It combines
-Wayfinder's initial with the route motif. The wordmark is `Wayfinder` in Geist 600
+Wayfinder's initial with the route motif. The wordmark is `Wayfinder` in Lexend 600
 on one line. Keep the name readable and the route geometry consistent.
 
 Canonical mark geometry:
@@ -135,12 +148,12 @@ The site ships only four image files:
 
 - `frontend/public/brand/wayfinder-mark-violet.svg`: transparent mark for the header.
 - `frontend/public/brand/wayfinder-lockup-violet.svg`: violet mark with an ink
-  wordmark; Geist 600 is embedded so it works without an installed font.
+  wordmark; Lexend 600 is embedded so it works without an installed font.
 - `frontend/public/favicon.svg`: white W on a violet tile.
 - `frontend/public/favicon.ico`: 16/32/48px browser fallbacks in one file.
 
-`frontend/public/brand/Geist-OFL.txt` covers the embedded font. See the adjacent
-`README.md` for usage. The header uses the SVG mark and live Geist 600 text.
+`frontend/public/brand/Lexend-OFL.txt` covers the embedded font. See the adjacent
+`README.md` for usage. The header uses the SVG mark and live Lexend 600 text.
 
 The favicon omits the open endpoint rings and uses rounded stroke ends to keep
 the W clear at 16px; this is the approved small-size variant. Create other colors,
@@ -152,8 +165,8 @@ exists until it has been created and inspected.
 ## Logo usage rules
 
 - Clear space: at least half the mark's height on every side of the logo composition.
-- Use a 28–32px mark in the main header; 24px is the normal minimum in controlled UI.
-- Keep the typeset wordmark around 16px, with a 14px minimum. Use the mark alone
+- Use a 38px mark in the main header; 24px is the normal minimum in controlled UI.
+- Keep the header wordmark at 19px, with a 14px minimum elsewhere. Use the mark alone
   when the full name cannot fit without wrapping or becoming unreadable.
 - Check a 16px favicon separately for legibility instead of blindly shrinking the mark.
 - Keep violet, monochrome ink, and an inverted light version available when needed.
@@ -169,8 +182,20 @@ exists until it has been created and inspected.
   use about 40px side padding on desktop and 16–24px on narrow screens.
 - Use one prominent featured mission, an interactive flow alongside it, then the
   learning path and the Foundations/product sections. Stack naturally on mobile.
-- Prefer spacing and typography to repeated card borders. Use roughly 8px corners
-  for controls, 12px for small cards, and 14–18px for the main featured panel.
+- Use the radius tokens: `--of-radius-control` (12px) for buttons, inputs and tabs,
+  `--of-radius-card` (18px) for cards, and `--of-radius-panel` (24px) for the
+  featured mission, route and other large panels.
+- Cards, quiz choices and other raised surfaces use a 2px `border` outline and a
+  solid 4px bottom edge (`--of-raise`) instead of a blurred shadow. On hover they
+  lift 2px and the edge turns `border-strong`.
+- Primary buttons sit on a 4px `brand-press` edge (`--of-raise-brand`) and move down
+  3px while pressed. Secondary buttons use a 2px `border-strong` outline and a 3px
+  edge. Respect reduced motion: no lift or press movement.
+- Navigation items and page tabs are pills: `brand-soft` fill with `brand-strong`
+  text when active. Diagram tab groups use a solid `brand` fill for the active tab.
+- Route checkpoints are 30px numbered circles joined by a 3px line. The current
+  checkpoint is a solid violet circle with a `brand-soft` halo; a completed one
+  shows a check.
 - Give a section one clear primary action. Secondary actions use text or quiet controls.
 - Aim for at least 44px touch targets; primary buttons are about 46px tall. Provide
   visible keyboard focus and meaningful accessible names and selected states.
@@ -200,16 +225,16 @@ brand guide does not automatically define the product application's UI.
 
 ## Anti-patterns — avoid these
 
-1. Reopening the primary-colour decision or replacing Muted Violet with a framework
+1. Reopening the primary-colour decision or replacing Quest Violet with a framework
    default without an explicit user request: it breaks the agreed identity.
-2. Blue/green portal accents, whole-page colour washes, gradients, neon, or glow:
-   they compete with the restrained light direction.
+2. Blue/green portal accents, coral used for actions or text, whole-page colour
+   washes, gradients, neon, or glow: they compete with the light direction.
 3. Returning to a dense homepage sidebar/dashboard or boxing every row:
    the approved hierarchy relies on space and one focused next task.
 4. Tiny labels, faint text, opacity-based hierarchy, or colour-only status:
    they make the learning experience harder to read and navigate.
-5. Heavy shadows, glass effects, 3D decoration, or gratuitous animation:
-   they add visual weight without helping the task.
+5. Blurred drop shadows, glass effects, 3D decoration beyond the solid bottom
+   edge, or gratuitous animation: they add visual weight without helping the task.
 6. Renaming controls, recolouring statuses, or changing interaction patterns per product:
    learners should not have to relearn the portal when switching products.
 7. Invented source references, review states, accuracy percentages, or customer claims:
@@ -220,6 +245,6 @@ brand guide does not automatically define the product application's UI.
 ## References
 
 - [Antares agent guide](https://getantares.io/brand/agents.md): reference for this document's structure; not an inherited portal theme.
-- [Radix Colors](https://www.radix-ui.com/colors/docs/palette-composition/scales): Violet and Mauve scales. Primary shades verified against `@radix-ui/colors` 3.0.0.
-- [Geist](https://vercel.com/font): UI and monospace font families.
+- [Lexend](https://www.lexend.com/): UI font family, designed for reading proficiency.
+- [DM Mono](https://fonts.google.com/specimen/DM+Mono): monospace family.
 - [WCAG 2.2](https://www.w3.org/TR/WCAG22/): accessibility requirements; the guide is not a claim of complete conformance.

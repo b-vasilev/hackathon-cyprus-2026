@@ -45,7 +45,7 @@ export function productCardTheme(theme: Product['card_theme']): CSSProperties | 
   if (!theme || !hexColour.test(theme.accent_color) || !hexColour.test(theme.background_color)) {
     return undefined;
   }
-  const soft = mix(theme.accent_color, '#FDFCFD', 0.08);
+  const soft = mix(theme.accent_color, '#FFFFFF', 0.08);
   return {
     '--product-card-accent': theme.accent_color,
     '--product-card-on-accent': foreground(theme.accent_color),

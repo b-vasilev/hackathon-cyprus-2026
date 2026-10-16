@@ -657,7 +657,7 @@ function PassportHeader({
   return (
     <>
       <Link to={publishedView ? '/published' : '/products'} className="back-link">
-        ← {publishedView ? 'Published passports' : 'Product studio'}
+        ← {publishedView ? 'Products' : 'Studio'}
       </Link>
       <div
         className={`passport-heading${revision?.content.views.card_theme ? ' product-branded' : ''}`}
