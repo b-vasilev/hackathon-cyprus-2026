@@ -349,7 +349,8 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 		if prepareFailure != nil {
 			return nil, prepareFailure
 		}
-		return nil, errors.New("analysis model request failed through the selected connection; accepted parts and source reads are saved for retry")
+		// Keep the provider's reason (rate limit, balance, overload) visible, as research does.
+		return nil, fmt.Errorf("analysis model request failed through the selected connection; accepted parts and source reads are saved for retry: %w", err)
 	}
 	report(response.Steps)
 	return recentAnalysisMessages(recent, response.Steps), nil
