@@ -169,7 +169,10 @@ func (c *composer) chapters(ctx context.Context, ids []string, overviewContext s
 				case "object_table":
 					fragment.Block = passport.DocumentBlock{Kind: part.Kind, ObjectIDs: part.ObjectIDs, ClaimIDs: part.ClaimIDs, TableStyle: part.TableStyle}
 				default:
-					fragment, err = generateWith[compositionFragment](ctx, c.service, c.run, "composing", input, options, func(fragment compositionFragment) error { return c.checkFragment(ids[i], id, part, fragment) })
+					fragment, err = generateWith[compositionFragment](ctx, c.service, c.run, "composing", input, options, func(fragment compositionFragment) error {
+						return c.checkFragment(ids[i], id, part, authoredFragment(fragment))
+					})
+					fragment = authoredFragment(fragment)
 				}
 				if err != nil {
 					return err
@@ -299,6 +302,18 @@ func (c *composer) checkCoverage(id string, plan chapterPlan) error {
 		}
 	}
 	return nil
+}
+
+// authoredFragment keeps only what the model writes for its block kind: prose and
+// claims for markdown, the diagram for diagram_ref. Strict output schemas make the
+// model fill every block field, so structural values such as a table style can
+// appear on prose; the server assigns those from the plan instead.
+func authoredFragment(fragment compositionFragment) compositionFragment {
+	block := passport.DocumentBlock{Kind: fragment.Block.Kind}
+	if block.Kind == "markdown" {
+		block.Markdown, block.ClaimIDs = fragment.Block.Markdown, fragment.Block.ClaimIDs
+	}
+	return compositionFragment{Block: block, Diagram: fragment.Diagram}
 }
 
 func (c *composer) checkFragment(chapterID, taskID string, part compositionPart, fragment compositionFragment) error {

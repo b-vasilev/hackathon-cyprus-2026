@@ -34,7 +34,11 @@ export function PublishedPassports() {
             to={`/published/${product.id}`}
           >
             <span className="published-tile-icon">
-              <ProductIdentity name={product.name} theme={product.card_theme} />
+              <ProductIdentity
+                name={product.name}
+                theme={product.card_theme}
+                icon={product.icon_url}
+              />
             </span>
             <h2>{product.name}</h2>
           </Link>

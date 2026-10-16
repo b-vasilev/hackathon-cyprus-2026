@@ -13,6 +13,29 @@
         ],
         "additionalProperties": false
       },
+      "ChapterEdit": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Replacement text for each Markdown block, in chapter order."
+          }
+        },
+        "required": [
+          "title",
+          "markdown"
+        ],
+        "additionalProperties": false
+      },
       "Claim": {
         "type": "object",
         "properties": {
@@ -41,6 +64,22 @@
           "text",
           "basis",
           "evidence_ids"
+        ],
+        "additionalProperties": false
+      },
+      "CommentInput": {
+        "type": "object",
+        "properties": {
+          "chapter_id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "chapter_id",
+          "body"
         ],
         "additionalProperties": false
       },
@@ -619,6 +658,18 @@
         ],
         "additionalProperties": false
       },
+      "FlagInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "GenerationEvent": {
         "type": "object",
         "properties": {
@@ -728,6 +779,19 @@
           "status"
         ],
         "type": "object"
+      },
+      "IconInput": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "string",
+            "description": "Base64-encoded SVG, PNG, JPEG or GIF image, up to 256 KB."
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
       },
       "LearningState": {
         "type": "object",
@@ -1947,6 +2011,10 @@
             ],
             "additionalProperties": false
           },
+          "icon_url": {
+            "type": "string",
+            "description": "Custom product icon as a data URI, or empty to use the passport logo."
+          },
           "created_at": {
             "type": "string"
           },
@@ -1967,6 +2035,7 @@
           "id",
           "name",
           "sources",
+          "icon_url",
           "created_at",
           "latest_revision_id",
           "published_revision_id",
@@ -2520,6 +2589,111 @@
         ],
         "additionalProperties": false
       },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "revision_id": {
+            "type": "string"
+          },
+          "flag_reason": {
+            "type": "string"
+          },
+          "flagged_by": {
+            "type": "string"
+          },
+          "flagged_at": {
+            "type": "string"
+          },
+          "edited_by": {
+            "type": "string"
+          },
+          "edited_at": {
+            "type": "string"
+          },
+          "activity": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "One of comment, edit, flag, resolve, publish, unpublish."
+                },
+                "chapter_id": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "chapter_id",
+                "body",
+                "author",
+                "created_at"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "revision_id",
+          "flag_reason",
+          "flagged_by",
+          "flagged_at",
+          "edited_by",
+          "edited_at",
+          "activity"
+        ],
+        "additionalProperties": false
+      },
+      "ReviewActivity": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "One of comment, edit, flag, resolve, publish, unpublish."
+          },
+          "chapter_id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "chapter_id",
+          "body",
+          "author",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
       "Revision": {
         "type": "object",
         "properties": {
@@ -2541,12 +2715,6 @@
           "created_at": {
             "type": "string"
           },
-          "approved_by": {
-            "type": "string"
-          },
-          "approved_at": {
-            "type": "string"
-          },
           "published_by": {
             "type": "string"
           },
@@ -2554,6 +2722,9 @@
             "type": "string"
           },
           "published": {
+            "type": "boolean"
+          },
+          "unpublished_changes": {
             "type": "boolean"
           },
           "content": {
@@ -3325,11 +3496,10 @@
           "version",
           "schema_version",
           "created_at",
-          "approved_by",
-          "approved_at",
           "published_by",
           "published_at",
           "published",
+          "unpublished_changes",
           "content",
           "snapshots"
         ],
@@ -3347,10 +3517,13 @@
           "created_at": {
             "type": "string"
           },
-          "approved_at": {
-            "type": "string"
-          },
           "published": {
+            "type": "boolean"
+          },
+          "unpublished_changes": {
+            "type": "boolean"
+          },
+          "flagged": {
             "type": "boolean"
           }
         },
@@ -3358,8 +3531,9 @@
           "id",
           "version",
           "created_at",
-          "approved_at",
-          "published"
+          "published",
+          "unpublished_changes",
+          "flagged"
         ],
         "additionalProperties": false
       },
@@ -4957,6 +5131,108 @@
         }
       }
     },
+    "/api/passport-revisions/{id}/chapters/{chapterId}": {
+      "put": {
+        "operationId": "editRevisionChapter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "chapterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChapterEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revision"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/passport-revisions/{id}/comments": {
+      "post": {
+        "operationId": "commentOnRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
     "/api/passport-revisions/{id}/evidence/{evidenceId}": {
       "get": {
         "operationId": "getEvidence",
@@ -5002,9 +5278,165 @@
         }
       }
     },
+    "/api/passport-revisions/{id}/flag": {
+      "delete": {
+        "operationId": "resolveRevisionFlag",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "flagRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
     "/api/passport-revisions/{id}/publish": {
       "post": {
         "operationId": "publishRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revision"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/passport-revisions/{id}/review": {
+      "get": {
+        "operationId": "getRevisionReview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/passport-revisions/{id}/unpublish": {
+      "post": {
+        "operationId": "unpublishRevision",
         "parameters": [
           {
             "in": "path",
@@ -5205,6 +5637,88 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Run"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/icon": {
+      "delete": {
+        "operationId": "removeProductIcon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setProductIcon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IconInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
                 }
               }
             },

@@ -20,19 +20,18 @@ export function GenerationBadges({
   pending,
   version,
   hasDraft,
-  approvedAt = '',
   published = false,
+  needsAttention = false,
   emptyLabel,
 }: Readonly<{
   run: Run | undefined;
   pending: boolean;
   version: number | undefined;
   hasDraft: boolean;
-  approvedAt?: string;
   published?: boolean;
+  needsAttention?: boolean;
   emptyLabel?: string;
 }>) {
-  const approved = approvedAt !== '';
   const busy = pending || activeRun(run?.status);
   let runLabel = 'Generating first draft';
   if (hasDraft) {
@@ -41,19 +40,19 @@ export function GenerationBadges({
   if (run?.status === 'queued') {
     runLabel = 'Queued for generation';
   }
-  let revisionLabel = version === undefined ? 'Draft available' : `Draft v${version}`;
+  let revisionLabel =
+    version === undefined ? 'Draft available' : `Draft v${version} · not published`;
   if (published) {
-    revisionLabel = `Published v${version}`;
-  } else if (approved) {
-    revisionLabel = `Approved v${version}`;
+    revisionLabel = needsAttention
+      ? `Published v${version} · unpublished edits`
+      : `Published v${version}`;
   }
   return (
     <div className="generation-badges" aria-live="polite">
       {hasDraft && (
-        <Badge tone={approved ? '' : 'warning'}>
-          {approved && <Check size={14} aria-hidden="true" />}
+        <Badge tone={published && !needsAttention ? '' : 'warning'}>
+          {published && !needsAttention && <Check size={14} aria-hidden="true" />}
           {revisionLabel}
-          {!approved && ' · review pending'}
         </Badge>
       )}
       {busy && (
@@ -77,7 +76,7 @@ export function GenerationBadges({
       {!hasDraft && !busy && run?.status !== 'failed' && (
         <Badge>
           {emptyLabel ??
-            (run?.status === 'succeeded' ? 'Draft ready · review pending' : 'Not generated yet')}
+            (run?.status === 'succeeded' ? 'Draft ready · not published' : 'Not generated yet')}
         </Badge>
       )}
     </div>

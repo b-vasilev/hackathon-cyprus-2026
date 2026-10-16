@@ -17,6 +17,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/passport"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/product"
 	"github.com/rs/zerolog"
 )
@@ -61,6 +62,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 	f.registerAccess(mux)
 	f.registerLearning(mux)
 	f.registerGitHub(mux)
+	f.registerReview(mux)
 	if f.FrontendDir != "" {
 		mux.Handle("GET /", frontend(f.FrontendDir))
 	}
@@ -68,14 +70,6 @@ func (f *Factory) register(mux *http.ServeMux) {
 	revisionProduct := func(r *http.Request) (string, error) {
 		return f.Service.RevisionProduct(r.Context(), r.PathValue("id"))
 	}
-	mux.HandleFunc("POST /api/passport-revisions/{id}/approve", f.product(true, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
-		value, err := f.Service.Approve(r.Context(), r.PathValue("id"), currentUser(r).ID)
-		respond(w, r, value, err)
-	}))
-	mux.HandleFunc("POST /api/passport-revisions/{id}/publish", f.product(true, revisionProduct, func(w http.ResponseWriter, r *http.Request) {
-		value, err := f.Service.Publish(r.Context(), r.PathValue("id"), currentUser(r).ID)
-		respond(w, r, value, err)
-	}))
 	mux.HandleFunc("GET /api/factory/status", f.signedIn(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, FactoryStatus{ConnectionsEnabled: f.Service.Connections != nil})
 	}))
@@ -103,6 +97,13 @@ func (f *Factory) register(mux *http.ServeMux) {
 		value, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
+	mux.HandleFunc("PUT /api/products/{id}/icon", withInput(f, pathProduct, func(r *http.Request, input product.IconInput) (any, error) {
+		return f.Service.Products.SetIcon(r.Context(), r.PathValue("id"), input)
+	}))
+	mux.HandleFunc("DELETE /api/products/{id}/icon", f.product(true, pathProduct, func(w http.ResponseWriter, r *http.Request) {
+		value, err := f.Service.Products.RemoveIcon(r.Context(), r.PathValue("id"))
+		respond(w, r, value, err)
+	}))
 	mux.HandleFunc("POST /api/products/{id}/generations", f.product(true, pathProduct, f.startGeneration))
 	mux.HandleFunc("POST /api/generations/{id}/cancel", f.product(true, runProduct, func(w http.ResponseWriter, r *http.Request) {
 		value, err := f.Service.Cancel(r.Context(), r.PathValue("id"))
@@ -122,16 +123,7 @@ func (f *Factory) register(mux *http.ServeMux) {
 		respond(w, r, value, err)
 	}))
 	mux.HandleFunc("GET /api/products/{id}/passport", f.product(false, pathProduct, func(w http.ResponseWriter, r *http.Request) {
-		p, err := f.Service.Products.Get(r.Context(), r.PathValue("id"))
-		if err != nil {
-			respond(w, r, nil, err)
-			return
-		}
-		if p.PublishedRevisionID == "" {
-			respond(w, r, nil, sql.ErrNoRows)
-			return
-		}
-		value, err := f.Service.Revision(r.Context(), p.PublishedRevisionID)
+		value, err := f.Service.PublishedRevision(r.Context(), r.PathValue("id"))
 		respond(w, r, value, err)
 	}))
 	mux.HandleFunc("GET /api/passport-revisions/{id}/evidence/{evidenceId}", f.product(false, f.publishedEvidenceProduct, func(w http.ResponseWriter, r *http.Request) {
@@ -355,8 +347,10 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 		problem(w, http.StatusNotFound, "not_found", "The requested item was not found or is disabled.")
 	case errors.Is(err, generation.ErrActive):
 		problem(w, http.StatusConflict, "active_generation", err.Error())
-	case errors.Is(err, generation.ErrApprovalRequired):
-		problem(w, http.StatusConflict, "approval_required", err.Error())
+	case errors.Is(err, generation.ErrFlagged):
+		problem(w, http.StatusConflict, "review_flagged", err.Error())
+	case errors.Is(err, generation.ErrReviewInput), errors.Is(err, passport.ErrInvalidEdit):
+		problem(w, http.StatusBadRequest, "invalid_review", err.Error())
 	case errors.Is(err, llmgateway.ErrInUse):
 		problem(w, http.StatusConflict, "connection_in_use", err.Error())
 	case errors.Is(err, learning.ErrInvalid):

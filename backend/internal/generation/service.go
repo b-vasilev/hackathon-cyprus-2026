@@ -94,30 +94,31 @@ type Run struct {
 	Composition           *CompositionState `json:"composition,omitempty"`
 }
 
-// Revision includes an immutable draft and the exact source snapshot manifest.
+// Revision is one generated passport version and its exact source snapshot manifest.
+// Reviewers read the working copy; learners read the copy captured at publication.
 type Revision struct {
-	ID            string            `json:"id"`
-	ProductID     string            `json:"product_id"`
-	RunID         string            `json:"run_id"`
-	Version       int               `json:"version"`
-	SchemaVersion string            `json:"schema_version"`
-	CreatedAt     string            `json:"created_at"`
-	ApprovedBy    string            `json:"approved_by"`
-	ApprovedAt    string            `json:"approved_at"`
-	PublishedBy   string            `json:"published_by"`
-	PublishedAt   string            `json:"published_at"`
-	Published     bool              `json:"published"`
-	Content       passport.Passport `json:"content"`
-	Snapshots     []source.Snapshot `json:"snapshots"`
+	ID                 string            `json:"id"`
+	ProductID          string            `json:"product_id"`
+	RunID              string            `json:"run_id"`
+	Version            int               `json:"version"`
+	SchemaVersion      string            `json:"schema_version"`
+	CreatedAt          string            `json:"created_at"`
+	PublishedBy        string            `json:"published_by"`
+	PublishedAt        string            `json:"published_at"`
+	Published          bool              `json:"published"`
+	UnpublishedChanges bool              `json:"unpublished_changes"`
+	Content            passport.Passport `json:"content"`
+	Snapshots          []source.Snapshot `json:"snapshots"`
 }
 
 // RevisionInfo is a small history entry without the full passport payload.
 type RevisionInfo struct {
-	ID         string `json:"id"`
-	Version    int    `json:"version"`
-	CreatedAt  string `json:"created_at"`
-	ApprovedAt string `json:"approved_at"`
-	Published  bool   `json:"published"`
+	ID                 string `json:"id"`
+	Version            int    `json:"version"`
+	CreatedAt          string `json:"created_at"`
+	Published          bool   `json:"published"`
+	UnpublishedChanges bool   `json:"unpublished_changes"`
+	Flagged            bool   `json:"flagged"`
 }
 
 // EvidenceView contains only the source lines needed to inspect an assertion.
@@ -709,7 +710,7 @@ func (s *Service) RevisionProduct(ctx context.Context, revisionID string) (strin
 
 // History returns compact revision metadata.
 func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT r.id,r.version,r.created_at,r.approved_at,COALESCE(p.published_revision_id=r.id,0) FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE r.product_id=? ORDER BY r.version DESC", productID)
+	rows, err := s.DB.QueryContext(ctx, "SELECT r.id,r.version,r.created_at,COALESCE(p.published_revision_id=r.id,0),"+unpublishedChanges+",r.flagged_at<>'' FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE r.product_id=? ORDER BY r.version DESC", productID)
 	if err != nil {
 		return nil, fmt.Errorf("list passport revisions: %w", err)
 	}
@@ -717,7 +718,7 @@ func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo
 	result := make([]RevisionInfo, 0)
 	for rows.Next() {
 		var r RevisionInfo
-		if checkErr := rows.Scan(&r.ID, &r.Version, &r.CreatedAt, &r.ApprovedAt, &r.Published); checkErr != nil {
+		if checkErr := rows.Scan(&r.ID, &r.Version, &r.CreatedAt, &r.Published, &r.UnpublishedChanges, &r.Flagged); checkErr != nil {
 			return nil, fmt.Errorf("read revision history: %w", checkErr)
 		}
 		result = append(result, r)
@@ -728,13 +729,28 @@ func (s *Service) History(ctx context.Context, productID string) ([]RevisionInfo
 	return result, nil
 }
 
-// Revision returns one saved version and its exact snapshot manifest.
+// A published copy is captured on publication or before the first edit of an
+// older published version; until then the working copy is still the published one.
+const unpublishedChanges = "(COALESCE(p.published_revision_id=r.id,0) AND r.published_content_hash<>'' AND r.published_content_hash<>r.content_hash)"
+
+// Revision returns the working copy of one saved version and its snapshot manifest.
 func (s *Service) Revision(ctx context.Context, id string) (Revision, error) {
+	return s.revision(ctx, "r.id=?", id, "r.content_path,r.content_hash")
+}
+
+// PublishedRevision returns exactly what learners see for a product.
+func (s *Service) PublishedRevision(ctx context.Context, productID string) (Revision, error) {
+	return s.revision(ctx, "r.id=p.published_revision_id AND p.id=?", productID,
+		"COALESCE(NULLIF(r.published_content_path,''),r.content_path),COALESCE(NULLIF(r.published_content_hash,''),r.content_hash)")
+}
+
+func (s *Service) revision(ctx context.Context, where, arg, contentColumns string) (Revision, error) {
 	var r Revision
 	var path, hash string
-	err := s.DB.QueryRowContext(ctx, `SELECT r.id,r.product_id,r.run_id,r.version,r.schema_version,r.content_path,r.content_hash,r.created_at,
- r.approved_by,r.approved_at,r.published_by,r.published_at,COALESCE(p.published_revision_id=r.id,0)
- FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE r.id=?`, id).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &hash, &r.CreatedAt, &r.ApprovedBy, &r.ApprovedAt, &r.PublishedBy, &r.PublishedAt, &r.Published)
+	// Callers pass fixed column and filter expressions; values stay bound.
+	err := s.DB.QueryRowContext(ctx, `SELECT r.id,r.product_id,r.run_id,r.version,r.schema_version,`+contentColumns+`,r.created_at,
+ r.published_by,r.published_at,COALESCE(p.published_revision_id=r.id,0),`+unpublishedChanges+`
+ FROM passport_revisions r JOIN products p ON p.id=r.product_id WHERE `+where, arg).Scan(&r.ID, &r.ProductID, &r.RunID, &r.Version, &r.SchemaVersion, &path, &hash, &r.CreatedAt, &r.PublishedBy, &r.PublishedAt, &r.Published, &r.UnpublishedChanges)
 	if err != nil {
 		return r, fmt.Errorf("get passport revision: %w", err)
 	}

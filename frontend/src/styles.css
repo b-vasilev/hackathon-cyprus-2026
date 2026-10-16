@@ -459,6 +459,27 @@ code {
   align-items: center;
   gap: 16px;
 }
+.product-icon-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 16px;
+  margin-top: 8px;
+}
+.product-icon-control label {
+  flex-direction: row;
+  gap: 6px;
+  margin: 0;
+  cursor: pointer;
+}
+.product-icon-control input:focus-visible + label {
+  outline: 2px solid var(--of-brand);
+  outline-offset: 4px;
+}
+.product-icon-control .notice {
+  flex-basis: 100%;
+  margin: 8px 0 0;
+}
 .passport-product-mark {
   display: flex;
   align-items: center;
@@ -1377,6 +1398,89 @@ summary {
   margin: 4px 0;
   color: var(--of-muted);
   font-size: 14px;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sources-panel.review-comments {
+  margin-top: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--of-border);
+  padding-bottom: 16px;
+}
+.review-comments summary {
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.review-activity {
+  list-style: none;
+  margin: 12px 0 24px;
+  padding: 0;
+  max-width: 720px;
+}
+.review-activity li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--of-border);
+  font-size: 14px;
+}
+.review-activity li p {
+  margin: 4px 0 0;
+  line-height: 1.6;
+  color: var(--of-muted);
+  white-space: pre-line;
+}
+.review-activity li.comment p {
+  color: var(--of-ink);
+}
+.review-activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--of-muted);
+}
+.review-activity-meta strong {
+  font-weight: 500;
+  color: var(--of-ink);
+}
+.review-comment-chapter {
+  max-width: 320px;
+  margin-bottom: 12px;
+}
+.review-note-form {
+  max-width: 720px;
+  margin-top: 16px;
+}
+.review-note-form label {
+  margin-bottom: 12px;
+}
+.review-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.document-chapter .section-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.chapter-editor {
+  max-width: 800px;
+}
+.chapter-editor-fixed {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px dashed var(--of-control-border);
+  border-radius: 8px;
+  color: var(--of-muted);
+  font-size: 13px;
 }
 .revision-meta {
   display: flex;

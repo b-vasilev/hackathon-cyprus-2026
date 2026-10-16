@@ -2,6 +2,7 @@ import { DiagramViewer } from './DiagramViewer';
 import { ClaimList, ObjectTable, Scenarios } from './PassportContent';
 import { SafeMarkdown } from './SafeMarkdown';
 import type { Chapter, DocumentBlock, ProductObject, Revision } from '../lib/api';
+import type { ReactNode } from 'react';
 
 interface ContentProps {
   revision: Revision;
@@ -62,8 +63,9 @@ function DocumentBlockContent({
 
 export function DocumentContent({
   chapter,
+  action,
   ...props
-}: Readonly<ContentProps & { chapter: Chapter }>) {
+}: Readonly<ContentProps & { chapter: Chapter; action?: ReactNode }>) {
   const claimsById = new Map(
     (props.revision.content.model.claims ?? []).map((claim) => [claim.id, claim])
   );
@@ -73,6 +75,7 @@ export function DocumentContent({
         <h2 id="passport-chapter-title" tabIndex={-1}>
           {chapter.title}
         </h2>
+        {action}
       </div>
       {chapter.blocks?.map((block, index) => {
         const claims = (block.claim_ids ?? []).flatMap((id) => {

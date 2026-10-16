@@ -78,7 +78,11 @@ export function Products() {
           >
             <Link className="published-tile" to={`/products/${product.id}`}>
               <span className="published-tile-icon">
-                <ProductIdentity name={product.name} theme={product.card_theme} />
+                <ProductIdentity
+                  name={product.name}
+                  theme={product.card_theme}
+                  icon={product.icon_url}
+                />
               </span>
               <h2>{product.name}</h2>
               <div className="studio-card-statuses" role="status">
