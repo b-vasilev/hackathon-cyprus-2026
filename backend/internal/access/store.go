@@ -365,8 +365,18 @@ func (s Store) DeleteUser(ctx context.Context, userID string) error {
 	if _, err := lockAdmin(ctx, tx, userID, false); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM users WHERE id=?", userID); err != nil {
-		return fmt.Errorf("remove account: %w", err)
+	// Personal connections hold encrypted secrets and have no foreign key to users, so
+	// remove them with the account: the GitHub token, and model connections the same way
+	// llmgateway deletes them (soft delete, secrets blanked, history kept for past runs).
+	for _, query := range []string{
+		"DELETE FROM github_connection WHERE owner_id=?",
+		"UPDATE llm_connection_revisions SET encrypted_config=X'' WHERE connection_id IN (SELECT id FROM llm_connections WHERE owner_id=?)",
+		"UPDATE llm_connections SET deleted=1, enabled=0 WHERE owner_id=?",
+		"DELETE FROM users WHERE id=?",
+	} {
+		if _, err := tx.ExecContext(ctx, query, userID); err != nil {
+			return fmt.Errorf("remove account: %w", err)
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit account removal: %w", err)

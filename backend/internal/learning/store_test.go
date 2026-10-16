@@ -134,3 +134,38 @@ func TestPutMergesProgressFromDevices(t *testing.T) {
 		t.Fatalf("flags or unlock dates not merged: %+v", got)
 	}
 }
+
+// Deleting an account also removes the secrets in its personal connections.
+func TestDeleteUserRemovesPersonalSecrets(t *testing.T) {
+	store, accounts := newStores(t)
+	ctx := t.Context()
+	if _, err := accounts.Register(ctx, access.Credentials{Email: "admin@t1a.com", Password: "long-enough-password"}); err != nil {
+		t.Fatal(err)
+	}
+	ben, err := accounts.Register(ctx, access.Credentials{Email: "ben@t1a.com", Password: "long-enough-password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, query := range []string{
+		"INSERT INTO github_connection(owner_id,login,auth_method,encrypted_token,connected_at) VALUES(?, 'ben', 'token', X'01', '2026-10-16')",
+		"INSERT INTO llm_connections(id,name,created_at,owner_id) VALUES('conn', 'Ben', '2026-10-16', ?)",
+		"INSERT INTO llm_connection_revisions(connection_id,revision,encrypted_config,created_at) SELECT 'conn', 1, X'02', '2026-10-16' WHERE ? <> ''",
+	} {
+		if _, err := store.DB.ExecContext(ctx, query, ben.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := accounts.DeleteUser(ctx, ben.ID); err != nil {
+		t.Fatal(err)
+	}
+	var tokens, secrets, live int
+	if err := store.DB.QueryRowContext(ctx, `SELECT
+ (SELECT COUNT(*) FROM github_connection WHERE owner_id=?),
+ (SELECT COUNT(*) FROM llm_connection_revisions WHERE connection_id='conn' AND length(encrypted_config)>0),
+ (SELECT COUNT(*) FROM llm_connections WHERE id='conn' AND deleted=0)`, ben.ID).Scan(&tokens, &secrets, &live); err != nil {
+		t.Fatal(err)
+	}
+	if tokens != 0 || secrets != 0 || live != 0 {
+		t.Fatalf("secrets left after deleting the account: github=%d llm=%d live=%d", tokens, secrets, live)
+	}
+}
