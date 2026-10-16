@@ -110,20 +110,89 @@ func (s Store) Get(ctx context.Context, userID string) (State, error) {
 	return state.normalized(), nil
 }
 
-// Put replaces the saved progress after validating it.
+// Put merges progress into the saved copy and returns the result. Progress only grows,
+// so a device with an older or empty copy can never erase what another device saved.
 func (s Store) Put(ctx context.Context, userID string, state State) (State, error) {
 	if err := state.Validate(); err != nil {
 		return State{}, err
 	}
-	state = state.normalized()
-	raw, err := json.Marshal(state)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return State{}, fmt.Errorf("begin learning progress update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var raw string
+	saved := State{}
+	err = tx.QueryRowContext(ctx, "SELECT state FROM learning_progress WHERE user_id=?", userID).Scan(&raw)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+	case err != nil:
+		return State{}, fmt.Errorf("load learning progress: %w", err)
+	default:
+		if err := json.Unmarshal([]byte(raw), &saved); err != nil {
+			return State{}, fmt.Errorf("decode learning progress: %w", err)
+		}
+	}
+	merged := merge(saved, state).normalized()
+	if err := merged.Validate(); err != nil {
+		return State{}, err
+	}
+	data, err := json.Marshal(merged)
 	if err != nil {
 		return State{}, fmt.Errorf("encode learning progress: %w", err)
 	}
-	if _, err := s.DB.ExecContext(ctx, `INSERT INTO learning_progress(user_id,state,updated_at) VALUES(?,?,?)
+	if _, err := tx.ExecContext(ctx, `INSERT INTO learning_progress(user_id,state,updated_at) VALUES(?,?,?)
  ON CONFLICT(user_id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at`,
-		userID, string(raw), time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		userID, string(data), time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 		return State{}, fmt.Errorf("save learning progress: %w", err)
 	}
-	return state, nil
+	if err := tx.Commit(); err != nil {
+		return State{}, fmt.Errorf("commit learning progress: %w", err)
+	}
+	return merged, nil
+}
+
+// merge mirrors frontend/src/foundations/merge.ts: lessons and flags are unioned, flags
+// set on either side stay set, the best score wins and the earliest unlock date is kept.
+func merge(a, b State) State {
+	result := State{Modules: map[string]Module{}, Unlocked: map[string]string{}}
+	for _, modules := range []map[string]Module{a.Modules, b.Modules} {
+		for id, m := range modules {
+			current, seen := result.Modules[id]
+			if !seen {
+				m.Lessons = union(nil, m.Lessons)
+				result.Modules[id] = m
+				continue
+			}
+			result.Modules[id] = Module{
+				Lessons:    union(current.Lessons, m.Lessons),
+				QuizPassed: current.QuizPassed || m.QuizPassed,
+				Visited:    current.Visited || m.Visited,
+				BestScore:  max(current.BestScore, m.BestScore),
+				FailedQuiz: current.FailedQuiz || m.FailedQuiz,
+				Comeback:   current.Comeback || m.Comeback,
+			}
+		}
+	}
+	result.Flags = union(a.Flags, b.Flags)
+	for _, unlocked := range []map[string]string{a.Unlocked, b.Unlocked} {
+		for id, date := range unlocked {
+			if current, seen := result.Unlocked[id]; !seen || date < current {
+				result.Unlocked[id] = date
+			}
+		}
+	}
+	return result
+}
+
+func union(a, b []string) []string {
+	result := make([]string, 0, len(a)+len(b))
+	seen := map[string]bool{}
+	for _, item := range append(append([]string{}, a...), b...) {
+		if !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+	return result
 }

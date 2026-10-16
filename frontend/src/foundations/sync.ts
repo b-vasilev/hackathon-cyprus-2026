@@ -76,18 +76,36 @@ function applyState(state: LearningState) {
   replaceUnlockDates(state.unlocked);
 }
 
-function upload(keepalive = false) {
+// The server merges each save into the account copy, so the response also carries
+// progress made on other devices; it is merged into the browser copy.
+function upload(keepalive = false): Promise<void> {
   timer = undefined;
-  if (owner === undefined) {
-    return;
+  const sender = owner;
+  if (sender === undefined) {
+    return Promise.resolve();
   }
-  void api<LearningState>('/me/learning', {
+  return api<LearningState>('/me/learning', {
     method: 'PUT',
     body: JSON.stringify(localState()),
     keepalive,
-  }).catch(() => {
-    // The next change or visit retries; the local copy keeps the progress meanwhile.
-  });
+  })
+    .then((saved) => {
+      if (owner === sender) {
+        applyState(mergeStates(saved, localState()));
+      }
+    })
+    .catch(() => {
+      // The next change or visit retries; the local copy keeps the progress meanwhile.
+    });
+}
+
+/** Saves a pending change now, for example before signing out. */
+export function flushLearning(): Promise<void> {
+  if (timer === undefined) {
+    return Promise.resolve();
+  }
+  clearTimeout(timer);
+  return upload();
 }
 
 function scheduleUpload() {
@@ -97,14 +115,14 @@ function scheduleUpload() {
   if (timer !== undefined) {
     clearTimeout(timer);
   }
-  timer = setTimeout(upload, uploadDelay);
+  timer = setTimeout(() => void upload(), uploadDelay);
 }
 
 globalThis.addEventListener(learningChanged, scheduleUpload);
 globalThis.addEventListener('pagehide', () => {
   if (timer !== undefined) {
     clearTimeout(timer);
-    upload(true);
+    void upload(true);
   }
 });
 
@@ -127,7 +145,7 @@ export async function syncLearning(userId: string): Promise<true> {
   }
   owner = userId;
   if (JSON.stringify(merged) !== JSON.stringify(saved)) {
-    upload();
+    void upload();
   }
   return true;
 }

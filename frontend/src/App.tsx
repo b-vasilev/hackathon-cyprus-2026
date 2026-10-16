@@ -1,10 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { LogOut, Zap } from 'lucide-react';
-import { lazy, Suspense } from 'react';
-import { Link, Navigate, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import {
+  Link,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import { AchievementCenter } from './components/Achievements';
 import { Badge, Brand, ErrorNotice, Loading } from './components/ui';
-import { syncLearning } from './foundations/sync';
+import { flushLearning, syncLearning } from './foundations/sync';
 import { api, ApiError, type Me } from './lib/api';
 import { canManage, canUseStudio, isAdmin, MeContext, useMe } from './lib/auth';
 import { NotFound } from './pages/NotFound';
@@ -45,14 +54,25 @@ const PublishedPassports = lazy(() =>
 );
 
 function signOut() {
-  void api<undefined>('/auth/logout', { method: 'POST' }).finally(() =>
-    globalThis.location.assign('/')
-  );
+  // Save a pending progress change while the session is still valid.
+  void flushLearning()
+    .then(() => api<undefined>('/auth/logout', { method: 'POST' }))
+    .finally(() => globalThis.location.assign('/'));
 }
 
 function SignedInApp({ me }: Readonly<{ me: Me }>) {
   const location = useLocation();
-  const authMessage = (location.state as { authMessage?: string } | null)?.authMessage;
+  const navigate = useNavigate();
+  // Shown once after signing in; clearing the history state keeps it from returning on reload.
+  const [authMessage, setAuthMessage] = useState(
+    () => (location.state as { authMessage?: string } | null)?.authMessage
+  );
+  useEffect(() => {
+    if (authMessage !== undefined) {
+      void navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount; the message is already captured in state
+  }, []);
   const admin = isAdmin(me);
   const studio = canUseStudio(me);
   // Learning progress lives in the account; pages render once the browser copy is merged with it.
@@ -101,6 +121,9 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
         {authMessage !== undefined && authMessage !== '' && (
           <div className="notice" role="status">
             {authMessage}
+            <button type="button" className="text-button" onClick={() => setAuthMessage(undefined)}>
+              Dismiss
+            </button>
           </div>
         )}
         <Suspense fallback={<Loading label="Loading page…" />}>

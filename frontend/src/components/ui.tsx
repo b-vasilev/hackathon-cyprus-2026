@@ -104,7 +104,12 @@ export function Dialog({
       ref={ref}
       className={`dialog ${wide ? 'wide' : ''}`}
       aria-labelledby={heading}
-      onCancel={onClose}
+      onCancel={(event) => {
+        // Escape must go through onClose, which can refuse while an action is running;
+        // a natively closed dialog would stay mounted but invisible.
+        event.preventDefault();
+        onClose();
+      }}
     >
       <div className="dialog-heading">
         <h2 id={heading}>{title}</h2>
