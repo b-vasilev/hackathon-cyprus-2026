@@ -117,8 +117,13 @@ export function Dialog({
       }}
       onClose={() => {
         // Browsers may close the dialog natively anyway (for example a repeated Escape).
-        // If the owner keeps it mounted, show it again instead of leaving it invisible.
+        // The event arrives asynchronously, so ignore it when the dialog is open again
+        // (StrictMode remounts it) or already unmounted.
+        if (!mounted.current || ref.current?.open !== false) {
+          return;
+        }
         onClose();
+        // If the owner keeps the dialog mounted, show it again instead of leaving it invisible.
         requestAnimationFrame(() => {
           if (mounted.current && ref.current?.open === false) {
             ref.current.showModal();
