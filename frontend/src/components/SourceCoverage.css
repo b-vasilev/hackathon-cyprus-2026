@@ -31,7 +31,7 @@
 }
 .source-coverage-counts strong {
   color: var(--of-ink);
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
   font-variant-numeric: tabular-nums;
 }
 .source-coverage > .field-help {

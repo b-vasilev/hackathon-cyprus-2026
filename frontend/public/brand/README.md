@@ -1,13 +1,13 @@
 # Wayfinder assets
 
 The approved mark is the W-shaped route with two open checkpoints. The wordmark
-is **Wayfinder** in Lexend 600. The primary color is Quest Violet `#6A45F5`.
+is **Wayfinder** in Lexend 500. The primary color is Quest Violet `#664CCD`.
 
 The site uses four image files:
 
 - `wayfinder-mark-violet.svg`: transparent W mark used in the header.
 - `wayfinder-lockup-violet.svg`: violet mark with the ink wordmark. It embeds
-  Lexend 600 so the lettering works without a separately installed font.
+  Lexend 500 so the lettering works without a separately installed font.
 - `../favicon.svg`: white W on a violet tile, simplified for small sizes.
 - `../favicon.ico`: 16, 32, and 48 px fallback icons in one file.
 

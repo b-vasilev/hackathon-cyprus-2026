@@ -17,7 +17,7 @@
 .composition-heading h3 {
   margin: 0;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .composition-heading > span,
 .composition-summary,
@@ -75,7 +75,7 @@
   gap: 4px;
 }
 .composition-chapter li strong {
-  font-weight: 500;
+  font-weight: var(--of-weight-medium);
 }
 .composition-chapter li span {
   font-size: 12px;
