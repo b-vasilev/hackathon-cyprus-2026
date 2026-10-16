@@ -79,6 +79,16 @@ const features: { icon: LucideIcon; title: string; text: string }[] = [
     title: 'Access by role',
     text: 'Admins, product leads and learners. People see only the products they belong to, and leads manage their own teams.',
   },
+  {
+    icon: Bot,
+    title: 'Passport text export through MCP',
+    text: 'Export the text of published passports through MCP for use in your AI assistant. Only products you can access are included.',
+  },
+  {
+    icon: Wrench,
+    title: 'Practice on real issues',
+    text: 'Product quizzes and guided first tasks, using real closed issues and merged pull requests when available. Leads review and publish the practice for learners.',
+  },
 ];
 
 const audiences = [
@@ -104,11 +114,6 @@ const audiences = [
 
 const next: { icon: LucideIcon; title: string; text: string }[] = [
   {
-    icon: Bot,
-    title: 'Ask your AI assistant',
-    text: 'An MCP server so Claude, Codex or Cursor answer from the published passport, with citations, instead of guessing.',
-  },
-  {
     icon: MessagesSquare,
     title: 'Built-in chat',
     text: 'Ask questions about a product directly in Wayfinder.',
@@ -117,11 +122,6 @@ const next: { icon: LucideIcon; title: string; text: string }[] = [
     icon: KeyRound,
     title: 'Sign in with Google',
     text: 'Single sign-on with company Google accounts.',
-  },
-  {
-    icon: Wrench,
-    title: 'Practice on real issues',
-    text: 'Exercises that guide a newcomer through solving a real issue from the repository.',
   },
 ];
 
