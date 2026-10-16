@@ -62,3 +62,14 @@ func TestPairedToolTurnsKeepsCompleteHistory(t *testing.T) {
 		t.Fatalf("complete history changed: %+v", got)
 	}
 }
+
+func TestTruncatedDetectsOutputLimit(t *testing.T) {
+	stop := fantasy.StepResult{Response: fantasy.Response{FinishReason: fantasy.FinishReasonStop}}
+	length := fantasy.StepResult{Response: fantasy.Response{FinishReason: fantasy.FinishReasonLength}}
+	if truncated(nil) || truncated([]fantasy.StepResult{length, stop}) {
+		t.Fatal("a window that ended normally was reported as truncated")
+	}
+	if !truncated([]fantasy.StepResult{stop, length}) {
+		t.Fatal("a window that ended at the output limit was not reported")
+	}
+}

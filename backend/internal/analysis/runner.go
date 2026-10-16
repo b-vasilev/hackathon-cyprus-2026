@@ -224,6 +224,9 @@ func (s *analysisSession) runWindows(ctx context.Context, agent fantasy.Agent, c
 			return err
 		}
 		windowContext += "\nContinue the current synthesis step using the retained conversation. Application instructions are already in the system prompt. Do not reread instructions, research batches or model entities already present in the conversation. Save related objects, claims, evidence and relations together in a coherent part. Finish this step when its requested outputs are saved; do not expand its scope."
+		if s.lastTruncated {
+			windowContext += "\nYour previous response reached the output limit before its action was complete, so nothing was saved. Save smaller parts: one component or flow with its claims and evidence per action, then continue with the next part."
+		}
 		if s.lastToolFailure != "" {
 			failure, _ := json.Marshal(s.lastToolFailure)
 			windowContext += "\nLast rejected action (diagnostic data): " + string(failure) + "\nCorrect this specific field or reference. Save one small draft entity first; supporting claims and evidence can be attached in later parts. Do not repeat unrelated discovery or recreate the full model."
@@ -311,7 +314,8 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 			reported++
 		}
 	}
-	maxOutput := int64(6000)
+	// Room for a coherent save action; a truncated response discards its tool call entirely.
+	maxOutput := int64(16000)
 	if selected, err := llmgateway.ModelByID(config, modelID); err == nil && selected.MaxOutputTokens > 0 {
 		maxOutput = min(maxOutput, int64(selected.MaxOutputTokens))
 	}
@@ -342,6 +346,7 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 		return stepCtx, fantasy.PrepareStepResult{}, nil
 	}})
 	if errors.Is(err, errAnalysisWindowFull) {
+		s.lastTruncated = truncated(completed)
 		s.emit("Starting a fresh bounded analysis window; saved work is retained")
 		return recentAnalysisMessages(recent, completed), nil
 	}
@@ -353,7 +358,16 @@ func (s *analysisSession) runWindow(ctx context.Context, agent fantasy.Agent, co
 		return nil, fmt.Errorf("analysis model request failed through the selected connection; accepted parts and source reads are saved for retry: %w", err)
 	}
 	report(response.Steps)
+	s.lastTruncated = truncated(response.Steps)
+	if s.lastTruncated {
+		s.emit("Model response reached the output limit; asking for a smaller save next")
+	}
 	return recentAnalysisMessages(recent, response.Steps), nil
+}
+
+// truncated reports whether the last step stopped at the output limit.
+func truncated(steps []fantasy.StepResult) bool {
+	return len(steps) > 0 && steps[len(steps)-1].FinishReason == fantasy.FinishReasonLength
 }
 
 func recentAnalysisMessages(previous []fantasy.Message, steps []fantasy.StepResult) []fantasy.Message {

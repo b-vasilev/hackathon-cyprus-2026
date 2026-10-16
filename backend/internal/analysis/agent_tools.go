@@ -33,8 +33,10 @@ type analysisSession struct {
 	progress        ProgressFunc
 	turns           int
 	lastToolFailure string
-	assignedTaskID  string
-	budget          *analysisCallBudget
+	// The last window ended because a response hit the output limit, which discards its action.
+	lastTruncated  bool
+	assignedTaskID string
+	budget         *analysisCallBudget
 }
 
 type modelPageInput struct {
