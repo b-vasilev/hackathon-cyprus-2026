@@ -3,7 +3,6 @@ set dotenv-load := true
 
 mod backend
 mod frontend
-mod proxy 'services/llm-proxy'
 
 default:
     @just --list --list-submodules

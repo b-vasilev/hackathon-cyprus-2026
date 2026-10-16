@@ -207,21 +207,6 @@ In the connection editor, use **Fetch models** to request the provider’s `/mod
 list with the current URL, credentials, headers, and query parameters. You can
 choose a returned ID or type one manually, then configure its output settings.
 
-### Optional LLM sidecar
-
-[`services/llm-proxy`](services/llm-proxy/README.md) is the existing separate
-Codex OAuth proxy. Follow its setup instructions, then run:
-
-```sh
-docker compose up --build -d llm-proxy
-```
-
-In the portal, choose OpenAI Responses, the proxy's model ID and bearer key.
-For a local API use `http://127.0.0.1:8317/v1`. For the Compose API use
-`http://llm-proxy:8317/v1`. Both are allowed by the default local-network policy;
-no extra `LLM_ALLOWED_PRIVATE_ORIGINS` entry is needed. The sidecar stays off
-unless explicitly started.
-
 ## Source collection and generation
 
 GitHub sources resolve to immutable SHAs. All eligible repository text is indexed;
@@ -433,18 +418,15 @@ mise exec -- just backend::audit
 mise exec -- just check-web
 mise exec -- just frontend::test
 mise exec -- just frontend::build
-mise exec -- just proxy::check
-mise exec -- just proxy::test -race -count=1
-mise exec -- just proxy::audit
 mise exec -- just generate-api  # after changing Go API contracts
 ```
 
 Root `check`, `test`, `audit`, `build` and `ci` recipes cover the backend.
 `check-web` runs frontend formatting, lint and type checks; frontend tests and
-builds and proxy checks run separately as shown above.
+builds run separately as shown above.
 
 OpenAPI types are generated with openapi-typescript, not maintained by hand.
-CI runs backend, frontend and LLM proxy tests, formatting and lint checks on pull
+CI runs backend and frontend tests, formatting and lint checks on pull
 requests and pushes to `main`. It also checks frontend types and builds the UI,
 and audits Go dependencies. It does not deploy the app.
 
