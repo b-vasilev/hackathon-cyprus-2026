@@ -10,6 +10,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learningpack"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/mcpauth"
@@ -38,7 +39,7 @@ func Specification() ([]byte, error) {
 	types := map[string]func() (*jsonschema.Schema, error){
 		"MCPSettings": passport.Schema[MCPSettings], "MCPConsentInput": passport.Schema[MCPConsentInput],
 		"MCPClient": passport.Schema[mcpauth.Client], "MCPRedirect": passport.Schema[MCPRedirect],
-		"GitHubConnection": passport.Schema[githubconnection.Status], "GitHubTokenInput": passport.Schema[githubconnection.TokenInput], "OAuthURL": passport.Schema[OAuthURL], "LearningState": passport.Schema[learning.State],
+		"GitHubConnection": passport.Schema[githubconnection.Status], "GitHubTokenInput": passport.Schema[githubconnection.TokenInput], "OAuthURL": passport.Schema[OAuthURL], "LearningState": passport.Schema[learning.State], "LearningPack": passport.Schema[learningpack.View],
 		"AvailableModel": passport.Schema[llm.AvailableModel], "ModelDiscoveryInput": passport.Schema[ModelDiscoveryInput],
 		"Connection": passport.Schema[llmgateway.Connection], "ConnectionConfig": passport.Schema[llmgateway.Config], "Model": passport.Schema[llmgateway.Model], "Parameter": passport.Schema[llmgateway.Parameter],
 		"Product": passport.Schema[product.Product], "ProductInput": passport.Schema[product.Input], "IconInput": passport.Schema[product.IconInput], "SourceInput": passport.Schema[source.Input],
@@ -130,6 +131,11 @@ func Specification() ([]byte, error) {
 		{methodPost, "/api/passport-revisions/{id}/comments", "commentOnRevision", "CommentInput", "Review", 200, false},
 		{methodPut, "/api/passport-revisions/{id}/chapters/{chapterId}", "editRevisionChapter", "ChapterEdit", "Revision", 200, false},
 		{methodGet, "/api/passport-revisions/{id}/evidence/{evidenceId}", "getEvidence", "", "EvidenceView", 200, false},
+		{methodGet, "/api/passport-revisions/{id}/learning-pack", "getLearningPack", "", "LearningPack", 200, false},
+		{methodPost, "/api/passport-revisions/{id}/learning-pack", "generateLearningPack", "", "LearningPack", 200, false},
+		{methodPost, "/api/passport-revisions/{id}/learning-pack/publish", "publishLearningPack", "", "LearningPack", 200, false},
+		{methodPost, "/api/passport-revisions/{id}/learning-pack/unpublish", "unpublishLearningPack", "", "LearningPack", 200, false},
+		{methodGet, "/api/products/{id}/learning-pack", "getPublishedLearningPack", "", "LearningPack", 200, false},
 	} {
 		output := map[string]any{"$ref": "#/components/schemas/" + route.output}
 		if route.array {

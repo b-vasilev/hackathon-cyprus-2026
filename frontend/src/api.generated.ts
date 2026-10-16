@@ -406,6 +406,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/passport-revisions/{id}/learning-pack': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getLearningPack'];
+    put?: never;
+    post: operations['generateLearningPack'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/passport-revisions/{id}/learning-pack/publish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['publishLearningPack'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/passport-revisions/{id}/learning-pack/unpublish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['unpublishLearningPack'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/passport-revisions/{id}/publish': {
     parameters: {
       query?: never;
@@ -513,6 +561,22 @@ export interface paths {
     put: operations['setProductIcon'];
     post?: never;
     delete: operations['removeProductIcon'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/products/{id}/learning-pack': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getPublishedLearningPack'];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -870,6 +934,89 @@ export interface components {
     IconInput: {
       /** @description Base64-encoded SVG, PNG, JPEG or GIF image, up to 256 KB. */
       data: string;
+    };
+    LearningPack: {
+      id: string;
+      product_id: string;
+      revision_id: string;
+      revision_version: number;
+      /** @description none, generating, ready or failed. */
+      status: string;
+      error: string;
+      updated_at: string;
+      published: boolean;
+      published_at: string;
+      unpublished_changes: boolean;
+      content?: null | {
+        quiz:
+          | null
+          | {
+              /** @description Short unique kebab-case ID. */
+              id: string;
+              /** @description ID of the passport chapter that teaches the answer, or empty. */
+              chapter_id: string;
+              /** @description single (exactly one correct option) or multiple (two or more correct options). */
+              kind: string;
+              /** @description The question, answerable from the passport alone. */
+              prompt: string;
+              /** @description Three to five distinct, plausible options. */
+              options: null | string[];
+              /** @description Zero-based indexes of the correct options. */
+              correct: null | number[];
+              /** @description Why the answer is right, naming the passport fact it comes from. */
+              explanation: string;
+            }[];
+        mission: {
+          title: string;
+          intro: string;
+          issue?: null | {
+            repository: string;
+            number: number;
+            title: string;
+            url: string;
+            pull_number: number;
+            pull_title: string;
+            pull_url: string;
+            files: null | string[];
+            why: string;
+          };
+          steps:
+            | null
+            | {
+                /** @description Short unique kebab-case ID. */
+                id: string;
+                /** @description Imperative step title, for example Clone the repository. */
+                title: string;
+                /** @description Markdown instructions for this step: what to do, what to look at and why. */
+                body: string;
+                /** @description ID of the passport chapter to read for this step, or empty. */
+                chapter_id: string;
+                /** @description Shell commands to run, taken from the passport; empty when the step has none. */
+                commands: null | string[];
+                /** @description What the learner sees when the step is complete. */
+                done_when: string;
+              }[];
+          check:
+            | null
+            | {
+                /** @description Short unique kebab-case ID. */
+                id: string;
+                /** @description ID of the passport chapter that teaches the answer, or empty. */
+                chapter_id: string;
+                /** @description single (exactly one correct option) or multiple (two or more correct options). */
+                kind: string;
+                /** @description The question, answerable from the passport alone. */
+                prompt: string;
+                /** @description Three to five distinct, plausible options. */
+                options: null | string[];
+                /** @description Zero-based indexes of the correct options. */
+                correct: null | number[];
+                /** @description Why the answer is right, naming the passport fact it comes from. */
+                explanation: string;
+              }[];
+          finale: string;
+        };
+      };
     };
     LearningState: {
       modules: {
@@ -2779,6 +2926,130 @@ export interface operations {
       };
     };
   };
+  getLearningPack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningPack'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  generateLearningPack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningPack'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  publishLearningPack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningPack'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  unpublishLearningPack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningPack'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   publishRevision: {
     parameters: {
       query?: never;
@@ -3084,6 +3355,37 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Product'];
+        };
+      };
+      /** @description Request failed */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getPublishedLearningPack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningPack'];
         };
       };
       /** @description Request failed */

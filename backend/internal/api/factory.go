@@ -16,6 +16,7 @@ import (
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/generation"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/githubconnection"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learning"
+	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/learningpack"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llm"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/llmgateway"
 	"github.com/b-vasilev/hackathon-cyprus-2026/backend/internal/mcpauth"
@@ -33,6 +34,7 @@ type Factory struct {
 	GitHub      *githubconnection.Store
 	GitHubOAuth githubconnection.OAuthConfig
 	Service     *generation.Service
+	Packs       *learningpack.Service
 	Network     llmgateway.NetworkPolicy
 	FrontendDir string
 }
@@ -68,6 +70,9 @@ func (f *Factory) register(mux *http.ServeMux) {
 	f.registerLearning(mux)
 	f.registerGitHub(mux)
 	f.registerReview(mux)
+	if f.Packs != nil {
+		f.registerLearningPacks(mux)
+	}
 	if f.FrontendDir != "" {
 		mux.Handle("GET /", frontend(f.FrontendDir))
 	}

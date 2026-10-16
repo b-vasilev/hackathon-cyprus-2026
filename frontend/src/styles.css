@@ -5711,3 +5711,210 @@ details[open] > summary .disclosure-chevron {
   flex: 1;
   min-width: 160px;
 }
+
+/* Practice: product quiz and first-task mission inside a passport */
+.practice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.practice-section {
+  margin-top: 40px;
+}
+.practice-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: var(--of-brand);
+}
+.practice-heading h3 {
+  margin: 0;
+  font-size: 22px;
+  color: var(--of-ink);
+}
+.practice-lead {
+  max-width: 760px;
+  margin-bottom: 20px;
+  line-height: 1.7;
+  color: var(--of-muted);
+}
+/* One reading column keeps text, code and the issue card aligned. */
+.mission-issue,
+.mission-steps {
+  max-width: 760px;
+}
+.mission-issue {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 32px;
+  padding: 16px 20px;
+  background: var(--of-surface-subtle);
+  border: 1px solid var(--of-border);
+  border-radius: var(--of-radius-control);
+}
+.mission-issue .eyebrow {
+  margin: 0 0 4px;
+}
+.mission-issue-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.mission-issue-title svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--of-muted);
+}
+.mission-issue-why {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--of-muted);
+}
+.mission-issue summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--of-brand);
+}
+.mission-files {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.mission-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mission-steps > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 16px;
+  padding-bottom: 32px;
+}
+/* The route line joins consecutive checkpoints. */
+.mission-steps > li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 32px;
+  bottom: 4px;
+  left: 13px;
+  width: 2px;
+  background: var(--of-border);
+}
+.mission-steps > li.done:not(:last-child)::before {
+  background: var(--of-brand);
+}
+.mission-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--of-control-border);
+  background: var(--of-surface);
+  color: var(--of-muted);
+  font-family: var(--of-font-mono);
+  font-size: 12px;
+}
+.mission-steps > li.done .mission-marker {
+  border-color: var(--of-brand);
+  background: var(--of-brand);
+  color: var(--of-on-brand);
+}
+.mission-step h4 {
+  margin: 3px 0 8px;
+  font-size: 16px;
+}
+.mission-step .lesson-body {
+  font-size: 15px;
+  line-height: 1.65;
+}
+.mission-step .lesson-body p {
+  margin: 0 0 8px;
+}
+.mission-step .lesson-body ul,
+.mission-step .lesson-body ol {
+  margin: 0 0 8px;
+}
+.mission-step .lesson-body li + li {
+  margin-top: 4px;
+}
+/* Same inline code everywhere in a step, whatever renders it. */
+.mission-step code,
+.mission-issue code {
+  padding: 1px 5px;
+  font-family: var(--of-font-mono);
+  font-size: 0.88em;
+  background: var(--of-surface-subtle);
+  border-radius: 6px;
+}
+.mission-step .lesson-code {
+  margin: 10px 0;
+}
+.mission-step .lesson-code pre {
+  padding: 12px 16px;
+  border-width: 1px;
+  border-radius: var(--of-radius-control);
+}
+.mission-step .lesson-code pre code {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+}
+.mission-done-when {
+  margin: 10px 0 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--of-muted);
+}
+.mission-done-when strong {
+  font-weight: 600;
+  color: var(--of-muted);
+}
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+}
+.mission-finale {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 760px;
+  margin-top: 40px;
+  padding: 20px 24px;
+  background: var(--of-surface-subtle);
+  border: 1px solid var(--of-border);
+  border-radius: var(--of-radius-panel);
+  color: var(--of-muted);
+}
+.mission-finale h3 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  color: var(--of-ink);
+}
+.mission-finale p {
+  margin: 0;
+  line-height: 1.6;
+}
+.mission-finale.reached {
+  background: var(--of-brand-soft);
+  border-color: var(--of-brand);
+  color: var(--of-brand-strong);
+}
+.mission-finale.reached p {
+  color: var(--of-ink);
+  font-weight: 500;
+}
