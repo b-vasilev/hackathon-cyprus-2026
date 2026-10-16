@@ -27,7 +27,7 @@ test('product accents stay readable for light, dark and saturated brand palettes
       assert.ok(contrast(style['--product-card-on-accent'], accent) >= 4.5);
       assert.ok(contrast(style['--product-card-ink'], background) >= 4.5);
       assert.ok(contrast(style['--product-card-link'], background) >= 4.5);
-      assert.ok(contrast(style['--product-content-accent'], '#FDFCFD') >= 4.5);
+      assert.ok(contrast(style['--product-content-accent'], '#FFFFFF') >= 4.5);
       assert.ok(
         contrast(style['--product-content-accent'], style['--product-content-soft']) >= 4.5
       );

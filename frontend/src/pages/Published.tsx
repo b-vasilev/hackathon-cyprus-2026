@@ -15,7 +15,7 @@ export function PublishedPassports() {
     <>
       <PageHeading
         eyebrow="Product passports"
-        title="Published passports"
+        title="Products"
         description="Explore approved product passports."
       />
       {products.isPending && <Loading />}

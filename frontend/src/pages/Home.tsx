@@ -102,12 +102,9 @@ function ModuleRoute({ progress, current }: Readonly<{ progress: Progress; curre
                 onClick={() => setSelected(item.id)}
               >
                 <span className={`route-dot ${state}`} aria-hidden="true">
-                  {state === 'completed' && <Check size={12} />}
+                  {state === 'completed' ? <Check size={14} strokeWidth={3} /> : index + 1}
                 </span>
-                <span className="route-label">
-                  <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
-                  {item.title}
-                </span>
+                <span className="route-label">{item.title}</span>
                 <span className="visually-hidden">, {label}</span>
               </button>
             </li>
@@ -193,9 +190,9 @@ export function Home() {
 
       <section className="home-section" aria-labelledby="passports-title">
         <div className="home-section-heading">
-          <h2 id="passports-title">Product passports</h2>
+          <h2 id="passports-title">Products</h2>
           <Link className="text-link" to="/published">
-            All published passports
+            All products
             <ArrowRight size={14} />
           </Link>
         </div>
@@ -242,7 +239,7 @@ export function Home() {
         </div>
         {studio && (
           <div className="home-panel">
-            <h2>Product studio</h2>
+            <h2>Studio</h2>
             <p>
               Connect repositories, generate passport drafts, review them and publish what learners
               see.

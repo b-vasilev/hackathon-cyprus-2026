@@ -7,7 +7,7 @@ import { generationMessage } from '../lib/generationMessages';
 export function Brand() {
   return (
     <Link to="/" className="brand" aria-label="Wayfinder home">
-      <img src="/brand/wayfinder-mark-violet.svg" width={32} height={32} alt="" />
+      <img src="/brand/wayfinder-mark-violet.svg" width={38} height={38} alt="" />
       <span>
         <strong>Wayfinder</strong>
       </span>

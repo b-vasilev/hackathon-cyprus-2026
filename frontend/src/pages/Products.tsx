@@ -37,7 +37,7 @@ export function Products() {
     <>
       <PageHeading
         eyebrow="Product passports"
-        title="Product studio"
+        title="Studio"
         description="Create, review and publish product passports from your sources."
         action={
           admin && (
@@ -208,7 +208,7 @@ export function NewProduct() {
   return (
     <>
       <Link to="/products" className="back-link">
-        ← Product studio
+        ← Studio
       </Link>
       <PageHeading
         eyebrow="New product"

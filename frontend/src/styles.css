@@ -1,21 +1,35 @@
 :root {
-  font-family: "Geist", Arial, sans-serif;
-  color: #211f26;
-  background: #faf9fb;
+  font-family: var(--of-font);
+  color: var(--of-ink);
+  background: var(--of-canvas);
   font-synthesis: none;
-  --of-brand: #6550b9;
-  --of-brand-hover: #654dc4;
-  --of-brand-strong: #2f265f;
-  --of-brand-soft: #ebe7f5;
-  --of-canvas: #faf9fb;
-  --of-surface: #fdfcfd;
-  --of-surface-subtle: #f2eff3;
-  --of-diagram-surface: #f0edf2;
-  --of-ink: #211f26;
-  --of-muted: #65636d;
-  --of-border: #eae7ec;
-  --of-control-border: #8e8c99;
-  --of-on-brand: #fdfcfd;
+  --of-brand: #6a45f5;
+  --of-brand-hover: #7957ff;
+  --of-brand-press: #4a2bc4;
+  --of-brand-strong: #3b2496;
+  --of-brand-soft: #eee9ff;
+  --of-accent: #ff6a3d;
+  --of-accent-soft: #ffe8df;
+  --of-accent-strong: #b33d16;
+  --of-canvas: #ffffff;
+  --of-surface: #ffffff;
+  --of-surface-subtle: #f3f1fa;
+  --of-diagram-surface: #f5f3fc;
+  --of-ink: #1d1933;
+  --of-muted: #5c5772;
+  --of-border: #e5e1f2;
+  --of-border-strong: #cfc7ec;
+  --of-control-border: #8a82ab;
+  --of-on-brand: #ffffff;
+  --of-font: "Lexend", Arial, sans-serif;
+  --of-font-mono: "DM Mono", ui-monospace, monospace;
+  --of-radius-control: 12px;
+  --of-radius-card: 18px;
+  --of-radius-panel: 24px;
+  /* Quest surfaces sit on a solid bottom edge instead of a blurred shadow. */
+  --of-raise: 0 4px 0 var(--of-border);
+  --of-raise-control: 0 3px 0 var(--of-border);
+  --of-raise-brand: 0 4px 0 var(--of-brand-press);
 }
 * {
   box-sizing: border-box;
@@ -64,13 +78,15 @@ p {
   margin: 0;
 }
 h1,
-h2,
+h2 {
+  font-weight: 700;
+}
 h3 {
-  font-weight: 500;
+  font-weight: 600;
 }
 h1 {
   font-size: clamp(32px, 4vw, 46px);
-  letter-spacing: -0.055em;
+  letter-spacing: -0.035em;
   line-height: 1.15;
 }
 h2 {
@@ -87,10 +103,9 @@ li {
 }
 code,
 pre,
-.eyebrow,
 .step-number,
 .section-nav button > span {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
 }
 code {
   font-size: 12px;
@@ -107,21 +122,21 @@ code {
   margin: auto;
   display: flex;
   align-items: center;
-  gap: 56px;
+  gap: 32px;
 }
 .brand {
   display: inline-flex;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
   white-space: nowrap;
 }
 .brand img {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
 }
 .brand span {
-  font-size: 16px;
-  letter-spacing: -0.04em;
+  font-size: 19px;
+  letter-spacing: -0.03em;
 }
 .brand strong {
   font-weight: 600;
@@ -129,28 +144,27 @@ code {
 .header-inner nav {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 4px;
   align-self: stretch;
 }
 .header-inner nav a {
   font-size: 13px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   color: var(--of-muted);
-  position: relative;
   min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--of-radius-control);
+  white-space: nowrap;
+}
+.header-inner nav a:hover {
+  color: var(--of-ink);
+  background: var(--of-surface-subtle);
 }
 .header-inner nav a.active {
-  color: var(--of-brand);
-}
-.header-inner nav a.active::after {
-  content: "";
-  height: 2px;
-  position: absolute;
-  bottom: -16px;
-  left: 0;
-  right: 0;
-  background: var(--of-brand);
+  color: var(--of-brand-strong);
+  background: var(--of-brand-soft);
 }
 .header-caption {
   margin-left: auto;
@@ -187,10 +201,11 @@ code {
   min-height: 2lh;
 }
 .eyebrow {
-  color: var(--of-muted);
+  color: var(--of-brand);
   font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.075em;
+  letter-spacing: 0.08em;
   margin-bottom: 14px;
 }
 .page-description {
@@ -205,30 +220,45 @@ code {
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 10px 17px;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 8px;
-  border: 1px solid transparent;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--of-radius-control);
+  border: 2px solid transparent;
   background: transparent;
   white-space: nowrap;
+  transition:
+    background 0.15s,
+    transform 0.08s,
+    box-shadow 0.08s;
 }
 .button.primary {
   color: var(--of-on-brand);
   background: var(--of-brand);
+  box-shadow: var(--of-raise-brand);
 }
 .button.primary:hover {
   background: var(--of-brand-hover);
+}
+.button.primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--of-brand-press);
 }
 .button.primary:disabled {
   background: var(--of-surface-subtle);
   color: var(--of-muted);
   border-color: var(--of-border);
+  box-shadow: none;
 }
 .button.secondary {
-  border-color: var(--of-control-border);
+  border-color: var(--of-border-strong);
   color: var(--of-ink);
   background: var(--of-surface);
+  box-shadow: 0 3px 0 var(--of-border-strong);
+}
+.button.secondary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--of-border-strong);
 }
 .button.secondary:hover,
 .button.quiet:hover {
@@ -245,6 +275,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-weight: 500;
   color: var(--of-brand);
   background: none;
   border: 0;
@@ -280,7 +311,7 @@ code {
   padding: 28px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
   transition: border-color 0.15s;
 }
 .product-card:hover {
@@ -361,7 +392,7 @@ code {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  border-radius: 12px;
+  border-radius: 16px;
   text-align: center;
 }
 .published-tile-icon {
@@ -433,7 +464,7 @@ code {
 }
 .passport-heading.product-branded {
   padding: 24px;
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
 }
 .brandkit-note {
   margin-top: 12px;
@@ -489,7 +520,7 @@ code {
   height: 56px;
   padding: 12px;
   border: 1px solid var(--of-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
 }
 .passport-identity .product-logo {
@@ -583,7 +614,7 @@ code {
 .small-icon {
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -618,11 +649,11 @@ code {
   gap: 6px;
   font-size: 12px;
   line-height: 1.5;
-  padding: 4px 8px;
-  border-radius: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
   background: var(--of-surface-subtle);
   color: var(--of-muted);
-  font-weight: 400;
+  font-weight: 500;
 }
 .product-card-statuses {
   display: flex;
@@ -658,7 +689,7 @@ code {
   padding: 20px;
   background: var(--of-brand-soft);
   color: var(--of-brand);
-  border-radius: 18px;
+  border-radius: var(--of-radius-panel);
   margin-bottom: 24px;
 }
 .empty-state h2 {
@@ -700,7 +731,7 @@ code {
   gap: 12px;
   padding: 18px 20px;
   margin: 24px 0;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-surface-subtle);
   font-size: 14px;
 }
@@ -732,7 +763,7 @@ code {
   background: var(--of-surface);
   padding: 36px;
   border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
 }
 .narrow {
   max-width: 800px;
@@ -749,8 +780,8 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--of-control-border);
-  border-radius: 8px;
+  border: 2px solid var(--of-control-border);
+  border-radius: var(--of-radius-control);
   background: var(--of-surface);
   color: var(--of-ink);
   padding: 12px;
@@ -760,6 +791,13 @@ textarea {
 textarea {
   resize: vertical;
   line-height: 1.65;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--of-brand);
+  outline: 0;
+  box-shadow: 0 0 0 4px var(--of-brand-soft);
 }
 input::placeholder,
 textarea::placeholder {
@@ -802,7 +840,7 @@ input[type="checkbox"] {
 }
 .connection-card {
   border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
   background: var(--of-surface);
   padding: 28px;
 }
@@ -893,7 +931,7 @@ input[type="checkbox"] {
 .endpoint {
   padding: 20px 0;
   color: var(--of-muted);
-  font-family: "Geist Mono", monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -926,7 +964,7 @@ input[type="checkbox"] {
 .dialog {
   border: 1px solid var(--of-border);
   background: var(--of-surface);
-  border-radius: 16px;
+  border-radius: 20px;
   color: var(--of-ink);
   padding: 0;
   width: min(640px, calc(100vw - 32px));
@@ -961,7 +999,7 @@ input[type="checkbox"] {
   border: 0;
   background: transparent;
   color: var(--of-muted);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
 }
 .icon-button:hover {
   background: var(--of-surface-subtle);
@@ -975,7 +1013,7 @@ input[type="checkbox"] {
 .preset {
   padding: 10px 14px;
   border: 1px solid var(--of-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   min-height: 44px;
   font-size: 12px;
   background: var(--of-surface);
@@ -992,7 +1030,7 @@ input[type="checkbox"] {
 .model-form {
   background: var(--of-surface-subtle);
   padding: 20px;
-  border-radius: 10px;
+  border-radius: 14px;
   margin-bottom: 16px;
 }
 .model-form label:last-child {
@@ -1013,7 +1051,7 @@ summary {
   margin-top: 8px;
 }
 .code-input {
-  font-family: "Geist Mono", monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
 }
 .passport-heading {
@@ -1063,7 +1101,7 @@ summary {
   padding: 24px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
-  border-radius: 12px;
+  border-radius: 16px;
   margin: 24px 0;
 }
 .progress-heading {
@@ -1145,7 +1183,7 @@ summary {
   margin: 16px 0;
   padding: 16px 20px;
   border: 1px solid var(--of-border);
-  border-radius: 12px;
+  border-radius: 16px;
   font-size: 14px;
   line-height: 1.5;
   min-width: 0;
@@ -1368,18 +1406,23 @@ summary {
 }
 .passport-tabs {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 24px 0;
-  border-bottom: 1px solid var(--of-border);
 }
 .passport-tabs a {
-  padding: 12px 4px;
+  padding: 10px 16px;
+  border-radius: var(--of-radius-control);
   color: var(--of-muted);
-  border-bottom: 2px solid transparent;
+  font-weight: 500;
+}
+.passport-tabs a:hover {
+  color: var(--of-ink);
+  background: var(--of-surface-subtle);
 }
 .passport-tabs a.active {
-  color: var(--of-brand);
-  border-bottom-color: var(--of-brand);
+  color: var(--of-brand-strong);
+  background: var(--of-brand-soft);
 }
 .passport-publication {
   display: flex;
@@ -1478,7 +1521,7 @@ summary {
   margin: 0 0 20px;
   padding: 14px 16px;
   border: 1px dashed var(--of-control-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   color: var(--of-muted);
   font-size: 13px;
 }
@@ -1492,7 +1535,7 @@ summary {
 }
 .passport-layout {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   gap: 44px;
   margin-top: 20px;
 }
@@ -1509,9 +1552,9 @@ summary {
   align-items: center;
   text-align: left;
   gap: 12px;
-  border: 0;
+  border: 2px solid transparent;
   padding: 12px;
-  border-radius: 7px;
+  border-radius: var(--of-radius-control);
   background: transparent;
   font-size: 13px;
   min-height: 44px;
@@ -1523,6 +1566,8 @@ summary {
 .section-nav button.active {
   color: var(--of-brand-strong);
   background: var(--of-brand-soft);
+  border-color: var(--of-border-strong);
+  font-weight: 500;
 }
 .section-nav button:hover {
   background: var(--of-surface-subtle);
@@ -1552,7 +1597,7 @@ summary {
   text-align: left;
   padding: 24px;
   border: 1px solid var(--of-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
   color: var(--of-ink);
 }
@@ -1592,7 +1637,7 @@ summary {
   padding: 18px 20px;
   border: 1px solid var(--of-border);
   border-bottom: 0;
-  border-radius: 12px 12px 0 0;
+  border-radius: 16px 16px 0 0;
   background: var(--of-surface);
 }
 .diagram-toolbar .eyebrow {
@@ -1604,19 +1649,19 @@ summary {
   height: 430px;
   border: 1px solid var(--of-border);
   background: var(--of-diagram-surface);
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 16px 16px;
   overflow: hidden;
 }
 .dialog .graph-canvas {
   height: 65vh;
-  border-radius: 12px;
+  border-radius: 16px;
 }
 .diagram-node {
   width: 230px;
   height: 128px;
   background: var(--of-surface);
   border: 1px solid var(--of-control-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   padding: 14px 16px;
   text-align: left;
 }
@@ -1728,13 +1773,13 @@ summary {
 }
 .architecture-frame {
   border: 1px solid var(--of-control-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
   overflow: hidden;
 }
 .architecture-frame-label {
   padding: 20px 24px 0;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   color: var(--of-muted);
   letter-spacing: 0.045em;
@@ -1748,7 +1793,7 @@ summary {
   height: 100%;
   width: 100%;
   border: 1px solid var(--of-control-border);
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-surface);
   text-align: left;
 }
@@ -1872,7 +1917,7 @@ summary {
   border-radius: 4px;
   background: var(--of-surface);
   color: var(--of-muted);
-  font-family: Geist, Arial, sans-serif;
+  font-family: var(--of-font);
   font-size: 13px;
   line-height: 18px;
   white-space: pre-line;
@@ -1885,7 +1930,7 @@ summary {
   margin-top: 16px;
   padding: 0 16px;
   background: var(--of-surface-subtle);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
 }
 .diagram-explanation > summary {
   display: flex;
@@ -1934,7 +1979,7 @@ summary {
 .architecture-canvas .react-flow__controls {
   display: flex;
   border-color: var(--of-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   overflow: hidden;
 }
 .architecture-canvas .react-flow__controls-button {
@@ -2012,7 +2057,7 @@ summary {
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--of-control-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   background: var(--of-surface);
   font-weight: 500;
   text-decoration: none;
@@ -2051,7 +2096,7 @@ summary {
 .source-code {
   padding: 20px;
   background: var(--of-surface-subtle);
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: auto;
   font-size: 12px;
   line-height: 1.9;
@@ -2082,24 +2127,28 @@ summary {
 }
 .scenario-tabs {
   display: flex;
-  gap: 20px;
+  gap: 6px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--of-border);
   margin-bottom: 24px;
 }
 .scenario-tabs button {
-  padding: 14px 0;
+  padding: 10px 16px;
   min-height: 44px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--of-radius-control);
   background: none;
   color: var(--of-muted);
   font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
 }
+.scenario-tabs button:hover {
+  color: var(--of-ink);
+  background: var(--of-surface-subtle);
+}
 .scenario-tabs button.active {
-  border-color: var(--of-brand);
-  color: var(--of-brand);
+  color: var(--of-brand-strong);
+  background: var(--of-brand-soft);
 }
 .scenario-view > p {
   font-size: 14px;
@@ -2117,7 +2166,7 @@ summary {
   min-width: 180px;
   flex: 1;
   border: 1px solid var(--of-control-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   background: var(--of-surface);
   text-align: left;
   color: var(--of-ink);
@@ -2161,7 +2210,7 @@ summary {
 .open-questions {
   background: var(--of-surface-subtle);
   padding: 24px;
-  border-radius: 12px;
+  border-radius: 16px;
   margin-top: 28px;
 }
 .checklist ul {
@@ -2454,8 +2503,8 @@ summary {
   padding: 18px 20px;
   overflow-x: auto;
   background: var(--of-surface-subtle);
-  border: 1px solid var(--of-border);
-  border-radius: 10px;
+  border: 2px solid var(--of-border);
+  border-radius: 14px;
   font-size: 13px;
   line-height: 1.65;
 }
@@ -2473,7 +2522,7 @@ summary {
   display: flex;
   gap: 12px;
   padding: 18px 20px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-brand-soft);
   color: var(--of-brand-strong);
 }
@@ -2532,7 +2581,7 @@ summary {
 }
 .quiz-scenario {
   background: var(--of-surface-subtle);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: 18px 20px;
   margin-bottom: 20px;
   font-size: 15px;
@@ -2565,7 +2614,7 @@ summary {
   padding: 14px 16px;
   min-height: 44px;
   border: 1px solid var(--of-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   background: var(--of-surface);
   font-size: 14px;
   font-weight: 400;
@@ -2613,7 +2662,7 @@ summary {
 .quiz-feedback {
   margin-top: 20px;
   padding: 16px 20px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-brand-soft);
   color: var(--of-brand-strong);
   font-size: 14px;
@@ -2640,7 +2689,7 @@ summary {
 .quiz-result-icon {
   display: inline-flex;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
   background: var(--of-brand-soft);
   color: var(--of-brand);
 }
@@ -2692,7 +2741,7 @@ summary {
   padding: 18px;
   min-height: 150px;
   border: 1px solid var(--of-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
   color: var(--of-ink);
   font-size: 14px;
@@ -2720,11 +2769,11 @@ summary {
 .commit .mock-card-title,
 .branch .mock-card-title,
 .file .mock-card-title {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 13px;
 }
 .mock-card-meta {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   color: var(--of-muted);
 }
@@ -2735,7 +2784,7 @@ summary {
 }
 .file .mock-card-body {
   white-space: pre-wrap;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   background: var(--of-surface-subtle);
   border-radius: 6px;
@@ -2796,7 +2845,7 @@ summary {
   font-size: 15px;
   line-height: 2.6;
   padding: 18px 20px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-surface-subtle);
 }
 .fill-template.code {
@@ -2856,7 +2905,7 @@ summary {
   min-height: 40px;
   padding: 8px 14px;
   border: 1px solid var(--of-control-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   background: var(--of-surface);
   color: var(--of-ink);
   font-size: 14px;
@@ -2932,7 +2981,7 @@ summary {
 .branch-step {
   padding: 20px;
   border: 1px solid var(--of-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
   font-size: 15px;
 }
@@ -2951,13 +3000,13 @@ summary {
 }
 .patch {
   border: 1px solid var(--of-border);
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--of-surface);
 }
 .patch-file {
   padding: 10px 14px;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   color: var(--of-muted);
   background: var(--of-surface-subtle);
@@ -3024,7 +3073,7 @@ summary {
   gap: 8px;
   margin: 0 14px 10px 33px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   background: var(--of-surface);
   border: 1px solid var(--of-border);
   font-size: 13px;
@@ -3064,8 +3113,8 @@ summary {
 .git-diagram {
   margin: 0;
   padding: 20px;
-  border: 1px solid var(--of-border);
-  border-radius: 14px;
+  border: 2px solid var(--of-border);
+  border-radius: var(--of-radius-card);
   background: var(--of-diagram-surface);
 }
 .git-diagram-tabs {
@@ -3073,16 +3122,16 @@ summary {
   flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: 16px;
   background: var(--of-surface);
-  border: 1px solid var(--of-border);
+  border: 2px solid var(--of-border);
   margin-bottom: 12px;
 }
 .git-diagram-tabs button {
   min-height: 40px;
   padding: 8px 16px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--of-radius-control);
   background: transparent;
   color: var(--of-muted);
   font-size: 13px;
@@ -3094,6 +3143,7 @@ summary {
 .git-diagram-tabs button.active {
   background: var(--of-brand);
   color: var(--of-on-brand);
+  box-shadow: 0 3px 0 var(--of-brand-press);
 }
 .git-diagram-canvas {
   overflow-x: auto;
@@ -3104,7 +3154,7 @@ summary {
   min-width: 460px;
   max-width: 600px;
   height: auto;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
 }
 .git-edge {
   fill: none;
@@ -3231,7 +3281,7 @@ summary {
   gap: 6px;
 }
 .scene-label {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   color: var(--of-muted);
 }
@@ -3269,11 +3319,11 @@ summary {
   min-height: 40px;
   min-width: 64px;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   border: 2px solid var(--of-control-border);
   background: var(--of-surface);
   color: var(--of-ink);
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1.3;
@@ -3354,16 +3404,16 @@ summary {
 }
 .progress-track {
   flex: 1;
-  height: 6px;
-  border-radius: 3px;
+  height: 12px;
+  border-radius: 999px;
   background: var(--of-surface-subtle);
   overflow: hidden;
 }
 .progress-fill {
   display: block;
   height: 100%;
-  background: var(--of-brand);
-  border-radius: 3px;
+  background: var(--of-accent);
+  border-radius: 999px;
 }
 .progress-text {
   white-space: nowrap;
@@ -3405,7 +3455,7 @@ summary {
   min-height: 40px;
   padding: 8px 14px;
   border: 1px solid var(--of-control-border);
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   background: var(--of-surface);
   color: var(--of-ink);
   font-size: 13px;
@@ -3436,7 +3486,7 @@ summary {
 .code-pane {
   min-width: 0;
   border: 1px solid var(--of-border);
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-surface);
   overflow: hidden;
 }
@@ -3493,7 +3543,7 @@ summary {
   white-space: normal;
   overflow-wrap: anywhere;
   margin: 2px 0 4px;
-  font-family: "Geist", Arial, sans-serif;
+  font-family: var(--of-font);
   font-size: 12px;
   color: #825115;
 }
@@ -3596,7 +3646,7 @@ summary {
   font-size: 13px;
 }
 .issue-sim-form textarea {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   min-height: 44px;
 }
 .issue-sim-examples {
@@ -3611,7 +3661,7 @@ summary {
 .issue-sim-examples .chip {
   min-height: 34px;
   padding: 4px 10px;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
 }
 .issue-sim-results {
@@ -3629,7 +3679,7 @@ summary {
   gap: 6px 12px;
   margin: 0;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
   font-size: 14px;
@@ -3648,7 +3698,7 @@ summary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-weight: 500;
   font-size: 13px;
 }
@@ -3661,7 +3711,7 @@ summary {
   padding: 16px 18px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
-  border-radius: 10px;
+  border-radius: 14px;
   font-size: 13px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -3702,7 +3752,7 @@ summary {
   font-size: 14px;
   line-height: 1.65;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-surface);
   border: 1px solid var(--of-border);
 }
@@ -3726,7 +3776,7 @@ summary {
   align-items: flex-start;
 }
 .semver-dot {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 30px;
   line-height: 56px;
   padding: 0 4px;
@@ -3744,10 +3794,10 @@ summary {
   justify-content: center;
   min-width: 56px;
   height: 56px;
-  border-radius: 10px;
+  border-radius: 14px;
   border: 2px solid var(--of-control-border);
   background: var(--of-surface);
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 28px;
   font-weight: 500;
 }
@@ -3762,7 +3812,7 @@ summary {
   background: var(--of-diagram-surface);
 }
 .semver-name {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 11px;
   color: var(--of-muted);
 }
@@ -3783,10 +3833,10 @@ summary {
 .sequence-actor {
   justify-self: center;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   border: 2px solid var(--of-ink);
   background: var(--of-surface);
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12.5px;
   font-weight: 500;
   text-align: center;
@@ -3823,7 +3873,7 @@ summary {
   padding: 2px 8px;
   border-radius: 6px;
   background: var(--of-diagram-surface);
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   text-align: center;
 }
@@ -3940,7 +3990,7 @@ summary {
 }
 .range-version {
   margin-top: 6px;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12.5px;
   font-weight: 500;
 }
@@ -3977,7 +4027,7 @@ summary {
   min-width: 150px;
   padding: 12px;
   border: 2px dashed var(--of-control-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
 }
 .boundary-zone.tone-brand {
@@ -3992,7 +4042,7 @@ summary {
   background: #fbf1df;
 }
 .boundary-label {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 12px;
   color: var(--of-muted);
   margin-bottom: 10px;
@@ -4168,38 +4218,37 @@ summary {
 /* Achievements */
 .foundations-tabs {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin: 0 0 24px;
-  border-bottom: 1px solid var(--of-border);
 }
 .foundations-tabs a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 0 14px;
-  margin-bottom: -1px;
-  border-bottom: 2px solid transparent;
+  padding: 0 16px;
+  border-radius: var(--of-radius-control);
   color: var(--of-muted);
   font-size: 14px;
   font-weight: 500;
 }
 .foundations-tabs a:hover {
   color: var(--of-ink);
+  background: var(--of-surface-subtle);
 }
 .foundations-tabs a.active {
-  color: var(--of-brand);
-  border-bottom-color: var(--of-brand);
+  color: var(--of-brand-strong);
+  background: var(--of-brand-soft);
 }
 .foundations-tab-count {
   padding: 1px 7px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-surface-subtle);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .foundations-tabs a.active .foundations-tab-count {
-  background: var(--of-brand-soft);
+  background: var(--of-surface);
   color: var(--of-brand-strong);
 }
 .foundations-strip {
@@ -4216,7 +4265,7 @@ summary {
   min-height: 56px;
   padding: 8px 12px 8px 8px;
   border: 1px solid var(--of-border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
   color: var(--of-ink);
   transition: border-color 0.15s;
@@ -4250,9 +4299,9 @@ summary {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: var(--of-brand);
-  color: var(--of-on-brand);
+  border-radius: 50%;
+  background: var(--of-accent-soft);
+  color: var(--of-accent-strong);
 }
 .achievement-icon.locked {
   background: var(--of-surface-subtle);
@@ -4271,12 +4320,12 @@ summary {
   flex-direction: column;
   margin: 0;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
   border: 1px solid var(--of-border);
   background: var(--of-surface);
 }
 .achievement-card.unlocked {
-  border-color: var(--of-brand);
+  border-color: var(--of-accent);
 }
 .achievement-card.locked {
   border-style: dashed;
@@ -4317,7 +4366,7 @@ summary {
   gap: 8px;
   background: var(--of-surface-subtle);
   color: var(--of-muted);
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 16px;
   letter-spacing: 0.2em;
 }
@@ -4332,7 +4381,7 @@ summary {
 .achievement-card-title .achievement-icon {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
 }
 .achievement-card-title strong {
   font-size: 15px;
@@ -4379,7 +4428,7 @@ summary {
   gap: 12px;
   max-width: 340px;
   padding: 14px 14px 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
   border: 1px solid var(--of-brand);
   background: var(--of-surface);
   box-shadow: 0 8px 24px rgb(33 31 38 / 12%);
@@ -4454,7 +4503,7 @@ summary {
 }
 .meme {
   margin: 0;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--of-ink);
 }
@@ -4466,7 +4515,7 @@ summary {
 .meme figcaption {
   padding: 10px 14px;
   color: #fdfcfd;
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 13px;
   text-align: center;
 }
@@ -4515,7 +4564,7 @@ summary {
   fill: var(--of-brand);
 }
 .route-question {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 28px;
   font-weight: 600;
   fill: var(--of-muted);
@@ -4540,6 +4589,14 @@ summary {
   color: var(--of-muted);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+.account-email .badge {
+  white-space: nowrap;
+}
+@media (max-width: 1240px) {
+  .account-email {
+    display: none;
+  }
 }
 .auth-page {
   max-width: 520px;
@@ -4743,11 +4800,11 @@ details[open] > summary .disclosure-chevron {
 .document-prose pre {
   padding: 20px;
   overflow-x: auto;
-  border-radius: 8px;
+  border-radius: var(--of-radius-control);
   background: var(--of-surface-subtle);
 }
 .document-prose code {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: var(--of-font-mono);
   font-size: 0.875em;
 }
 .document-prose a {
@@ -4818,7 +4875,7 @@ details[open] > summary .disclosure-chevron {
 .landing-hero h1 {
   font-size: 49px;
   line-height: 1.12;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.035em;
   margin-bottom: 20px;
 }
 .landing-lead {
@@ -4840,7 +4897,8 @@ details[open] > summary .disclosure-chevron {
 }
 .landing-route {
   padding: 28px;
-  border-radius: 18px;
+  border-radius: var(--of-radius-panel);
+  border: 2px solid var(--of-border);
   background: var(--of-diagram-surface);
 }
 .route-steps {
@@ -4854,16 +4912,28 @@ details[open] > summary .disclosure-chevron {
   position: relative;
   margin: 0;
 }
-.route-steps li + li::before {
+/* Each step draws the line from its checkpoint centre up and down to its edges, so
+   segments meet at row boundaries whatever the row height. Checkpoints cover them. */
+.route-steps li + li::before,
+.route-steps li:not(:last-child)::after {
   content: "";
   position: absolute;
-  left: 21px;
-  top: -14px;
-  height: 28px;
-  width: 2px;
-  background: var(--of-control-border);
+  /* Button padding (6px) + checkpoint margin (4px) + half its width (15px). */
+  left: 25px;
+  width: 3px;
+  transform: translateX(-50%);
+  background: var(--of-border-strong);
 }
-.route-steps li.reached + li.reached::before {
+.route-steps li + li::before {
+  top: 0;
+  bottom: 50%;
+}
+.route-steps li:not(:last-child)::after {
+  top: 50%;
+  bottom: 0;
+}
+.route-steps li.reached + li.reached::before,
+.route-steps li.reached:has(+ li.reached)::after {
   background: var(--of-brand);
 }
 .route-steps button {
@@ -4874,7 +4944,7 @@ details[open] > summary .disclosure-chevron {
   min-height: 48px;
   padding: 8px 10px 8px 6px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 14px;
   background: transparent;
   color: var(--of-ink);
   font-size: 14px;
@@ -4886,16 +4956,25 @@ details[open] > summary .disclosure-chevron {
 }
 .route-steps button.active {
   background: var(--of-surface);
-  box-shadow: inset 0 0 0 1px var(--of-border);
+  box-shadow: inset 0 0 0 2px var(--of-border);
 }
 .route-dot {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-left: 4px;
   border-radius: 50%;
-  border: 2px solid var(--of-control-border);
+  border: 2.5px solid var(--of-control-border);
   background: var(--of-surface);
+  color: var(--of-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .route-steps li.reached .route-dot {
   border-color: var(--of-brand);
@@ -4903,23 +4982,20 @@ details[open] > summary .disclosure-chevron {
 .route-steps button.active .route-dot {
   background: var(--of-brand);
   border-color: var(--of-brand);
-  box-shadow: 0 0 0 4px var(--of-brand-soft);
+  color: var(--of-on-brand);
+  box-shadow: 0 0 0 5px var(--of-brand-soft);
 }
 .route-label {
   display: inline-flex;
   align-items: baseline;
   gap: 10px;
 }
-.route-label .step-number {
-  font-size: 12px;
-  color: var(--of-muted);
-}
 .route-detail {
   margin-top: 16px;
   padding: 16px 18px;
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-surface);
-  border: 1px solid var(--of-border);
+  border: 2px solid var(--of-border);
   min-height: 112px;
 }
 .route-detail strong {
@@ -4935,7 +5011,7 @@ details[open] > summary .disclosure-chevron {
 .landing-cta h2 {
   font-size: 31px;
   line-height: 1.2;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
   max-width: 720px;
 }
 .landing-problems {
@@ -4970,7 +5046,7 @@ details[open] > summary .disclosure-chevron {
   gap: 12px;
   margin-top: 32px;
   padding: 18px 20px;
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--of-brand-soft);
   color: var(--of-brand-strong);
   font-size: 15px;
@@ -4999,7 +5075,7 @@ details[open] > summary .disclosure-chevron {
   width: 40px;
   height: 40px;
   margin-bottom: 14px;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--of-brand-soft);
   color: var(--of-brand);
 }
@@ -5011,7 +5087,7 @@ details[open] > summary .disclosure-chevron {
 }
 .landing-audiences > div {
   padding: 24px;
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
   border: 1px solid var(--of-border);
   background: var(--of-surface);
 }
@@ -5055,7 +5131,7 @@ details[open] > summary .disclosure-chevron {
   gap: 12px;
   margin: 0;
   padding: 16px 18px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px dashed var(--of-control-border);
   font-size: 14px;
   line-height: 1.6;
@@ -5073,7 +5149,7 @@ details[open] > summary .disclosure-chevron {
 }
 .landing-cta {
   padding: 40px;
-  border-radius: 18px;
+  border-radius: var(--of-radius-panel);
   background: var(--of-diagram-surface);
   text-align: center;
 }
@@ -5128,7 +5204,7 @@ details[open] > summary .disclosure-chevron {
 .home-heading h1 {
   font-size: 49px;
   line-height: 1.12;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.035em;
 }
 .home-hero {
   display: grid;
@@ -5143,14 +5219,14 @@ details[open] > summary .disclosure-chevron {
   align-items: flex-start;
   justify-content: center;
   padding: 36px;
-  border-radius: 18px;
+  border-radius: var(--of-radius-panel);
   border: 1px solid var(--of-border);
   background: var(--of-surface);
 }
 .home-mission h2 {
   font-size: 30px;
   line-height: 1.2;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
 }
 .home-outcome {
   display: flex;
@@ -5175,11 +5251,6 @@ details[open] > summary .disclosure-chevron {
   padding: 10px 20px;
   font-size: 14px;
 }
-.home-route .route-dot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 .home-route .route-dot.completed {
   background: var(--of-brand);
   border-color: var(--of-brand);
@@ -5188,6 +5259,7 @@ details[open] > summary .disclosure-chevron {
 .home-route .route-dot.in-progress {
   border-color: var(--of-brand);
   background: var(--of-brand-soft);
+  color: var(--of-brand-strong);
 }
 .home-route li.current .route-label {
   color: var(--of-brand-strong);
@@ -5222,7 +5294,7 @@ details[open] > summary .disclosure-chevron {
 }
 .home-empty {
   padding: 20px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px dashed var(--of-control-border);
   color: var(--of-muted);
   font-size: 14px;
@@ -5238,7 +5310,7 @@ details[open] > summary .disclosure-chevron {
   align-items: flex-start;
   gap: 14px;
   padding: 24px;
-  border-radius: 14px;
+  border-radius: var(--of-radius-card);
   border: 1px solid var(--of-border);
   background: var(--of-surface);
 }
@@ -5278,13 +5350,9 @@ details[open] > summary .disclosure-chevron {
     order: 3;
     width: 100%;
     overflow-x: auto;
-    gap: 18px;
   }
   .header-inner nav a {
     white-space: nowrap;
-  }
-  .header-inner nav a.active::after {
-    bottom: 0;
   }
   .header-account {
     margin-left: auto;
@@ -5331,8 +5399,8 @@ details[open] > summary .disclosure-chevron {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid var(--of-control-border);
 }
@@ -5343,4 +5411,49 @@ details[open] > summary .disclosure-chevron {
 }
 .home-mission {
   justify-content: flex-start;
+}
+/* Raised surfaces: Quest cards and choices sit on a solid bottom edge. */
+.product-card,
+.home-mission,
+.home-panel,
+.object-card,
+.connection-card,
+.form-panel,
+.landing-audiences > div,
+.achievement-summary,
+.achievement-card,
+.mock-card,
+.quiz-option {
+  border-width: 2px;
+  box-shadow: var(--of-raise);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.achievement-card.locked {
+  box-shadow: none;
+}
+.product-card:hover,
+.object-card:hover,
+.achievement-summary:hover,
+.mock-card:hover:not(:disabled, .right, .wrong),
+.quiz-option:hover {
+  border-color: var(--of-border-strong);
+  box-shadow: 0 6px 0 var(--of-border-strong);
+  transform: translateY(-2px);
+}
+.quiz-option.chosen {
+  box-shadow: 0 4px 0 var(--of-border-strong);
+}
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .product-card,
+  .object-card,
+  .achievement-summary,
+  .mock-card,
+  .quiz-option {
+    transition: none;
+    transform: none !important;
+  }
 }

@@ -140,11 +140,10 @@ function RouteExplorer() {
               aria-pressed={index === active}
               onClick={() => setActive(index)}
             >
-              <span className="route-dot" aria-hidden="true" />
-              <span className="route-label">
-                <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
-                {item.title}
+              <span className="route-dot" aria-hidden="true">
+                {index + 1}
               </span>
+              <span className="route-label">{item.title}</span>
             </button>
           </li>
         ))}

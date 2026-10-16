@@ -41,8 +41,8 @@ function SignedInApp({ me }: Readonly<{ me: Me }>) {
         <div className="header-inner">
           <Brand />
           <nav aria-label="Main navigation">
-            <NavLink to="/published">Published passports</NavLink>
-            {studio && <NavLink to="/products">Product studio</NavLink>}
+            <NavLink to="/published">Products</NavLink>
+            {studio && <NavLink to="/products">Studio</NavLink>}
             <NavLink to="/foundations">Foundations</NavLink>
             {admin && <NavLink to="/connections">Connections</NavLink>}
             {admin && <NavLink to="/access">People</NavLink>}
