@@ -114,10 +114,20 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
     history: history.data,
   });
   const generate = useMutation({
-    mutationFn: () =>
+    // Resuming reuses the failed run's collected sources and saved research with its
+    // original connection and model; a new run starts from the selected ones.
+    mutationFn: (resume: boolean) =>
       api<Run>(`/products/${id}/generations`, {
         method: 'POST',
-        body: JSON.stringify({ connection_id: connection?.id, model: model?.id }),
+        body: JSON.stringify(
+          resume && run.data !== undefined
+            ? {
+                connection_id: run.data.connection_id,
+                model: run.data.model,
+                resume_run_id: run.data.id,
+              }
+            : { connection_id: connection?.id, model: model?.id }
+        ),
       }),
     onSuccess: async (newRun) => {
       queryClient.setQueryData(['run', newRun.id], newRun);
@@ -172,7 +182,7 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
   const generating =
     !publishedView && activeRun(run.data?.status ?? product.data.latest_run_status);
   const busy = generating || generate.isPending || deletePassport.isPending;
-  const generateLabel = run.data?.status === 'failed' ? 'Generate again' : 'Generate passport';
+  const canResume = run.data?.status === 'failed';
   return (
     <>
       <PassportHeader
@@ -259,15 +269,13 @@ export function PassportPage({ publishedView = false }: Readonly<{ publishedView
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            className="button primary"
-            disabled={busy || connection === undefined || model === undefined}
-            onClick={() => generate.mutate()}
-          >
-            {busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />}
-            {busy ? 'Generating…' : generateLabel}
-          </button>
+          <GenerateButtons
+            canResume={canResume}
+            busy={busy}
+            ready={connection !== undefined && model !== undefined}
+            resumeModel={run.data?.model}
+            onGenerate={(resume) => generate.mutate(resume)}
+          />
           <CancelGenerationButton
             status={run.data?.status}
             pending={cancelGeneration.isPending}
@@ -735,4 +743,56 @@ function usePassportRevision({
     enabled: !publishedView && revision.data !== undefined,
   });
   return { revisionId, revision, revisionRun };
+}
+
+// After a failure, continuing the run is the main action; starting over stays available.
+function GenerateButtons({
+  canResume,
+  busy,
+  ready,
+  resumeModel,
+  onGenerate,
+}: Readonly<{
+  canResume: boolean;
+  busy: boolean;
+  ready: boolean;
+  resumeModel?: string;
+  onGenerate: (resume: boolean) => void;
+}>) {
+  const icon = busy ? <RefreshCw size={16} className="spin" /> : <Play size={16} />;
+  if (!canResume) {
+    return (
+      <button
+        type="button"
+        className="button primary"
+        disabled={busy || !ready}
+        onClick={() => onGenerate(false)}
+      >
+        {icon}
+        {busy ? 'Generating…' : 'Generate passport'}
+      </button>
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className="button primary"
+        disabled={busy}
+        title={`Continue with ${resumeModel ?? 'the original model'}, reusing collected sources and finished research`}
+        onClick={() => onGenerate(true)}
+      >
+        {icon}
+        {busy ? 'Generating…' : 'Continue generation'}
+      </button>
+      <button
+        type="button"
+        className="button secondary"
+        disabled={busy || !ready}
+        onClick={() => onGenerate(false)}
+      >
+        Start over
+      </button>
+    </>
+  );
 }
