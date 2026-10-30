@@ -5,7 +5,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build && npm prune --omit=dev
 
-FROM golang:1.27.2-alpine AS build
+FROM golang:1.27.3-alpine AS build
 WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
